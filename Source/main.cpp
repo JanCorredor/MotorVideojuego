@@ -1,49 +1,83 @@
-#include <cstddef>
+#include <iostream>
+#include "Engine.h"
+#include "Log.h"
 
-template <typename T>
-class vector
-{
-	T* beginPtr = nullptr;
-	T* endPtr = nullptr;
-	T* capacityPtr = nullptr;
+int main(int argc, char* argv[]) {
 
-	void Realloc(std::size_t newCapacity) 
+	LOG("Engine starting ...");
+
+	//Initializes the engine state
+	Engine::EngineState state = Engine::EngineState::CREATE;
+	int result = EXIT_FAILURE;
+
+	while (state != Engine::EngineState::EXIT)
 	{
-		T* tmp = static_cast<vector<T*>>::__cpp_lib_freestanding_operator_new(sizeof(T) * newCapacity);
-		for (std::size_t i = 0; i < this->Size(); ++i )
+		switch (state)
 		{
-			new (&tmp[i]) T(beginPtr[i]);
+			// Allocate the engine --------------------------------------------
+		case Engine::EngineState::CREATE:
+			LOG("CREATION PHASE ===============================");
+			state = Engine::EngineState::AWAKE;
+
+			break;
+
+			// Awake all modules -----------------------------------------------
+		case Engine::EngineState::AWAKE:
+			LOG("AWAKE PHASE ===============================");
+			if (Engine::GetInstance().Awake() == true)
+				state = Engine::EngineState::START;
+			else
+			{
+				LOG("ERROR: Awake failed");
+				state = Engine::EngineState::FAIL;
+			}
+
+			break;
+
+			// Call all modules before first frame  ----------------------------
+		case Engine::EngineState::START:
+			LOG("START PHASE ===============================");
+			if (Engine::GetInstance().Start() == true)
+			{
+				state = Engine::EngineState::LOOP;
+				LOG("UPDATE PHASE ===============================");
+			}
+			else
+			{
+				state = Engine::EngineState::FAIL;
+				LOG("ERROR: Start failed");
+			}
+			break;
+
+			// Loop all modules until we are asked to leave ---------------------
+		case Engine::EngineState::LOOP:
+			if (Engine::GetInstance().Update() == false)
+				state = Engine::EngineState::CLEAN;
+			break;
+
+			// Cleanup allocated memory -----------------------------------------
+		case Engine::EngineState::CLEAN:
+			LOG("CLEANUP PHASE ===============================");
+			if (Engine::GetInstance().CleanUp() == true)
+			{
+				result = EXIT_SUCCESS;
+				state = Engine::EngineState::EXIT;
+			}
+			else
+				state = Engine::EngineState::FAIL;
+
+			break;
+
+			// Exit with errors and shame ---------------------------------------
+		case Engine::EngineState::FAIL:
+			LOG("Exiting with errors");
+			result = EXIT_FAILURE;
+			state = Engine::EngineState::EXIT;
+			break;
 		}
-		beginPtr = tmp;
-		::operator delete[](tmp);
 	}
 
-public:
-	std::size_t Size() const
-	{
-		return endPtr - beginPtr;
-	}
+	LOG("Closing Engine ===============================");
 
-	std::size_t Capacity() const
-	{
-		return capacityPtr - beginPtr;
-	}
-
-	T& push_back(const T& data)
-	{
-		if (Size() >= Capacity())
-		{
-			Realloc(1+ Capacity() * 2);
-		}
-		*(endPtr++) = data;
-	}
-
-};
-
-#include "glad/glad.h"
-
-int main()
-{
-	
+	return result;
 }
-
