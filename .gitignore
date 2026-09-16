@@ -5,7 +5,6 @@
 
 # Class .gitignore
 build
-CMakeUserPresets.json
 
 # User-specific files
 *.rsuser
