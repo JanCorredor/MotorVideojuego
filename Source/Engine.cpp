@@ -5,7 +5,7 @@
 #include "Engine.h"
 #include "Window.h"
 //#include "Input.h"
-//#include "Render.h"
+#include "Render.h"
 //#include "Textures.h"
 #include "Audio.h"
 //#include "Physics.h"
@@ -28,7 +28,7 @@ Engine::Engine() {
     // Modules
     window = std::make_shared<Window>();
     //input = std::make_shared<Input>();
-    //render = std::make_shared<Render>();
+    render = std::make_shared<Render>();
     //textures = std::make_shared<Textures>();
     audio = std::make_shared<Audio>();
 
@@ -45,7 +45,7 @@ Engine::Engine() {
 
 
     // Render last 
-    //AddModule(std::static_pointer_cast<Module>(render));
+    AddModule(std::static_pointer_cast<Module>(render));
 
     // Log the result of the timer
 	LOG("Timer App Constructor: %f", timer.ReadMSec());
@@ -212,7 +212,7 @@ void Engine::FinishUpdate()
     // Shows the time measurements in the window title
     // check sprintf formats here https://cplusplus.com/reference/cstdio/printf/
     std::stringstream ss;
-    ss << gameTitle << ": Av.FPS: " << std::fixed << std::setprecision(2) << averageFps
+    ss << windowTitle << ": Av.FPS: " << std::fixed << std::setprecision(2) << averageFps
         << " Last sec frames: " << framesPerSecond
         << " Last dt: " << std::fixed << std::setprecision(3) << dt
         << " Time since startup: " << secondsSinceStartup

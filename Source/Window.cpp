@@ -1,10 +1,11 @@
 #include "Window.h"
 #include "Log.h"
-#include "Engine.h"
+#include <glad/glad.h>
 
 Window::Window() : Module()
 {
 	window = NULL;
+	glContext = nullptr;
 	name = "window";
 }
 
@@ -16,75 +17,98 @@ Window::~Window()
 // Called before render is available
 bool Window::Awake()
 {
-
 	LOG("Init SDL window & surface");
-	bool ret = true;
-
+	
 	if (SDL_Init(SDL_INIT_VIDEO) != true)
 	{
 		LOG("SDL_VIDEO could not initialize! SDL_Error: %s\n", SDL_GetError());
-		ret = false;
+		return false;
 	}
-	else
+
+	//Open GL Config
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+
+	// Create window
+	Uint32 flags = SDL_WINDOW_OPENGL;
+
+	window = SDL_CreateWindow("Motor Videojuego", windowWidth, windowHeight, flags);
+
+	if (window == NULL)
 	{
-		// Create window
-		// Get the values from the config file
-		Uint32 flags = 0;
-		//bool fullscreen = configParameters.child("fullscreen").attribute("value").as_bool();
-		//bool borderless = configParameters.child("borderless").attribute("value").as_bool();
-		//bool resizable = configParameters.child("resizable").attribute("value").as_bool();
-		//bool fullscreen_window = configParameters.child("fullscreen_window").attribute("value").as_bool();
-
-		// Get the values from the config file
-		//windowWidth = configParameters.child("resolution").attribute("width").as_int();
-		//windowHeight = configParameters.child("resolution").attribute("height").as_int();
-		//windowScale = configParameters.child("resolution").attribute("scale").as_int();
-
-		//if (fullscreen == true)        flags |= SDL_WINDOW_FULLSCREEN;
-		//if (borderless == true)        flags |= SDL_WINDOW_BORDERLESS;
-		//if (resizable == true)         flags |= SDL_WINDOW_RESIZABLE;
-
-		// SDL3: SDL_CreateWindow(title, w, h, flags). Set position separately.
-		window = SDL_CreateWindow("Motor Videojuego", 700, 700, flags);
-
-		if (window == NULL)
-		{
-			LOG("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-			ret = false;
-		}
-		else
-		{
-			//if (fullscreen_window == true)
-			//{
-			//	SDL_SetWindowFullscreenMode(window, nullptr); // use desktop resolution
-			//	SDL_SetWindowFullscreen(window, true);
-			//}
-			SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-			SDL_ShowWindow(window);
-		}
+		LOG("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+		return false;
 	}
 
-	Engine::GetInstance().window->SetWindowIcon("Assets/Window/icon.png");
+	//if (fullscreen_window == true) TODO
+	//{
+	//	SDL_SetWindowFullscreenMode(window, nullptr); // use desktop resolution
+	//	SDL_SetWindowFullscreen(window, true);
+	//}
+	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+	SDL_ShowWindow(window);
 
-	Engine::GetInstance().window->SetCustomCursor("Assets/Window/cursor.png", 0, 0);
-	return ret;
+	//Open GL context
+	glContext = SDL_GL_CreateContext(window);
+
+	if (glContext == nullptr)
+	{
+		LOG("OpenGL context could not be created! SDL_Error: %s\n", SDL_GetError());
+
+		SDL_DestroyWindow(window);
+		window = nullptr;
+
+		SDL_Quit();
+
+		return false;
+	}
+
+	//VSync? SDL_GL_SetSwapInterval(vsync ? 1 : 0); TODO
+	SDL_GL_SetSwapInterval(1);
+
+	// Start GLAD (Load OpenGL Functions with GLAD)
+	if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress)))
+	{
+		LOG("Failed to initialize GLAD\n");
+
+		SDL_GL_DestroyContext(glContext);
+		glContext = nullptr;
+
+		SDL_DestroyWindow(window);
+		window = nullptr;
+
+		SDL_Quit();
+
+		return false;
+	}
+
+	LOG("OpenGL initialized: %s\n", glGetString(GL_VERSION));
+
+	return true;
 }
 
 // Called before quitting
 bool Window::CleanUp()
 {
 	LOG("Destroying SDL window and quitting all SDL systems");
-
-	if (customCursor != nullptr)
+	
+	// Destroy Open GL COntext
+	if (glContext != nullptr)
 	{
-		SDL_DestroyCursor(customCursor);
-		customCursor = nullptr;
+		SDL_GL_DestroyContext(glContext);
+		glContext = nullptr;
 	}
 
+
 	// Destroy window
-	if (window != NULL)
+	if (window != nullptr)
 	{
 		SDL_DestroyWindow(window);
+		window = nullptr;
 	}
 
 	// Quit SDL subsystems
@@ -143,82 +167,4 @@ void Window::SetFullscreen(bool enabled, SDL_Renderer* renderer)
 
 	SDL_SetRenderLogicalPresentation(renderer, windowWidth, windowHeight, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
-}
-
-bool Window::SetWindowIcon(const char* imagePath)
-{
-	bool ret = true;
-	//SDL_Surface* iconSurface = IMG_Load(imagePath);
-
-	//if (iconSurface == NULL)
-	//{
-	//	LOG("No se pudo cargar el icono %s. IMG_Error: %s\n", imagePath, SDL_GetError());
-	//	ret = false;
-	//}
-	//else
-	//{
-	//	if (!SDL_SetWindowIcon(window, iconSurface))
-	//	{
-	//		LOG("Error al establecer el icono de la ventana: %s\n", SDL_GetError());
-	//		ret = false;
-	//	}
-	//	SDL_DestroySurface(iconSurface);
-	//}
-
-	return ret;
-}
-
-// Cargar y establecer un cursor personalizado
-bool Window::SetCustomCursor(const char* imagePath, int hot_x, int hot_y)
-{
-	bool ret = true;
-
-	// 1. Cargamos la imagen desde la ruta del sistema de archivos
-	//SDL_Surface* tempSurface = IMG_Load(imagePath);
-
-	//if (tempSurface == NULL)
-	//{
-	//	LOG("No se pudo cargar el cursor %s. SDL_Error: %s\n", imagePath, SDL_GetError());
-	//	ret = false;
-	//}
-	//else
-	//{
-	//	// 2. Convertimos estrictamente la superficie a RGBA32
-	//	SDL_Surface* cursorSurface = SDL_ConvertSurface(tempSurface, SDL_PIXELFORMAT_RGBA32);
-
-	//	// 3. Destruimos la superficie temporal inmediatamente
-	//	SDL_DestroySurface(tempSurface);
-
-	//	if (cursorSurface == NULL)
-	//	{
-	//		LOG("Error al convertir la superficie del cursor. SDL_Error: %s\n", SDL_GetError());
-	//		ret = false;
-	//	}
-	//	else
-	//	{
-	//		if (customCursor != nullptr)
-	//		{
-	//			SDL_DestroyCursor(customCursor);
-	//		}
-
-	//		// 4. Creamos el cursor con la superficie formateada correctamente
-	//		customCursor = SDL_CreateColorCursor(cursorSurface, hot_x, hot_y);
-
-	//		if (customCursor == NULL)
-	//		{
-	//			LOG("No se pudo crear el cursor de color. SDL_Error: %s\n", SDL_GetError());
-	//			ret = false;
-	//		}
-	//		else
-	//		{
-	//			SDL_SetCursor(customCursor);
-	//			SDL_ShowCursor(); // Forzamos a que se muestre
-	//		}
-
-	//		// 5. Limpiamos la superficie final
-	//		SDL_DestroySurface(cursorSurface);
-	//	}
-	//}
-
-	return ret;
 }

@@ -144,9 +144,5 @@ private:
 	//Maximun frame duration in miliseconds.
 	int targetFrameRate = 60;
 
-	std::string gameTitle = "Rose Rebellion";
-
-	// Declare a xml_document to load the config file
-	//pugi::xml_document configFile;
-
+	std::string windowTitle = "Motor Videojuego";
 };

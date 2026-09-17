@@ -18,8 +18,14 @@ public:
 	// Called before quitting
 	bool CleanUp();
 
-	// Changae title
+	// Change title
 	void SetTitle(const char* title);
+
+	//Get window
+	SDL_Window* GetWindow() { return window;}
+
+	//Get Open GL Context
+	SDL_GLContext GetGLContext() const { return glContext;}
 
 	// Retrive window size
 	void GetWindowSize(int& width, int& height) const;
@@ -28,16 +34,14 @@ public:
 	int GetScale() const;
 
 	void SetFullscreen(bool enabled, SDL_Renderer* renderer = nullptr);
+	bool IsFullscreen() const { return isFullscreen; }
 
-	// Cargar el icono de la ventana
-	bool SetWindowIcon(const char* imagePath);
-
-	// Cargar un cursor personalizado
-	bool SetCustomCursor(const char* imagePath, int hot_x, int hot_y);
-
-public:
+private:
 	// The window we'll be rendering to
 	SDL_Window* window;
+
+	// OpenGL context
+	SDL_GLContext glContext = nullptr;
 
 	std::string title;
 	int windowWidth = 1280;
@@ -45,7 +49,4 @@ public:
 	int windowScale = 1;
 
 	bool isFullscreen = false;
-	bool IsFullscreen() const { return isFullscreen; }
-private:
-	SDL_Cursor* customCursor = nullptr;
 };
