@@ -32,4 +32,7 @@ public:
 private:
 
 	SDL_Color background;
+
+	unsigned int VBO, VAO;
+	unsigned int shaderProgram;
 };
