@@ -17,6 +17,7 @@ project(MotorVideojuego)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 
 file(GLOB_RECURSE SOURCES 
     "Source/*.cpp"
@@ -27,4 +28,8 @@ file(GLOB_RECURSE SOURCES
 add_executable(MotorVideojuego ${SOURCES})
 
 
-target_link_libraries(MotorVideojuego PRIVATE SDL3::SDL3 glad::glad glm::glm)
+target_link_libraries(MotorVideojuego PRIVATE 
+SDL3::SDL3 
+glad::glad 
+glm::glm 
+imgui::imgui)
