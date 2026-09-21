@@ -11,19 +11,7 @@
 class Window;
 class Input;
 class Render;
-class Textures;
 class Audio;
-class EntityManager;
-class SceneManager;
-class Map;
-class Physics;
-class Cinematics;
-class UIManager;
-class Hud;
-class ParticleManager;
-class DialogueManager;
-class HealthBarManager;
-class LanguageManager;
 
 class Engine
 {
@@ -98,28 +86,7 @@ public:
 	std::shared_ptr<Window> window;
 	std::shared_ptr<Input> input;
 	std::shared_ptr<Render> render;
-	std::shared_ptr<Textures> textures;
 	std::shared_ptr<Audio> audio;
-
-	std::shared_ptr<EntityManager> entityManager;
-	std::shared_ptr<SceneManager> sceneManager;
-
-	std::shared_ptr<Map> map;
-
-	std::shared_ptr<Physics> physics;
-
-	// Cinematic Module
-	std::shared_ptr<Cinematics> cinematics;
-	// Particle Module
-	std::shared_ptr<ParticleManager> particleManager;
-	std::shared_ptr<DialogueManager> dialogueManager;
-
-	// UI module and Hud module
-	std::shared_ptr<UIManager> uiManager;
-	std::shared_ptr<Hud> hud;
-	std::shared_ptr<HealthBarManager> healthBarManager;
-
-	std::shared_ptr<LanguageManager> languageManager;
 
 private:
 
@@ -146,3 +113,5 @@ private:
 
 	std::string windowTitle = "Motor Videojuego";
 };
+
+//extern ENGINE_API Engine* Engine; TODO

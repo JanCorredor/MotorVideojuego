@@ -4,11 +4,9 @@
 
 #include "Engine.h"
 #include "Window.h"
-//#include "Input.h"
+#include "Input.h"
 #include "Render.h"
-//#include "Textures.h"
 #include "Audio.h"
-//#include "Physics.h"
 #include "Log.h"
 
 
@@ -27,21 +25,17 @@ Engine::Engine() {
     
     // Modules
     window = std::make_shared<Window>();
-    //input = std::make_shared<Input>();
+    input = std::make_shared<Input>();
     render = std::make_shared<Render>();
-    //textures = std::make_shared<Textures>();
     audio = std::make_shared<Audio>();
 
-    //physics = std::make_shared<Physics>();
 
     // Ordered for awake / Start / Update
     // Reverse order of CleanUp
     AddModule(std::static_pointer_cast<Module>(window));
-    //AddModule(std::static_pointer_cast<Module>(input));
-    //AddModule(std::static_pointer_cast<Module>(textures));
+    AddModule(std::static_pointer_cast<Module>(input));
     AddModule(std::static_pointer_cast<Module>(audio));
 
-    //AddModule(std::static_pointer_cast<Module>(physics));
 
 
     // Render last 
@@ -127,8 +121,8 @@ bool Engine::Update()
     bool ret = true;
     PrepareUpdate();
 
-    //if (input->GetWindowEvent(WE_QUIT) == true)
-    //    ret = false;
+    if (input->GetWindowEvent(WE_QUIT) == true)
+        ret = false;
 
     if (ret == true)
         ret = PreUpdate();

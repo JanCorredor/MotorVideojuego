@@ -10,8 +10,8 @@ Render::Render() : Module()
 	name = "render";
 	background.r = 0;
 	background.g = 0;
-	background.b = 0;
-	background.a = 0;
+	background.b = 125;
+	background.a = 255;
 }
 
 // Destructor
@@ -44,7 +44,7 @@ bool Render::Start() {
 		"out vec4 FragColor;\n"
 		"void main()\n"
 		"{\n"
-		"   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+		"   FragColor = vec4(1.0f, 0.25f, 0.25f, 0.50f);\n"
 		"}\n\0";
 
 	unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -96,7 +96,7 @@ bool Render::PreUpdate()
 		background.a / 255.0f
 	);
 
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	return true;
 }

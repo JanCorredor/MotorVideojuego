@@ -32,9 +32,23 @@ bool Window::Awake()
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1); // we want a double buffer (it is the default)
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); // we want to have a depth buffer with minimum 24 bits
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8); // we want to have a stencil buffer with minimum 8 bits
 
 	// Create window
 	Uint32 flags = SDL_WINDOW_OPENGL;
+
+	//window start params
+//#define WINDOW_FULLSCREEN
+#define WINDOW_RESIZEABLE
+
+#ifdef WINDOW_FULLSCREEN
+	flags |= SDL_WINDOW_FULLSCREEN;
+#endif
+#ifdef WINDOW_RESIZEABLE
+	flags |= SDL_WINDOW_RESIZABLE;
+#endif
 
 	window = SDL_CreateWindow("Motor Videojuego", windowWidth, windowHeight, flags);
 
