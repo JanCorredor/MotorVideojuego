@@ -24,6 +24,7 @@ file(GLOB_RECURSE SOURCES
     "Source/*.h"
     "Source/*.hpp"
 )
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/Source" PREFIX "Source" FILES ${SOURCES})
 
 add_executable(MotorVideojuego ${SOURCES})
 

@@ -9,5 +9,5 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 echo.
-echo ¡Project Built Successfully!
+echo Project Built Successfully!
 pause
