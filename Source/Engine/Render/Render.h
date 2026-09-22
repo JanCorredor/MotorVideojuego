@@ -3,6 +3,11 @@
 #include "Module.h"
 #include "SDL3/SDL.h"
 
+//GLM Math Library
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 class Render : public Module
 {
 public:
@@ -33,6 +38,8 @@ private:
 
 	SDL_Color background;
 
-	unsigned int VBO, VAO;
+	unsigned int VBO, VAO, EBO;
 	unsigned int shaderProgram;
+
+	float rotationAngle = 0.0f;
 };
