@@ -196,6 +196,12 @@ bool Input::PreUpdate()
 		case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 			UpdateGamepadState();
 			break;
+
+		case SDL_EVENT_DROP_FILE:
+			fileDropped = true;
+			droppedFilePath = event.drop.data; // En SDL3, event.drop.data contiene la ruta del archivo
+			LOG("Archivo arrastrado a la ventana: %s", droppedFilePath.c_str());
+			break;
 		}
 	}
 

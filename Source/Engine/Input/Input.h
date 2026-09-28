@@ -90,6 +90,11 @@ public:
 	void SetNavigationEnabled(bool enabled) { navigationEnabled = enabled; }
 	bool IsNavigationEnabled() const { return navigationEnabled; }
 
+	// Files
+	bool HasDroppedFile() const { return fileDropped; }
+    std::string GetDroppedFilePath() const { return droppedFilePath; }
+    void ClearDroppedFile() { fileDropped = false; droppedFilePath.clear(); }
+
 private:
 	// Window events
 	bool windowEvents[WE_COUNT];
@@ -121,4 +126,8 @@ private:
 	void UpdateGamepadState();
 	void UpdateGamepadButtons();
 	void SimulateMouseClick(int x, int y);
+
+	//Files
+	bool fileDropped = false;
+    std::string droppedFilePath;
 };

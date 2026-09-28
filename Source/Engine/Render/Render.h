@@ -8,6 +8,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+//Basic Geometry
+#include "Primitives/GeometryGenerator.h"
+#include "Texture/TextureLoader.h"
+
+//3DModels
+#include "3DModels/ModelLoader.h"
+
 class Render : public Module
 {
 public:
@@ -35,11 +42,21 @@ public:
 	void SetBackgroundColor(SDL_Color color);
 
 private:
-
 	SDL_Color background;
 
 	unsigned int VBO, VAO, EBO;
 	unsigned int shaderProgram;
 
 	float rotationAngle = 0.0f;
+
+	//Scene
+	std::unique_ptr<Primitive> cube;
+	
+	std::unique_ptr<Primitive> sphere;
+	unsigned int sphereTextureID;
+
+	std::unique_ptr<Primitive> pyramid;
+
+	std::unique_ptr<Primitive> loadedModel = nullptr;
+
 };
