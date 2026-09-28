@@ -1,7 +1,7 @@
-#include "Engine.h"
-#include "Window.h"
-#include "Render.h"
-#include "Log.h"
+#include "../Engine.h"
+#include "../Window/Window.h"
+#include "../Render/Render.h"
+#include "../../Utils/Log.h"
 #include "Input.h"
 
 

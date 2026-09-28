@@ -1,6 +1,6 @@
 #include <iostream>
-#include "Engine.h"
-#include "Log.h"
+#include "Engine/Engine.h"
+#include "Utils/Log.h"
 
 int main(int argc, char* argv[]) {
 

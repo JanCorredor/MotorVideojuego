@@ -3,11 +3,13 @@
 #include <iomanip>
 
 #include "Engine.h"
-#include "Window.h"
-#include "Input.h"
-#include "Render.h"
-#include "Audio.h"
-#include "Log.h"
+#include "Window/Window.h"
+#include "Input/Input.h"
+#include "Render/Render.h"
+#include "Audio/Audio.h"
+#include "../Utils/Log.h"
+#include "../Utils/Timer.h"
+#include "../Utils/PerfTimer.h"
 
 
 // Constructor

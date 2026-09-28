@@ -1,7 +1,7 @@
-#include "Engine.h"
-#include "Window.h"
+#include "../Engine.h"
+#include "../Window/Window.h"
 #include "Render.h"
-#include "Log.h"
+#include "../../Utils/Log.h"
 
 #include <glad/glad.h>
 

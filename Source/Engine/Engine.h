@@ -3,8 +3,8 @@
 #include <memory>
 #include <list>
 #include "Module.h"
-#include "Timer.h"
-#include "PerfTimer.h"
+#include "../Utils/Timer.h"
+#include "../Utils/PerfTimer.h"
 //#include "pugixml.hpp"
 
 // Modules

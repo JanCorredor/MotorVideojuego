@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Module.h"
+#include "../Module.h"
 #include "SDL3/SDL.h"
 
 //GLM Math Library

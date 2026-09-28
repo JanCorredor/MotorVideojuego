@@ -1,5 +1,5 @@
 #include "Window.h"
-#include "Log.h"
+#include "../../Utils/Log.h"
 #include <glad/glad.h>
 
 Window::Window() : Module()
