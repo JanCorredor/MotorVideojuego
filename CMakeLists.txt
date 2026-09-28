@@ -18,6 +18,9 @@ find_package(SDL3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(devil CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
+
 
 file(GLOB_RECURSE SOURCES 
     "Source/*.cpp"
@@ -33,4 +36,7 @@ target_link_libraries(MotorVideojuego PRIVATE
 SDL3::SDL3 
 glad::glad 
 glm::glm 
-imgui::imgui)
+imgui::imgui
+devil::devil
+assimp::assimp
+)
