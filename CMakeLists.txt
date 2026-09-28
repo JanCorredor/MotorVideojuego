@@ -18,7 +18,7 @@ find_package(SDL3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
-find_package(devil CONFIG REQUIRED)
+find_package(DevIL REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 
 
@@ -37,6 +37,7 @@ SDL3::SDL3
 glad::glad 
 glm::glm 
 imgui::imgui
-devil::devil
+DevIL::ILU
+DevIL::ILUT
 assimp::assimp
 )
