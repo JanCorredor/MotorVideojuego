@@ -55,8 +55,6 @@ private:
 	std::unique_ptr<Primitive> sphere;
 	unsigned int sphereTextureID;
 
-	std::unique_ptr<Primitive> pyramid;
-
 	std::unique_ptr<Primitive> loadedModel = nullptr;
 
 };

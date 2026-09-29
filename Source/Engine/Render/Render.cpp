@@ -111,8 +111,6 @@ bool Render::Start() {
 	sphere = GeometryGenerator::CreateSphere(0.5f, 20, 20);
 	sphereTextureID = LoadTexture("../test.jpg");
 	
-	pyramid = GeometryGenerator::CreatePyramid(1.0f, 1.5f);
-
 	return true;
 }
 
@@ -137,38 +135,21 @@ bool Render::Update(float dt)
 
 	glUseProgram(shaderProgram);
 
-	//glm::mat4 model = glm::mat4(1.0f);
-	//model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
 
-	//glm::mat4 view = glm::mat4(1.0f);
-	//view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-
-	//int width, height;
-	//Engine::GetInstance().window->GetWindowSize(width, height);
-	//float aspectRatio = (height > 0) ? (float)width / (float)height : 1.0f;
-	//glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
-
-	//glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-	//glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-	//glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-
-	//glBindVertexArray(VAO);
-	//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-	// 3. Configurar la matriz de Vista (Cámara)
+	// View Matrix
 	glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -6.0f));
 
-	// 4. Configurar la matriz de Proyección (Perspectiva)
+	// Projection Matrix
 	int width, height;
 	Engine::GetInstance().window->GetWindowSize(width, height);
 	float aspectRatio = (height > 0) ? (float)width / (float)height : 1.0f;
 	glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
 
-	// Enviar matrices de Vista y Proyección a la GPU
+	// Send to GPU
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-	// Obtener ubicaciones de las variables Uniform del Shader
+	// Get variables location for Uniform of Shader
 	int modelLoc = glGetUniformLocation(shaderProgram, "model");
 	int colorLoc = glGetUniformLocation(shaderProgram, "uColor");
 	int useTexLoc = glGetUniformLocation(shaderProgram, "uUseTexture");
@@ -218,48 +199,32 @@ bool Render::Update(float dt)
 		sphere->Draw();
 	}
 
-	// -------------------------------------------------------------------------
-	// DIBUJAR PIRÁMIDE (Centro - Color Verde)
-	// -------------------------------------------------------------------------
-	//if (pyramid)
-	//{
-	//	glm::mat4 modelPyramid = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-	//	modelPyramid = glm::rotate(modelPyramid, rotationAngle * 1.5f, glm::vec3(0.0f, 1.0f, 0.0f));
-
-	//	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelPyramid));
-	//	glUniform3f(colorLoc, 0.2f, 0.9f, 0.3f); // Verde
-	//	glUniform1i(useTexLoc, false);
-
-	//	pyramid->Draw();
-	//}
-
-
-	// Comprobar si se ha arrastrado un archivo a la ventana
+	// Check if file has been dropped in the window
     if (Engine::GetInstance().input->HasDroppedFile()) {
         std::string filePath = Engine::GetInstance().input->GetDroppedFilePath();
 
-        // Verificar si es una extensión compatible (FBX, OBJ, etc.)
+        // Check if file extension is compatible (FBX, OBJ, etc.)
         if (filePath.find(".fbx") != std::string::npos || 
             filePath.find(".FBX") != std::string::npos ||
             filePath.find(".obj") != std::string::npos) 
         {
-            // Descargar el modelo anterior (si existía) reseteando el pointer
+            // CleanUp last model if it exists
             loadedModel.reset(); 
 
-            // Cargar el nuevo modelo arrastrado
+            // Load new model
             loadedModel = ModelLoader::LoadFBX(filePath);
         }
 
-        // Limpiar el evento de drag and drop
+        // Clean up drag & drop event
         Engine::GetInstance().input->ClearDroppedFile();
     }
 
-    // Dibujar el modelo FBX cargado si existe
+    // Draw model
     if (loadedModel) {
-        glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f)); // Ajustar escala según el FBX
+        glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f)); // Adjust scale
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
         
-        // Asignar color/textura por defecto y dibujar
+        // Assign default color/texture
         glUniform3f(glGetUniformLocation(shaderProgram, "uColor"), 0.8f, 0.8f, 0.8f);
         glUniform1i(glGetUniformLocation(shaderProgram, "uUseTexture"), false);
         
