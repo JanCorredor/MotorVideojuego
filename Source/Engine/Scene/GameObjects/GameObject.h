@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Component.h"
+#include "./Components/Component.h"
 
 #include <vector>
 #include <string>
@@ -20,7 +20,7 @@ public:
 private:
 	bool active = true;
 	string name;
-	vector<Component> objComponents;
+	vector<std::unique_ptr<Component>> objComponents;
 
 };
 

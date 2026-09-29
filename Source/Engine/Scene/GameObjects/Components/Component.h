@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GameObject.h"
+class GameObject;
 
 enum ComponentType
 {
@@ -13,17 +13,17 @@ class Component
 {
 public:
 	Component();
-	~Component();
+	virtual ~Component();
 
-	virtual void Update();
+	virtual void Update() {};
 
-	virtual void Enable();
-	virtual void Disable();
+	virtual void Enable() {};
+	virtual void Disable() {};
 
 private:
 	ComponentType type;
 	bool active = true;
-	GameObject* owner;
+	GameObject* owner = nullptr;
 };
 
 Component::Component()
