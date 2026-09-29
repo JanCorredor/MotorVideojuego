@@ -12,24 +12,20 @@ enum ComponentType
 class Component
 {
 public:
-	Component();
-	virtual ~Component();
+	Component(ComponentType type, GameObject* owner) : type(type), owner(owner) {}
+	virtual ~Component() {}
 
-	virtual void Update() {};
+	virtual void Update() {}
 
-	virtual void Enable() {};
-	virtual void Disable() {};
+	virtual void Enable() { active = true; }
+	virtual void Disable() { active = false; }
+    
+    ComponentType GetType() const { return type; }
+    GameObject* GetOwner() const { return owner; }
+    bool IsActive() const { return active; }
 
-private:
+protected:
 	ComponentType type;
 	bool active = true;
 	GameObject* owner = nullptr;
 };
-
-Component::Component()
-{
-}
-
-Component::~Component()
-{
-}

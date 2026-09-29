@@ -22,7 +22,7 @@ find_package(DevIL REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 
 
-file(GLOB_RECURSE SOURCES 
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     "Source/*.cpp"
     "Source/*.h"
     "Source/*.hpp"

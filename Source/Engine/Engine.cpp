@@ -7,6 +7,7 @@
 #include "Input/Input.h"
 #include "Render/Render.h"
 #include "Audio/Audio.h"
+#include "UI/ModuleUI.h"
 #include "../Utils/Log.h"
 #include "../Utils/Timer.h"
 #include "../Utils/PerfTimer.h"
@@ -30,6 +31,7 @@ Engine::Engine() {
     input = std::make_shared<Input>();
     render = std::make_shared<Render>();
     audio = std::make_shared<Audio>();
+    ui = std::make_shared<ModuleUI>();
 
 
     // Ordered for awake / Start / Update
@@ -38,7 +40,8 @@ Engine::Engine() {
     AddModule(std::static_pointer_cast<Module>(input));
     AddModule(std::static_pointer_cast<Module>(audio));
 
-
+    // UI module
+    AddModule(std::static_pointer_cast<Module>(ui));
 
     // Render last 
     AddModule(std::static_pointer_cast<Module>(render));
