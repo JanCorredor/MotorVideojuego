@@ -6,30 +6,19 @@
 #include <string>
 #include <algorithm>
 #include <memory>
+#include <glm/glm.hpp>
 
 using namespace std;
 
 class GameObject
 {
 public:
-	GameObject(const string& name = "GameObject") : name(name), parent(nullptr) {}
-	~GameObject() {}
+	GameObject(const string& name = "GameObject");
+	~GameObject();
 
-	void Update()
-    {
-        if (!active) return;
-        for (auto& comp : objComponents) {
-            if (comp->IsActive()) comp->Update();
-        }
-        for (auto child : children) {
-            child->Update();
-        }
-    }
+	void Update();
 
-    void AddComponent(std::unique_ptr<Component> component)
-    {
-        objComponents.push_back(std::move(component));
-    }
+    void AddComponent(std::unique_ptr<Component> component);
 
 	template <typename T>
 	T* GetComponent()
@@ -42,25 +31,8 @@ public:
 		return nullptr;
 	}
 
-    void AddChild(GameObject* child)
-    {
-        if (child->parent)
-        {
-            child->parent->RemoveChild(child);
-        }
-        child->parent = this;
-        children.push_back(child);
-    }
-
-    void RemoveChild(GameObject* child)
-    {
-        auto it = std::find(children.begin(), children.end(), child);
-        if (it != children.end())
-        {
-            (*it)->parent = nullptr;
-            children.erase(it);
-        }
-    }
+    void AddChild(GameObject* child);
+    void RemoveChild(GameObject* child);
 
     GameObject* GetParent() const { return parent; }
     const std::vector<GameObject*>& GetChildren() const { return children; }

@@ -2,6 +2,7 @@
 
 #include "../Module.h"
 #include <memory>
+#include "../Scene/GameObjects/GameObject.h"
 
 class ModuleUI : public Module
 {
@@ -18,4 +19,7 @@ public:
 
 private:
 	void RenderUI();
+	void DrawHierarchyNode(GameObject* node);
+
+	GameObject* selectedGameObject = nullptr;
 };

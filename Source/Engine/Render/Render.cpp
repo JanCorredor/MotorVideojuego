@@ -11,6 +11,11 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#include "../Scene/Scene.h"
+#include "../Scene/GameObjects/Components/TransformComponent.h"
+#include "../Scene/GameObjects/Components/MeshComponent.h"
+#include "../Scene/GameObjects/Components/MaterialComponent.h"
+
 Render::Render() : Module()
 {
 	name = "render";
@@ -105,18 +110,45 @@ bool Render::Start() {
 
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
-
-	//Create primitives
-	cube = GeometryGenerator::CreateCube(1.0f);
-	sphere = GeometryGenerator::CreateSphere(0.5f, 20, 20);
-	sphereTextureID = LoadTexture("../test.jpg");
 	
+	int width, height;
+	Engine::GetInstance().window->GetWindowSize(width, height);
+	CreateFramebuffer(width > 0 ? width : 800, height > 0 ? height : 600);
+
 	return true;
+}
+
+void Render::CreateFramebuffer(int width, int height)
+{
+	if (framebuffer != 0) {
+		glDeleteFramebuffers(1, &framebuffer);
+		glDeleteTextures(1, &textureColorbuffer);
+		glDeleteRenderbuffers(1, &rbo);
+	}
+	glGenFramebuffers(1, &framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+	glGenTextures(1, &textureColorbuffer);
+	glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+
+	glGenRenderbuffers(1, &rbo);
+	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		LOG("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 // Called each loop iteration
 bool Render::PreUpdate()
 {
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glClearColor(
 		background.r / 255.0f,
 		background.g / 255.0f,
@@ -131,6 +163,15 @@ bool Render::PreUpdate()
 
 bool Render::Update(float dt)
 {
+	if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
+	else glDisable(GL_DEPTH_TEST);
+
+	if (cullFaceEnabled) glEnable(GL_CULL_FACE);
+	else glDisable(GL_CULL_FACE);
+
+	if (wireframeMode) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 	rotationAngle += 0.002f * dt;
 
 	glUseProgram(shaderProgram);
@@ -156,47 +197,12 @@ bool Render::Update(float dt)
 	int texLoc = glGetUniformLocation(shaderProgram, "uTexture");
 
 	// -------------------------------------------------------------------------
-	// DIBUJAR CUBO (Izquierda - Con Color Rojo y Sin Textura)
+	// Draw Scene GameObjects
 	// -------------------------------------------------------------------------
-	if (cube)
+	GameObject* root = Engine::GetInstance().scene->GetRoot();
+	if (root)
 	{
-		glm::mat4 modelCube = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, 0.0f));
-		modelCube = glm::rotate(modelCube, rotationAngle, glm::vec3(0.5f, 1.0f, 0.0f));
-
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelCube));
-		glUniform3f(colorLoc, 1.0f, 0.2f, 0.2f); // Rojo
-		glUniform1i(useTexLoc, false);           // Desactivar textura
-
-		cube->Draw();
-	}
-
-	// -------------------------------------------------------------------------
-	// DIBUJAR ESFERA (Derecha - Con Textura o Color Azul)
-	// -------------------------------------------------------------------------
-	if (sphere)
-	{
-		glm::mat4 modelSphere = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f));
-		modelSphere = glm::rotate(modelSphere, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
-
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelSphere));
-
-		if (sphereTextureID != 0)
-		{
-			// Si hay textura cargada la vinculamos en la unidad GL_TEXTURE0
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, sphereTextureID);
-			glUniform1i(texLoc, 0);
-			glUniform3f(colorLoc, 1.0f, 1.0f, 1.0f); // Blanco (mantiene colores de la textura)
-			glUniform1i(useTexLoc, true);            // Activar uso de textura
-		}
-		else
-		{
-			// Si no hay textura, pintamos de Azul
-			glUniform3f(colorLoc, 0.2f, 0.5f, 1.0f);
-			glUniform1i(useTexLoc, false);
-		}
-
-		sphere->Draw();
+		DrawGameObject(root, modelLoc, colorLoc, useTexLoc, texLoc, glm::mat4(1.0f));
 	}
 
 	// Check if file has been dropped in the window
@@ -231,13 +237,23 @@ bool Render::Update(float dt)
         loadedModel->Draw();
     }
 
+	// Unbind FBO and prepare default framebuffer for UI rendering
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
+	// Reset states that might affect ImGui
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
 	return true;
 }
 
 bool Render::PostUpdate()
 {
 	SDL_Window* window = Engine::GetInstance().window->GetWindow();
-
 	SDL_GL_SwapWindow(window);
 
 	return true;
@@ -258,4 +274,45 @@ bool Render::CleanUp()
 void Render::SetBackgroundColor(SDL_Color color)
 {
 	background = color;
+}
+
+void Render::DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useTexLoc, int texLoc, const glm::mat4& parentMatrix)
+{
+	if (!go->IsActive()) return;
+
+	glm::mat4 globalMatrix = parentMatrix;
+	TransformComponent* transform = go->GetComponent<TransformComponent>();
+	if (transform) {
+		globalMatrix = parentMatrix * transform->GetLocalModelMatrix();
+	}
+
+	MeshComponent* mesh = go->GetComponent<MeshComponent>();
+	MaterialComponent* material = go->GetComponent<MaterialComponent>();
+
+	if (mesh && mesh->GetPrimitive()) {
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(globalMatrix));
+
+		if (material) {
+			if (material->useTexture && material->textureID != 0) {
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, material->textureID);
+				glUniform1i(texLoc, 0);
+				glUniform3fv(colorLoc, 1, glm::value_ptr(material->color));
+				glUniform1i(useTexLoc, true);
+			} else {
+				glUniform3fv(colorLoc, 1, glm::value_ptr(material->color));
+				glUniform1i(useTexLoc, false);
+			}
+		} else {
+			// Default visual if no material
+			glUniform3f(colorLoc, 0.8f, 0.8f, 0.8f);
+			glUniform1i(useTexLoc, false);
+		}
+
+		mesh->GetPrimitive()->Draw();
+	}
+
+	for (GameObject* child : go->GetChildren()) {
+		DrawGameObject(child, modelLoc, colorLoc, useTexLoc, texLoc, globalMatrix);
+	}
 }

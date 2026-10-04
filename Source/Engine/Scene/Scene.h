@@ -3,6 +3,8 @@
 #include "../Module.h"
 
 #include "GameObjects/GameObject.h"
+#include <vector>
+#include <memory>
 
 class Scene : public Module
 {
@@ -27,7 +29,9 @@ public:
 	// Called before quitting
 	bool CleanUp();
 
+	GameObject* GetRoot() { return &sceneRoot; }
 
 private:
 	GameObject sceneRoot;
+	std::vector<std::unique_ptr<GameObject>> sceneEntities;
 };

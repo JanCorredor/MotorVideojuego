@@ -15,6 +15,8 @@
 //3DModels
 #include "3DModels/ModelLoader.h"
 
+#include "../Scene/GameObjects/GameObject.h"
+
 class Render : public Module
 {
 public:
@@ -41,8 +43,21 @@ public:
 	// Set background color
 	void SetBackgroundColor(SDL_Color color);
 
+	// Render settings
+	bool depthTestEnabled = true;
+	bool cullFaceEnabled = true;
+	bool lightingEnabled = true;
+	bool wireframeMode = false;
+
+	unsigned int GetSceneTexture() const { return textureColorbuffer; }
+
 private:
 	SDL_Color background;
+
+	unsigned int framebuffer = 0;
+	unsigned int textureColorbuffer = 0;
+	unsigned int rbo = 0;
+	void CreateFramebuffer(int width, int height);
 
 	unsigned int VBO, VAO, EBO;
 	unsigned int shaderProgram;
@@ -50,11 +65,8 @@ private:
 	float rotationAngle = 0.0f;
 
 	//Scene
-	std::unique_ptr<Primitive> cube;
-	
-	std::unique_ptr<Primitive> sphere;
-	unsigned int sphereTextureID;
-
 	std::unique_ptr<Primitive> loadedModel = nullptr;
+
+	void DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useTexLoc, int texLoc, const glm::mat4& parentMatrix);
 
 };

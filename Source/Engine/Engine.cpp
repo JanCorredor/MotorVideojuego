@@ -7,6 +7,7 @@
 #include "Input/Input.h"
 #include "Render/Render.h"
 #include "Audio/Audio.h"
+#include "Scene/Scene.h"
 #include "UI/ModuleUI.h"
 #include "../Utils/Log.h"
 #include "../Utils/Timer.h"
@@ -31,6 +32,7 @@ Engine::Engine() {
     input = std::make_shared<Input>();
     render = std::make_shared<Render>();
     audio = std::make_shared<Audio>();
+    scene = std::make_shared<Scene>();
     ui = std::make_shared<ModuleUI>();
 
 
@@ -39,6 +41,7 @@ Engine::Engine() {
     AddModule(std::static_pointer_cast<Module>(window));
     AddModule(std::static_pointer_cast<Module>(input));
     AddModule(std::static_pointer_cast<Module>(audio));
+    AddModule(std::static_pointer_cast<Module>(scene));
 
     // UI module
     AddModule(std::static_pointer_cast<Module>(ui));

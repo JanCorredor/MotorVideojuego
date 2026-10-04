@@ -3,6 +3,7 @@
 #include "../Render/Render.h"
 #include "../../Utils/Log.h"
 #include "Input.h"
+#include <imgui_impl_sdl3.h>
 
 
 #include <cmath>
@@ -122,6 +123,8 @@ bool Input::PreUpdate()
 
 	while (SDL_PollEvent(&event))
 	{
+		ImGui_ImplSDL3_ProcessEvent(&event);
+
 		switch (event.type)
 		{
 		case SDL_EVENT_QUIT:
