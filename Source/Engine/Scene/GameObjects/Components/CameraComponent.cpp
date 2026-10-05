@@ -15,6 +15,7 @@ void CameraComponent::Update(float dt)
     if (!transform) return;
 
     Input* input = Engine::GetInstance().input.get();
+
     float currentSpeed = movementSpeed;
 
     // Shift: Duplica la velocidad
@@ -26,7 +27,6 @@ void CameraComponent::Update(float dt)
     float scroll = input->GetMouseScrollDelta();
     if (scroll != 0.0f) {
         fov -= scroll * 2.0f;
-        // Corrección C3861: Sustitución de std::clamp por compatibilidad
         fov = std::max(1.0f, std::min(fov, 120.0f));
     }
 
@@ -40,17 +40,18 @@ void CameraComponent::Update(float dt)
         UpdateCameraVectors();
 
         glm::vec3 pos = transform->GetPosition();
-        if (input->GetKey(SDL_SCANCODE_W)) pos += front * currentSpeed * dt;
-        if (input->GetKey(SDL_SCANCODE_S)) pos -= front * currentSpeed * dt;
-        if (input->GetKey(SDL_SCANCODE_A)) pos -= right * currentSpeed * dt;
-        if (input->GetKey(SDL_SCANCODE_D)) pos += right * currentSpeed * dt;
+
+        // Movimiento WASD: dirección * velocidad * (delta time / 1000)
+        if (input->GetKey(SDL_SCANCODE_W)) pos += front * currentSpeed * (dt / 1000);
+        if (input->GetKey(SDL_SCANCODE_S)) pos -= front * currentSpeed * (dt / 1000);
+        if (input->GetKey(SDL_SCANCODE_A)) pos -= right * currentSpeed * (dt / 1000);
+        if (input->GetKey(SDL_SCANCODE_D)) pos += right * currentSpeed * (dt / 1000);
+
         transform->SetPosition(pos);
     }
 
     // Alt + Click Izquierdo: Orbitar objeto
-    if ((input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT) &&
-        (input->GetMouseButton(SDL_BUTTON_LEFT) == KEY_DOWN || input->GetMouseButton(SDL_BUTTON_LEFT) == KEY_REPEAT) &&
-        selectedObject) {
+    if ((input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT) && selectedObject) {
 
         TransformComponent* targetTrans = selectedObject->GetComponent<TransformComponent>();
         if (targetTrans) {
