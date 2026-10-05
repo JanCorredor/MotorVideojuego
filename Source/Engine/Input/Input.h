@@ -3,6 +3,7 @@
 #include "../Module.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_rect.h>
+#include <glm/glm.hpp>
 //#include "Vector2D.h"
 #include <memory>
 #include <vector>
@@ -70,8 +71,7 @@ public:
 
 	// Keyboard
 	KeyState GetKey(int id) const;
-	KeyState GetMouseButtonDown(int id) const;
-	void ClearMouseInput();
+	bool GetKeyDown(int id) const;
 
 	// Gamepad
 	KeyState GetGamepadButton(GamepadButton button) const;
@@ -82,8 +82,11 @@ public:
 	bool GetWindowEvent(EventWindow ev);
 
 	// Mouse
-	//Vector2D GetMousePosition();
-	//Vector2D GetMouseMotion();
+	KeyState GetMouseButtonDown(int id) const;
+	KeyState GetMouseButton(int id) const;
+	glm::vec2 GetMouseDelta() const;
+	float GetMouseScrollDelta() const;
+	void ClearMouseInput();
 
 	// UI Navigation - Nueva API simplificada
 	void UpdateUINavigation();
@@ -108,6 +111,7 @@ private:
 	int mouseMotionY;
 	int mouseX;
 	int mouseY;
+	float mouseScrollDelta;
 
 	// Gamepad
 	bool gamepadConnected;

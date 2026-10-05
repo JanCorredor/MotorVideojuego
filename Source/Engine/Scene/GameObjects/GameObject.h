@@ -16,7 +16,7 @@ public:
 	GameObject(const string& name = "GameObject");
 	~GameObject();
 
-	void Update();
+	void Update(float dt);
 
     void AddComponent(std::unique_ptr<Component> component);
 

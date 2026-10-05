@@ -8,14 +8,14 @@ GameObject::~GameObject()
 {
 }
 
-void GameObject::Update()
+void GameObject::Update(float dt)
 {
     if (!active) return;
     for (auto& comp : objComponents) {
-        if (comp->IsActive()) comp->Update();
+        if (comp->IsActive()) comp->Update(dt);
     }
     for (auto child : children) {
-        child->Update();
+        child->Update(dt);
     }
 }
 

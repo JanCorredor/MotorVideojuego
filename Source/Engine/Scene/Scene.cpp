@@ -6,6 +6,7 @@
 #include "GameObjects/Components/TransformComponent.h"
 #include "GameObjects/Components/MeshComponent.h"
 #include "GameObjects/Components/MaterialComponent.h"
+#include "GameObjects/Components/CameraComponent.h"
 #include "../Render/Primitives/GeometryGenerator.h"
 #include "../Render/Texture/TextureLoader.h"
 
@@ -34,6 +35,19 @@ bool Scene::Awake()
 bool Scene::Start()
 {
 	LOG("Scene Start");
+
+	// Instance Editor Camera
+	auto camObj = std::make_unique<GameObject>("EditorCamera");
+	auto camTrans = std::make_unique<TransformComponent>(camObj.get());
+	camTrans->SetPosition(glm::vec3(0.0f, 1.0f, 5.0f)); // Posición inicial
+	camObj->AddComponent(std::move(camTrans));
+
+	auto camComp = std::make_unique<CameraComponent>(camObj.get());
+	camObj->AddComponent(std::move(camComp));
+
+	mainCameraPtr = camObj.get();
+	sceneRoot.AddChild(camObj.get());
+	sceneEntities.push_back(std::move(camObj));
 
 	// Create Cube
 	auto cubeObj = std::make_unique<GameObject>("Cube");
@@ -91,7 +105,7 @@ bool Scene::Update(float dt)
 			transform->SetRotation(rot);
 		}
 	}
-	sceneRoot.Update();
+	sceneRoot.Update(dt);
 	return true;
 }
 

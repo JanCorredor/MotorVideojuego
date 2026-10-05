@@ -6,7 +6,8 @@ enum ComponentType
 {
 	COMPONENT_TRANSFORM,
 	COMPONENT_MESH,
-	COMPONENT_MATERIAL
+	COMPONENT_MATERIAL,
+	COMPONENT_CAMERA
 };
 
 class Component
@@ -15,7 +16,7 @@ public:
 	Component(ComponentType type, GameObject* owner) : type(type), owner(owner) {}
 	virtual ~Component() {}
 
-	virtual void Update() {}
+	virtual void Update(float dt) {}
 
 	virtual void Enable() { active = true; }
 	virtual void Disable() { active = false; }

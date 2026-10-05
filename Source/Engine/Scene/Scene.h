@@ -30,8 +30,10 @@ public:
 	bool CleanUp();
 
 	GameObject* GetRoot() { return &sceneRoot; }
+	GameObject* GetMainCameraObject() const { return mainCameraPtr; }
 
 private:
 	GameObject sceneRoot;
 	std::vector<std::unique_ptr<GameObject>> sceneEntities;
+	GameObject* mainCameraPtr;
 };

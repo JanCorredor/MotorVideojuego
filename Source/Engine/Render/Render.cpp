@@ -15,6 +15,7 @@
 #include "../Scene/GameObjects/Components/TransformComponent.h"
 #include "../Scene/GameObjects/Components/MeshComponent.h"
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
+#include "../Scene/GameObjects/Components/CameraComponent.h"
 
 Render::Render() : Module()
 {
@@ -176,15 +177,20 @@ bool Render::Update(float dt)
 
 	glUseProgram(shaderProgram);
 
+	GameObject* cameraObj = Engine::GetInstance().scene->GetMainCameraObject();
+	CameraComponent* camera = cameraObj ? cameraObj->GetComponent<CameraComponent>() : nullptr;
 
-	// View Matrix
-	glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -6.0f));
+	glm::mat4 view = glm::mat4(1.0f);
+	glm::mat4 projection = glm::mat4(1.0f);
 
-	// Projection Matrix
-	int width, height;
-	Engine::GetInstance().window->GetWindowSize(width, height);
-	float aspectRatio = (height > 0) ? (float)width / (float)height : 1.0f;
-	glm::mat4 projection = glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+	if (camera) {
+		int width, height;
+		Engine::GetInstance().window->GetWindowSize(width, height);
+		float aspectRatio = (height > 0) ? (float)width / (float)height : 1.0f;
+
+		view = camera->GetViewMatrix();
+		projection = camera->GetProjectionMatrix(aspectRatio);
+	}
 
 	// Send to GPU
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));

@@ -28,6 +28,7 @@ Input::Input() : Module()
 	mouseMotionY = 0;
 	mouseX = 0;
 	mouseY = 0;
+	mouseScrollDelta = 0.0f;
 	gamepadConnected = false;
 	gamepad = nullptr;
 	navigationEnabled = false;
@@ -90,6 +91,10 @@ bool Input::Start()
 bool Input::PreUpdate()
 {
 	static SDL_Event event;
+
+	mouseMotionX = 0;
+	mouseMotionY = 0;
+	mouseScrollDelta = 0.0f;
 
 	int numKeys = 0;
 	const bool* keys = SDL_GetKeyboardState(&numKeys);
@@ -169,6 +174,10 @@ bool Input::PreUpdate()
 			mouseY = (int)(event.motion.y / scale);
 		}
 		break;
+
+		case SDL_EVENT_MOUSE_WHEEL:
+			mouseScrollDelta = event.wheel.y;
+			break;
 
 		case SDL_EVENT_GAMEPAD_ADDED:
 			if (gamepad == nullptr)
@@ -389,4 +398,27 @@ void Input::ClearMouseInput()
 	{
 		mouseButtons[i] = KEY_IDLE;
 	}
+}
+
+KeyState Input::GetMouseButton(int id) const
+{
+	// SDL maneja los botones desde el 1 (Izquierdo = 1, Medio = 2, Derecho = 3)
+	if (id >= 1 && id <= NUM_MOUSE_BUTTONS)
+		return mouseButtons[id - 1];
+	return KEY_IDLE;
+}
+
+glm::vec2 Input::GetMouseDelta() const
+{
+	return glm::vec2((float)mouseMotionX, (float)mouseMotionY);
+}
+
+float Input::GetMouseScrollDelta() const
+{
+	return mouseScrollDelta;
+}
+
+bool Input::GetKeyDown(int id) const
+{
+	return keyboard[id] == KEY_DOWN;
 }
