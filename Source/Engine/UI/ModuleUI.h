@@ -17,6 +17,9 @@ public:
 	bool PostUpdate() override;
 	bool CleanUp() override;
 
+	void CheckDroppedFile();
+
+
 private:
 	void RenderUI();
 	void DrawHierarchyNode(GameObject* node);

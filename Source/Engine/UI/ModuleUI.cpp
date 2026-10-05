@@ -1,9 +1,13 @@
 #include "ModuleUI.h"
 #include "../Engine.h"
 #include "../Window/Window.h"
+#include "../Input/Input.h"
 #include "../Render/Render.h"
 #include "../Scene/Scene.h"
 #include "../Scene/GameObjects/Components/TransformComponent.h"
+#include "../Scene/GameObjects/Components/MeshComponent.h"
+#include "../Scene/GameObjects/Components/MaterialComponent.h"
+
 #include <glm/gtc/type_ptr.hpp>
 
 // ImGui headers (adjust paths as needed depending on your project structure)
@@ -68,6 +72,9 @@ bool ModuleUI::PreUpdate()
 
 bool ModuleUI::Update(float dt)
 {
+	CheckDroppedFile();
+
+
 	// Enable a DockSpace over the entire main viewport so windows can be docked properly
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
 
@@ -101,6 +108,7 @@ bool ModuleUI::Update(float dt)
 		ImGui::Separator();
 		ImGui::Text("Transform");
 		
+
 		TransformComponent* transform = selectedGameObject->GetComponent<TransformComponent>();
 		if (transform) {
 			glm::vec3 pos = transform->GetPosition();
@@ -111,10 +119,44 @@ bool ModuleUI::Update(float dt)
 			
 			glm::vec3 scl = transform->GetScale();
 			if (ImGui::DragFloat3("Scale", glm::value_ptr(scl), 0.1f)) transform->SetScale(scl);
-		} else {
+		} 
+		else 
+		{
 			ImGui::Text("No Transform Component attached.");
 		}
-	} else {
+
+		MeshComponent* mesh = selectedGameObject->GetComponent<MeshComponent>();
+		if (mesh) 
+		{
+			ImGui::Text("Primitive: %s", mesh->GetPrimitive());
+		}
+		else
+		{
+			ImGui::Text("No Mesh Component attached.");
+		}
+
+		MaterialComponent* mat = selectedGameObject->GetComponent<MaterialComponent>();
+		if (mat)
+		{
+			ImGui::Text("TextureID: %d", mat->textureID);
+
+			bool* UseTexture = &mat->useTexture; //TODO Fix
+			if (ImGui::Checkbox("UseTexture", UseTexture)) mat->useTexture = UseTexture;
+
+
+			//glm::vec3 color = mat; //TODO Change Color
+			//if (ImGui::COLOR("Color", glm::value_ptr(color), 0.1f)) );
+		}
+		else
+		{
+			ImGui::Text("No Material Component attached.");
+		}
+
+
+
+	} 
+	else 
+	{
 		ImGui::Text("Select a GameObject to inspect");
 	}
 	ImGui::End();
@@ -169,6 +211,24 @@ bool ModuleUI::CleanUp()
 	ImGui::DestroyContext();
 
 	return true;
+}
+
+void ModuleUI::CheckDroppedFile()
+{
+	// Check if file has been dropped in the window
+	if (Engine::GetInstance().input->HasDroppedFile())
+	{
+		std::string filePath = Engine::GetInstance().input->GetDroppedFilePath();
+
+		if (filePath.find(".png") != std::string::npos ||
+			filePath.find(".dds") != std::string::npos ||
+			filePath.find(".jpg") != std::string::npos)
+		{
+			MaterialComponent* mat = selectedGameObject->GetComponent<MaterialComponent>();
+			mat->textureID = LoadTexture(filePath.c_str());
+			mat->useTexture = true;
+		}
+	}
 }
 
 void ModuleUI::RenderUI()
