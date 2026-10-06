@@ -173,8 +173,6 @@ bool Render::Update(float dt)
 	if (wireframeMode) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-	rotationAngle += 0.002f * dt;
-
 	glUseProgram(shaderProgram);
 
 	GameObject* cameraObj = Engine::GetInstance().scene->GetMainCameraObject();
@@ -299,14 +297,14 @@ void Render::DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useT
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(globalMatrix));
 
 		if (material) {
-			if (material->useTexture && material->textureID != 0) {
+			if (material->GetUseTexture() && material->GetTextureID() != 0) {
 				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, material->textureID);
+				glBindTexture(GL_TEXTURE_2D, material->GetTextureID());
 				glUniform1i(texLoc, 0);
-				glUniform3fv(colorLoc, 1, glm::value_ptr(material->color));
+				glUniform3fv(colorLoc, 1, glm::value_ptr(material->GetColor()));
 				glUniform1i(useTexLoc, true);
 			} else {
-				glUniform3fv(colorLoc, 1, glm::value_ptr(material->color));
+				glUniform3fv(colorLoc, 1, glm::value_ptr(material->GetColor()));
 				glUniform1i(useTexLoc, false);
 			}
 		} else {

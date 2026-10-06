@@ -62,8 +62,6 @@ private:
 	unsigned int VBO, VAO, EBO;
 	unsigned int shaderProgram;
 
-	float rotationAngle = 0.0f;
-
 	//Scene
 	std::unique_ptr<Primitive> loadedModel = nullptr;
 

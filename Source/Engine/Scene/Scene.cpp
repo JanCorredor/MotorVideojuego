@@ -59,8 +59,8 @@ bool Scene::Start()
 	cubeObj->AddComponent(std::move(cubeMesh));
 
 	auto cubeMat = std::make_unique<MaterialComponent>(cubeObj.get());
-	cubeMat->color = glm::vec3(1.0f, 0.2f, 0.2f);
-	cubeMat->useTexture = false;
+	cubeMat->SetColor(glm::vec3(1.0f, 0.2f, 0.2f));
+	cubeMat->SetUseTexture(false);
 	cubeObj->AddComponent(std::move(cubeMat));
 
 	sceneRoot.AddChild(cubeObj.get());
@@ -76,9 +76,9 @@ bool Scene::Start()
 	sphereObj->AddComponent(std::move(sphereMesh));
 
 	auto sphereMat = std::make_unique<MaterialComponent>(sphereObj.get());
-	sphereMat->color = glm::vec3(1.0f, 1.0f, 1.0f);
-	sphereMat->textureID = LoadTexture("../test.jpg");
-	sphereMat->useTexture = true;
+	sphereMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	sphereMat->SetTexture("../test.jpg");
+	sphereMat->SetUseTexture(true);
 	sphereObj->AddComponent(std::move(sphereMat));
 
 	sceneRoot.AddChild(sphereObj.get());
@@ -95,16 +95,6 @@ bool Scene::PreUpdate()
 
 bool Scene::Update(float dt)
 {
-	// Simulate the spinning animation for the cube and sphere
-	for (auto& entity : sceneEntities) {
-		TransformComponent* transform = entity->GetComponent<TransformComponent>();
-		if (transform) {
-			glm::vec3 rot = transform->GetRotation();
-			rot.y += 0.1f * dt;
-			if (entity->GetName() == "Cube") rot.x += 0.05f * dt;
-			transform->SetRotation(rot);
-		}
-	}
 	sceneRoot.Update(dt);
 	return true;
 }

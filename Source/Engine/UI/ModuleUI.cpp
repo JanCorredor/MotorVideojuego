@@ -106,11 +106,12 @@ bool ModuleUI::Update(float dt)
 		ImGui::Text("Name: %s", selectedGameObject->GetName().c_str());
 		
 		ImGui::Separator();
-		ImGui::Text("Transform");
 		
 
 		TransformComponent* transform = selectedGameObject->GetComponent<TransformComponent>();
-		if (transform) {
+		if (transform) 
+		{
+			ImGui::Text("Transform");
 			glm::vec3 pos = transform->GetPosition();
 			if (ImGui::DragFloat3("Position", glm::value_ptr(pos), 0.1f)) transform->SetPosition(pos);
 			
@@ -128,6 +129,7 @@ bool ModuleUI::Update(float dt)
 		MeshComponent* mesh = selectedGameObject->GetComponent<MeshComponent>();
 		if (mesh) 
 		{
+			ImGui::Text("Mesh");
 			ImGui::Text("Primitive: %s", mesh->GetPrimitive());
 		}
 		else
@@ -138,14 +140,16 @@ bool ModuleUI::Update(float dt)
 		MaterialComponent* mat = selectedGameObject->GetComponent<MaterialComponent>();
 		if (mat)
 		{
-			ImGui::Text("TextureID: %d", mat->textureID);
+			ImGui::Text("Material");
 
-			bool* UseTexture = &mat->useTexture; //TODO Fix
-			if (ImGui::Checkbox("UseTexture", UseTexture)) mat->useTexture = UseTexture;
+			ImGui::Text("TextureID: %d", mat->GetTextureID());
+
+			bool usingTexture = mat->GetUseTexture();
+			if (ImGui::Checkbox("UseTexture", &usingTexture)) mat->SetUseTexture(usingTexture);
 
 
-			//glm::vec3 color = mat; //TODO Change Color
-			//if (ImGui::COLOR("Color", glm::value_ptr(color), 0.1f)) );
+			glm::vec3 color = mat->GetColor(); //TODO :: ImGuiColorEditFlags_PickerHueWheel ImGuiColorEditFlags_NoBorder
+			if (ImGui::ColorPicker3("Color", glm::value_ptr(color))) mat->SetColor(color);
 		}
 		else
 		{
@@ -225,8 +229,8 @@ void ModuleUI::CheckDroppedFile()
 			filePath.find(".jpg") != std::string::npos)
 		{
 			MaterialComponent* mat = selectedGameObject->GetComponent<MaterialComponent>();
-			mat->textureID = LoadTexture(filePath.c_str());
-			mat->useTexture = true;
+			mat->SetTexture(filePath.c_str());
+			mat->SetUseTexture(true);
 		}
 	}
 }
