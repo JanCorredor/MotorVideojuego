@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cfloat>
 
+#include <tracy/Tracy.hpp>
+
 #define MAX_KEYS 300
 #define GAMEPAD_DEADZONE 0.25f
 
@@ -90,6 +92,9 @@ bool Input::Start()
 
 bool Input::PreUpdate()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	static SDL_Event event;
 
 	mouseMotionX = 0;

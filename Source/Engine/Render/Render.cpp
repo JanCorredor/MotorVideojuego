@@ -17,6 +17,8 @@
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
 #include "../Scene/GameObjects/Components/CameraComponent.h"
 
+#include <tracy/Tracy.hpp>
+
 Render::Render() : Module()
 {
 	name = "render";
@@ -149,6 +151,9 @@ void Render::CreateFramebuffer(int width, int height)
 // Called each loop iteration
 bool Render::PreUpdate()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glClearColor(
 		background.r / 255.0f,
@@ -164,6 +169,9 @@ bool Render::PreUpdate()
 
 bool Render::Update(float dt)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
 	else glDisable(GL_DEPTH_TEST);
 
@@ -257,6 +265,9 @@ bool Render::Update(float dt)
 
 bool Render::PostUpdate()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	SDL_Window* window = Engine::GetInstance().window->GetWindow();
 	SDL_GL_SwapWindow(window);
 

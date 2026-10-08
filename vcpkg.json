@@ -17,6 +17,7 @@
     },
     "sdl3",
     "devil",
-    "assimp"
+    "assimp",
+    "tracy"
   ]
 }

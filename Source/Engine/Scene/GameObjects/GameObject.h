@@ -4,9 +4,7 @@
 
 #include <vector>
 #include <string>
-#include <algorithm>
 #include <memory>
-#include <glm/glm.hpp>
 
 using namespace std;
 
@@ -41,7 +39,8 @@ public:
     string GetName() const { return name; }
 
     bool IsActive() const { return active; }
-    void SetActive(bool act) { active = act; }
+	void Enable() { this->active = true; }
+	void Disable() { this->active = false; }
 
 private:
 	bool active = true;

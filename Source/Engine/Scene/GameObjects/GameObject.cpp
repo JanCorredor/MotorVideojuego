@@ -1,5 +1,7 @@
 #include "GameObject.h"
 
+#include <tracy/Tracy.hpp>
+
 GameObject::GameObject(const string& name) : name(name), parent(nullptr) 
 {
 }
@@ -10,12 +12,25 @@ GameObject::~GameObject()
 
 void GameObject::Update(float dt)
 {
+#ifdef _DEBUG
+    ZoneScoped;
+#endif
+
     if (!active) return;
-    for (auto& comp : objComponents) {
-        if (comp->IsActive()) comp->Update(dt);
+
+    for (auto& comp : objComponents) 
+    {
+        if (comp->IsActive())
+        {
+            comp->Update(dt);
+        }
     }
-    for (auto child : children) {
-        child->Update(dt);
+    for (auto child : children) 
+    {
+        if (child->IsActive())
+        {
+            child->Update(dt);
+        }
     }
 }
 

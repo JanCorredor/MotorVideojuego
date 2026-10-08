@@ -17,6 +17,8 @@
 
 #include <SDL3/SDL.h>
 
+#include <tracy/Tracy.hpp>
+
 ModuleUI::ModuleUI() : Module()
 {
 	name = "UI";
@@ -62,6 +64,9 @@ bool ModuleUI::Start()
 
 bool ModuleUI::PreUpdate()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	// Start the Dear ImGui frame
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL3_NewFrame();
@@ -72,6 +77,9 @@ bool ModuleUI::PreUpdate()
 
 bool ModuleUI::Update(float dt)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	CheckDroppedFile();
 
 
@@ -204,6 +212,9 @@ void ModuleUI::DrawHierarchyNode(GameObject* node)
 
 bool ModuleUI::PostUpdate()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	RenderUI();
 	return true;
 }

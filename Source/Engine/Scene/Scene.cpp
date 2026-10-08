@@ -1,5 +1,4 @@
 #include "../Engine.h"
-#include "../Window/Window.h"
 #include "../Render/Render.h"
 #include "../../Utils/Log.h"
 #include "Scene.h"
@@ -8,10 +7,9 @@
 #include "GameObjects/Components/MaterialComponent.h"
 #include "GameObjects/Components/CameraComponent.h"
 #include "../Render/Primitives/GeometryGenerator.h"
-#include "../Render/Texture/TextureLoader.h"
 
 
-
+#include <tracy/Tracy.hpp>
 
 Scene::Scene() : Module()
 {
@@ -89,19 +87,26 @@ bool Scene::Start()
 
 bool Scene::PreUpdate()
 {
-
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	return true;
 }
 
 bool Scene::Update(float dt)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	sceneRoot.Update(dt);
 	return true;
 }
 
 bool Scene::PostUpdate()
 {
-
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	return true;
 }
 

@@ -13,11 +13,12 @@
 #include "../Utils/Timer.h"
 #include "../Utils/PerfTimer.h"
 
+#include <tracy/Tracy.hpp>
 
 // Constructor
-Engine::Engine() {
-
-	LOG("Constructor Engine::Engine");
+Engine::Engine() 
+{
+    LOG("Constructor Engine::Engine");
 
     // Measure the amount of ms that takes to execute the Engine constructor and LOG the result
 	Timer timer = Timer();
@@ -126,6 +127,9 @@ bool Engine::Start() {
 // Called each loop iteration
 bool Engine::Update() 
 {
+#ifdef _DEBUG
+    ZoneScoped;
+#endif
     bool ret = true;
     PrepareUpdate();
 
@@ -171,12 +175,18 @@ bool Engine::CleanUp() {
 // ---------------------------------------------
 void Engine::PrepareUpdate()
 {
+#ifdef _DEBUG
+    ZoneScoped;
+#endif
     frameTime.Start();
 }
 
 // ---------------------------------------------
 void Engine::FinishUpdate()
 {
+#ifdef _DEBUG
+    ZoneScoped;
+#endif
     //  Cap the framerate of the gameloop
     double currentDt = frameTime.ReadMs();
 	float maxFrameDuration = 1000.0f / targetFrameRate;
@@ -229,6 +239,9 @@ void Engine::FinishUpdate()
 // Call modules before each loop iteration
 bool Engine::PreUpdate()
 {
+#ifdef _DEBUG
+    ZoneScoped;
+#endif
     //Iterates the module list and calls PreUpdate on each module
     bool result = true;
     for (const auto& module : moduleList) {
@@ -244,6 +257,9 @@ bool Engine::PreUpdate()
 // Call modules on each loop iteration
 bool Engine::DoUpdate()
 {
+#ifdef _DEBUG
+    ZoneScoped;
+#endif
     //Iterates the module list and calls Update on each module
     bool result = true;
     for (const auto& module : moduleList) {
@@ -259,6 +275,9 @@ bool Engine::DoUpdate()
 // Call modules after each loop iteration
 bool Engine::PostUpdate()
 {
+#ifdef _DEBUG
+    ZoneScoped;
+#endif
     //Iterates the module list and calls PostUpdate on each module
     bool result = true;
     for (const auto& module : moduleList) {

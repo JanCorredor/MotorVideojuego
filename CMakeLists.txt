@@ -20,7 +20,7 @@ find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(DevIL REQUIRED)
 find_package(assimp CONFIG REQUIRED)
-
+find_package(Tracy CONFIG REQUIRED)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     "Source/*.cpp"
@@ -40,4 +40,20 @@ imgui::imgui
 DevIL::ILU
 DevIL::ILUT
 assimp::assimp
+Tracy::TracyClient
 )
+
+# Copy required DLLs (TracyClient.dll, SDL3.dll, assimp.dll, etc.) to executable directory
+if(WIN32)
+    add_custom_command(TARGET MotorVideojuego POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:MotorVideojuego>
+            $<TARGET_FILE_DIR:MotorVideojuego>
+        COMMAND_EXPAND_LISTS
+    )
+
+    # Asegura la ruta para la depuración en Visual Studio
+    set_target_properties(MotorVideojuego PROPERTIES
+        VS_DEBUGGER_ENVIRONMENT "PATH=$<TARGET_FILE_DIR:MotorVideojuego>;%PATH%"
+    )
+endif()
