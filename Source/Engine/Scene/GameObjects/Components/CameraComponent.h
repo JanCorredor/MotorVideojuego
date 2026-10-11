@@ -17,6 +17,10 @@ public:
     glm::mat4 GetViewMatrix();
     glm::mat4 GetProjectionMatrix(float aspectRatio);
 
+    void SetSelectedObject(GameObject* obj) { selectedObject = obj; }
+    GameObject* GetSelectedObject() const { return selectedObject; }
+    void PerformRaycast(float mouseX, float mouseY, float width, float height);
+
     void FocusOnObject(GameObject* target);
 
     float fov = 45.0f;
@@ -33,6 +37,9 @@ private:
     glm::vec3 up;
     glm::vec3 right;
     const glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    bool RaySphereIntersection(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 sphereCenter, float sphereRadius, float& intersectionDistance);
+    void CheckRaycastRecursive(GameObject* go, glm::vec3 rayOrigin, glm::vec3 rayDir, GameObject*& closestObject, float& minDistance, const glm::mat4& parentMatrix);
 
     float yaw = -90.0f;
     float pitch = 0.0f;

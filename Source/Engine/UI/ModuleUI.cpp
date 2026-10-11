@@ -7,6 +7,7 @@
 #include "../Scene/GameObjects/Components/TransformComponent.h"
 #include "../Scene/GameObjects/Components/MeshComponent.h"
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
+#include "../Scene/GameObjects/Components/CameraComponent.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -82,6 +83,15 @@ bool ModuleUI::Update(float dt)
 #endif
 	CheckDroppedFile();
 
+	// --- Sincronizar selección desde la cámara (Raycast) hacia la UI ---
+	GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
+	if (mainCamera) {
+		CameraComponent* camComp = mainCamera->GetComponent<CameraComponent>();
+		// Si la cámara tiene seleccionado un objeto distinto al de la UI, actualizamos la UI
+		if (camComp && camComp->GetSelectedObject() != selectedGameObject) {
+			selectedGameObject = camComp->GetSelectedObject();
+		}
+	}
 
 	// Enable a DockSpace over the entire main viewport so windows can be docked properly
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport());
@@ -92,7 +102,34 @@ bool ModuleUI::Update(float dt)
 	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 	unsigned int sceneTexture = Engine::GetInstance().render->GetSceneTexture();
 	if (sceneTexture != 0 && viewportSize.x > 0 && viewportSize.y > 0) {
+
+		// Guardamos la posición en la pantalla donde empieza la imagen
+		ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+
+		// Dibujamos la imagen de la escena
 		ImGui::Image((ImTextureID)(intptr_t)sceneTexture, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+
+		// Detectamos si se ha hecho clic IZQUIERDO específicamente dentro de la imagen
+		if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+			// Obtenemos la posición global del ratón en ImGui
+			ImVec2 mousePos = ImGui::GetMousePos();
+
+			// Calculamos la posición local del ratón restando el inicio de la imagen
+			float localMouseX = mousePos.x - cursorScreenPos.x;
+			float localMouseY = mousePos.y - cursorScreenPos.y;
+
+			// Disparamos el Raycast desde la cámara con estas coordenadas perfectas
+			GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
+			if (mainCamera) {
+				CameraComponent* camComp = mainCamera->GetComponent<CameraComponent>();
+				if (camComp) {
+					camComp->PerformRaycast(localMouseX, localMouseY, viewportSize.x, viewportSize.y);
+
+					// Sincronizamos la UI con el nuevo objeto seleccionado
+					selectedGameObject = camComp->GetSelectedObject();
+				}
+			}
+		}
 	}
 	ImGui::End();
 
@@ -200,6 +237,15 @@ void ModuleUI::DrawHierarchyNode(GameObject* node)
 
 	if (ImGui::IsItemClicked()) {
 		selectedGameObject = node;
+
+		// Sincronizar selección desde la UI hacia la cámara
+		GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
+		if (mainCamera) {
+			CameraComponent* camComp = mainCamera->GetComponent<CameraComponent>();
+			if (camComp) {
+				camComp->SetSelectedObject(node);
+			}
+		}
 	}
 
 	if (nodeOpen && !node->GetChildren().empty()) {

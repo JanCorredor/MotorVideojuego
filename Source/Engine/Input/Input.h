@@ -87,6 +87,8 @@ public:
 	glm::vec2 GetMouseDelta() const;
 	float GetMouseScrollDelta() const;
 	void ClearMouseInput();
+	int GetMouseX() const { return mouseX; }
+	int GetMouseY() const { return mouseY; }
 
 	// UI Navigation - Nueva API simplificada
 	void UpdateUINavigation();
