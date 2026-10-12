@@ -29,12 +29,21 @@ public:
 
 	// Retrive window size
 	void GetWindowSize(int& width, int& height) const;
+	void SetWindowSize(int width, int height);
 
 	// Retrieve window scale
 	int GetScale() const;
 
 	void SetFullscreen(bool enabled, SDL_Renderer* renderer = nullptr);
 	bool IsFullscreen() const { return isFullscreen; }
+
+	void SetResizable(bool resizable);
+	bool IsResizable() const;
+
+	void SetBorderless(bool borderless);
+	bool IsBorderless() const;
+
+	const char* GetTitle() const;
 
 private:
 	// The window we'll be rendering to

@@ -24,16 +24,15 @@ Scene::~Scene()
 
 bool Scene::Awake()
 {
-	LOG("Init Scene Module");
+	LOG("[Scene] Inicializando módulo Scene...");
 	bool ret = true;
-
 
 	return ret;
 }
 
 bool Scene::Start()
 {
-	LOG("Scene Start");
+	LOG("[Scene] Configurando escena por defecto...");
 
 	// Instance Editor Camera
 	auto camObj = std::make_unique<GameObject>("EditorCamera");
@@ -47,6 +46,7 @@ bool Scene::Start()
 	mainCameraPtr = camObj.get();
 	sceneRoot.AddChild(camObj.get());
 	sceneEntities.push_back(std::move(camObj));
+	LOG("[Scene] Instanciada 'EditorCamera' en posición (0.0, 1.0, 5.0)");
 
 	// Create Cube
 	auto cubeObj = std::make_unique<GameObject>("Cube");
@@ -64,6 +64,7 @@ bool Scene::Start()
 
 	sceneRoot.AddChild(cubeObj.get());
 	sceneEntities.push_back(std::move(cubeObj));
+	LOG("[Scene] Instanciado 'Cube' con geometría procedural de cubo");
 
 	// Create Sphere
 	auto sphereObj = std::make_unique<GameObject>("Sphere");
@@ -82,6 +83,9 @@ bool Scene::Start()
 
 	sceneRoot.AddChild(sphereObj.get());
 	sceneEntities.push_back(std::move(sphereObj));
+	LOG("[Scene] Instanciado 'Sphere' con geometría procedural de esfera y textura");
+
+	LOG("[Scene] Escena inicial cargada con éxito (%zu entidades registradas)", sceneEntities.size());
 
 	return true;
 }
@@ -113,7 +117,7 @@ bool Scene::PostUpdate()
 
 bool Scene::CleanUp()
 {
-
+	LOG("[Scene] Limpiando entidades de la escena (%zu entidades)...", sceneEntities.size());
 	return true;
 }
 
@@ -157,6 +161,9 @@ void Scene::CreateNewGameObject(vector<std::unique_ptr<Component>> objComponents
 		newObj->AddComponent(std::move(cubeMat));
 	}
 
+	std::string objName = newObj->GetName();
 	sceneRoot.AddChild(newObj.get());
 	sceneEntities.push_back(std::move(newObj));
+
+	LOG("[Scene] GameObject '%s' registrado en la escena (Total entidades: %zu)", objName.c_str(), sceneEntities.size());
 }

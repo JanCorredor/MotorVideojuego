@@ -11,6 +11,8 @@ inline unsigned int LoadTexture(const char* path)
     {
         ilInit();
         ilInitialized = true;
+        ILint devilVersion = ilGetInteger(IL_VERSION_NUM);
+        LOG("[DevIL] Inicializada librería DevIL (Versión interna: %d)", devilVersion);
     }
 
     ILuint imageID;
@@ -19,7 +21,8 @@ inline unsigned int LoadTexture(const char* path)
 
     if (!ilLoadImage(path)) 
     {
-        LOG("Error cargando la textura: %s", path);
+        ILenum err = ilGetError();
+        LOG_ERROR("[DevIL] Error cargando la textura '%s' (Código de error DevIL: 0x%X)", path, (unsigned int)err);
         ilDeleteImages(1, &imageID);
         return 0;
     }
@@ -37,6 +40,7 @@ inline unsigned int LoadTexture(const char* path)
 
     int width = ilGetInteger(IL_IMAGE_WIDTH);
     int height = ilGetInteger(IL_IMAGE_HEIGHT);
+    int bpp = ilGetInteger(IL_IMAGE_BPP);
     void* data = ilGetData();
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -44,6 +48,8 @@ inline unsigned int LoadTexture(const char* path)
 
     ilDeleteImages(1, &imageID);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    LOG("[DevIL] Textura cargada con éxito: %s (%dx%d, %d bpp, OpenGL ID: %u)", path, width, height, bpp, textureID);
 
     return textureID;
 }

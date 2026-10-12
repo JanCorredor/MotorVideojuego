@@ -17,31 +17,28 @@ Window::~Window()
 // Called before render is available
 bool Window::Awake()
 {
-	LOG("Init SDL window & surface");
+	LOG("[SDL3] Inicializando subsistema de video...");
 	
 	if (SDL_Init(SDL_INIT_VIDEO) != true)
 	{
-		LOG("SDL_VIDEO could not initialize! SDL_Error: %s\n", SDL_GetError());
+		LOG_ERROR("[SDL3] No se pudo inicializar SDL_VIDEO: %s", SDL_GetError());
 		return false;
 	}
 
-	//Open GL Config
+	int sdlVersion = SDL_GetVersion();
+	LOG("[SDL3] Inicializado correctamente (Versión SDL: %d.%d.%d)",
+		SDL_VERSIONNUM_MAJOR(sdlVersion), SDL_VERSIONNUM_MINOR(sdlVersion), SDL_VERSIONNUM_MICRO(sdlVersion));
+
+	// Open GL Config
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1); // we want a double buffer (it is the default)
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24); // we want to have a depth buffer with minimum 24 bits
-	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8); // we want to have a stencil buffer with minimum 8 bits
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
 	// Create window
 	Uint32 flags = SDL_WINDOW_OPENGL;
-
-	//window start params
-//#define WINDOW_FULLSCREEN
-#define WINDOW_RESIZEABLE
 
 #ifdef WINDOW_FULLSCREEN
 	flags |= SDL_WINDOW_FULLSCREEN;
@@ -54,53 +51,51 @@ bool Window::Awake()
 
 	if (window == NULL)
 	{
-		LOG("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+		LOG_ERROR("[SDL3] Error al crear ventana (%dx%d): %s", windowWidth, windowHeight, SDL_GetError());
 		return false;
 	}
 
-	//if (fullscreen_window == true) TODO
-	//{
-	//	SDL_SetWindowFullscreenMode(window, nullptr); // use desktop resolution
-	//	SDL_SetWindowFullscreen(window, true);
-	//}
+	LOG("[SDL3] Ventana creada con éxito (%dx%d, flags: 0x%X)", windowWidth, windowHeight, flags);
+
 	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	SDL_ShowWindow(window);
 
-	//Open GL context
+	// Open GL context
 	glContext = SDL_GL_CreateContext(window);
 
 	if (glContext == nullptr)
 	{
-		LOG("OpenGL context could not be created! SDL_Error: %s\n", SDL_GetError());
+		LOG_ERROR("[OpenGL] Error al crear contexto OpenGL: %s", SDL_GetError());
 
 		SDL_DestroyWindow(window);
 		window = nullptr;
-
 		SDL_Quit();
 
 		return false;
 	}
 
-	//VSync? SDL_GL_SetSwapInterval(vsync ? 1 : 0); TODO
+	LOG("[OpenGL] Contexto OpenGL 4.6 Core Profile creado exitosamente.");
 	SDL_GL_SetSwapInterval(1);
 
 	// Start GLAD (Load OpenGL Functions with GLAD)
+	LOG("[GLAD] Cargando punteros de funciones OpenGL...");
 	if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress)))
 	{
-		LOG("Failed to initialize GLAD\n");
+		LOG_ERROR("[GLAD] Fallo crítico al inicializar punteros GLAD con SDL_GL_GetProcAddress");
 
 		SDL_GL_DestroyContext(glContext);
 		glContext = nullptr;
-
 		SDL_DestroyWindow(window);
 		window = nullptr;
-
 		SDL_Quit();
 
 		return false;
 	}
 
-	LOG("OpenGL initialized: %s\n", glGetString(GL_VERSION));
+	LOG("[OpenGL] Driver detectado: %s", glGetString(GL_RENDERER));
+	LOG("[OpenGL] Fabricante: %s", glGetString(GL_VENDOR));
+	LOG("[OpenGL] Versión de OpenGL: %s", glGetString(GL_VERSION));
+	LOG("[OpenGL] Versión de Shading Language (GLSL): %s", glGetString(GL_SHADING_LANGUAGE_VERSION));
 
 	return true;
 }
@@ -141,9 +136,63 @@ void Window::GetWindowSize(int& width, int& height) const
 	SDL_GetWindowSize(window, &width, &height);
 }
 
+void Window::SetWindowSize(int width, int height)
+{
+	if (width >= 640 && height >= 480 && window != nullptr)
+	{
+		windowWidth = width;
+		windowHeight = height;
+		SDL_SetWindowSize(window, width, height);
+	}
+}
+
 int Window::GetScale() const
 {
 	return windowScale;
+}
+
+void Window::SetResizable(bool resizable)
+{
+	if (window != nullptr)
+	{
+		SDL_SetWindowResizable(window, resizable);
+	}
+}
+
+bool Window::IsResizable() const
+{
+	if (window != nullptr)
+	{
+		return (SDL_GetWindowFlags(window) & SDL_WINDOW_RESIZABLE) != 0;
+	}
+	return false;
+}
+
+void Window::SetBorderless(bool borderless)
+{
+	if (window != nullptr)
+	{
+		SDL_SetWindowBordered(window, !borderless);
+	}
+}
+
+bool Window::IsBorderless() const
+{
+	if (window != nullptr)
+	{
+		return (SDL_GetWindowFlags(window) & SDL_WINDOW_BORDERLESS) != 0;
+	}
+	return false;
+}
+
+const char* Window::GetTitle() const
+{
+	if (window != nullptr)
+	{
+		const char* t = SDL_GetWindowTitle(window);
+		if (t != nullptr) return t;
+	}
+	return title.c_str();
 }
 
 void Window::SetFullscreen(bool enabled, SDL_Renderer* renderer) 

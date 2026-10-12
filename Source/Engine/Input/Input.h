@@ -89,6 +89,8 @@ public:
 	void ClearMouseInput();
 	int GetMouseX() const { return mouseX; }
 	int GetMouseY() const { return mouseY; }
+	int GetMouseMotionX() const { return mouseMotionX; }
+	int GetMouseMotionY() const { return mouseMotionY; }
 
 	// UI Navigation - Nueva API simplificada
 	void UpdateUINavigation();

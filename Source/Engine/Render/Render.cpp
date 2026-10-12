@@ -102,28 +102,69 @@ bool Render::Start() {
 	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
 	glCompileShader(vertexShader);
 
+	int success;
+	char infoLog[512];
+	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+	if (!success) {
+		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+		LOG_ERROR("[OpenGL] Error compilando Vertex Shader: %s", infoLog);
+	} else {
+		LOG("[OpenGL] Vertex Shader compilado con éxito");
+	}
+
 	unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
 	glCompileShader(fragmentShader);
+
+	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+	if (!success) {
+		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+		LOG_ERROR("[OpenGL] Error compilando Fragment Shader: %s", infoLog);
+	} else {
+		LOG("[OpenGL] Fragment Shader compilado con éxito");
+	}
 
 	shaderProgram = glCreateProgram();
 	glAttachShader(shaderProgram, vertexShader);
 	glAttachShader(shaderProgram, fragmentShader);
 	glLinkProgram(shaderProgram);
 
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+		LOG_ERROR("[OpenGL] Error enlazando Shader Program: %s", infoLog);
+	} else {
+		LOG("[OpenGL] Shader Program enlazado exitosamente (Program ID: %u)", shaderProgram);
+	}
+
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
 	
 	int width, height;
 	Engine::GetInstance().window->GetWindowSize(width, height);
-	CreateFramebuffer(width > 0 ? width : 800, height > 0 ? height : 600);
+	viewportWidth = width > 0 ? width : 800;
+	viewportHeight = height > 0 ? height : 600;
+	CreateFramebuffer(viewportWidth, viewportHeight);
 
 	return true;
 }
 
+void Render::SetViewportSize(int width, int height)
+{
+	if (width > 0 && height > 0)
+	{
+		viewportWidth = width;
+		viewportHeight = height;
+	}
+}
 
 void Render::CreateFramebuffer(int width, int height)
 {
+	if (width <= 0 || height <= 0) return;
+
+	fboWidth = width;
+	fboHeight = height;
+
 	if (framebuffer != 0) {
 		glDeleteFramebuffers(1, &framebuffer);
 		glDeleteTextures(1, &textureColorbuffer);
@@ -144,8 +185,21 @@ void Render::CreateFramebuffer(int width, int height)
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		LOG("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+	GLenum fbStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (fbStatus != GL_FRAMEBUFFER_COMPLETE)
+	{
+		LOG_ERROR("[OpenGL] Framebuffer incompleto! (Código: 0x%X)", fbStatus);
+	}
+	else
+	{
+		static bool firstFboLogged = false;
+		if (!firstFboLogged)
+		{
+			LOG("[OpenGL] Framebuffer inicializado: %dx%d (FBO ID: %u, Textura ID: %u, RBO ID: %u)",
+				width, height, framebuffer, textureColorbuffer, rbo);
+			firstFboLogged = true;
+		}
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -155,7 +209,13 @@ bool Render::PreUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+	if (viewportWidth > 0 && viewportHeight > 0 && (viewportWidth != fboWidth || viewportHeight != fboHeight))
+	{
+		CreateFramebuffer(viewportWidth, viewportHeight);
+	}
+
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glViewport(0, 0, fboWidth > 0 ? fboWidth : 800, fboHeight > 0 ? fboHeight : 600);
 	glClearColor(
 		background.r / 255.0f,
 		background.g / 255.0f,
@@ -173,6 +233,26 @@ bool Render::Update(float dt)
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+	// Si el tamaño del viewport de ImGui cambió en este frame, recreamos el FBO inmediatamente
+	if (viewportWidth > 0 && viewportHeight > 0 && (viewportWidth != fboWidth || viewportHeight != fboHeight))
+	{
+		CreateFramebuffer(viewportWidth, viewportHeight);
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		glViewport(0, 0, fboWidth, fboHeight);
+		glClearColor(
+			background.r / 255.0f,
+			background.g / 255.0f,
+			background.b / 255.0f,
+			background.a / 255.0f
+		);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
+	else
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		glViewport(0, 0, fboWidth, fboHeight);
+	}
+
 	if (depthTestEnabled) glEnable(GL_DEPTH_TEST);
 	else glDisable(GL_DEPTH_TEST);
 
@@ -191,9 +271,7 @@ bool Render::Update(float dt)
 	glm::mat4 projection = glm::mat4(1.0f);
 
 	if (camera) {
-		int width, height;
-		Engine::GetInstance().window->GetWindowSize(width, height);
-		float aspectRatio = (height > 0) ? (float)width / (float)height : 1.0f;
+		float aspectRatio = (fboHeight > 0) ? (float)fboWidth / (float)fboHeight : 1.0f;
 
 		view = camera->GetViewMatrix();
 		projection = camera->GetProjectionMatrix(aspectRatio);
@@ -228,6 +306,10 @@ bool Render::Update(float dt)
 	// Unbind FBO and prepare default framebuffer for UI rendering
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
+	int winW, winH;
+	Engine::GetInstance().window->GetWindowSize(winW, winH);
+	glViewport(0, 0, winW > 0 ? winW : 800, winH > 0 ? winH : 600);
+
 	// Reset states that might affect ImGui
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glDisable(GL_DEPTH_TEST);
@@ -265,6 +347,13 @@ bool Render::CleanUp()
 void Render::SetBackgroundColor(SDL_Color color)
 {
 	background = color;
+}
+
+void Render::SetVSync(bool enabled)
+{
+	vsync = enabled;
+	SDL_GL_SetSwapInterval(enabled ? 1 : 0);
+	LOG("[OpenGL] V-Sync %s", enabled ? "Habilitado (1)" : "Deshabilitado (0)");
 }
 
 void Render::DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useTexLoc, int texLoc, const glm::mat4& parentMatrix)
@@ -310,18 +399,33 @@ void Render::DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useT
 
 void Render::ImportModel(std::string filePath)
 {
+	LOG("[Drag&Drop] Procesando archivo soltado en la ventana: %s", filePath.c_str());
+
 	// Check if file extension is compatible (FBX, OBJ, etc.)
 	if (filePath.find(".fbx") != std::string::npos ||
 		filePath.find(".FBX") != std::string::npos ||
-		filePath.find(".obj") != std::string::npos)
+		filePath.find(".obj") != std::string::npos ||
+		filePath.find(".OBJ") != std::string::npos)
 	{
+		LOG("[Drag&Drop] Formato de geometría 3D detectado. Iniciando importación...");
 		std::vector<std::unique_ptr<Component>> customComponents;
 
-		auto importedMesh = std::make_unique<MeshComponent>(nullptr, ModelLoader::LoadFBX(filePath));
-
-		customComponents.push_back(std::move(importedMesh));
-
-		Engine::GetInstance().scene->CreateNewGameObject(std::move(customComponents));
+		auto modelPrimitive = ModelLoader::LoadFBX(filePath);
+		if (modelPrimitive)
+		{
+			auto importedMesh = std::make_unique<MeshComponent>(nullptr, std::move(modelPrimitive));
+			customComponents.push_back(std::move(importedMesh));
+			Engine::GetInstance().scene->CreateNewGameObject(std::move(customComponents));
+			LOG("[Drag&Drop] GameObject creado en la escena con el modelo: %s", filePath.c_str());
+		}
+		else
+		{
+			LOG_ERROR("[Drag&Drop] Fallo al cargar la geometría del archivo: %s", filePath.c_str());
+		}
+	}
+	else
+	{
+		LOG_WARNING("[Drag&Drop] Archivo no soportado para importación de geometría: %s", filePath.c_str());
 	}
 
 	// Clean up drag & drop event

@@ -14,6 +14,16 @@
 #include "../Utils/PerfTimer.h"
 
 #include <tracy/Tracy.hpp>
+#include <glad/glad.h>
+#include <IL/il.h>
+#include <assimp/version.h>
+#include <imgui.h>
+
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#include <psapi.h>
+#endif
 
 // Constructor
 Engine::Engine() 
@@ -84,20 +94,19 @@ bool Engine::Awake() {
     bool result = true;
     for (const auto& module : moduleList) 
     {
-        // Call the LoadParameters function for each module
-		//module->LoadParameters(configFile.child("config").child(module.get()->name.c_str()));
-        result =  module->Awake();
+        LOG("[Engine] Inicializando módulo: %s (Awake)", module->name.c_str());
+        result = module->Awake();
 
         if (!result) {
-			break;
-		}
+            LOG_ERROR("[Engine] Falló la inicialización (Awake) del módulo: %s", module->name.c_str());
+            break;
+        }
     }
 
     // Log the result of the timer
-	LOG("Timer App Awake(): %f", timer.ReadMSec());
+    LOG("Timer App Awake(): %f ms", timer.ReadMSec());
 
-    //return result;
-    return 1;
+    return result;
 
 }
 
@@ -112,15 +121,20 @@ bool Engine::Start() {
     // Iterates the module list and calls Start on each module
     bool result = true;
     for (const auto& module : moduleList) {
+        LOG("[Engine] Arrancando módulo: %s (Start)", module->name.c_str());
         result = module->Start();
         if (!result) {
+            LOG_ERROR("[Engine] Falló el arranque (Start) del módulo: %s", module->name.c_str());
             break;
         }
     }
 
     // Log the result of the timer
-	LOG("Timer App CleanUp(): %f", timer.ReadMSec());
+    LOG("Timer App Start(): %f ms", timer.ReadMSec());
 	
+    QueryHardwareMetrics();
+    UpdateMemoryMetrics();
+
     return result;
 }
 
@@ -157,17 +171,18 @@ bool Engine::CleanUp() {
 
     LOG("Engine::CleanUp");
 
-    // Iterates the module list and calls CleanUp on each module
+    // Iterates the module list in reverse order and calls CleanUp on each module
     bool result = true;
-    for (const auto& module : moduleList) {
-        result = module->CleanUp();
-        if (!result) {
-            break;
+    for (auto it = moduleList.rbegin(); it != moduleList.rend(); ++it) {
+        LOG("[Engine] Limpiando módulo: %s (CleanUp)", (*it)->name.c_str());
+        if (!(*it)->CleanUp()) {
+            LOG_ERROR("[Engine] Falló la limpieza (CleanUp) del módulo: %s", (*it)->name.c_str());
+            result = false;
         }
     }
 
     // Log the result of the timer
-	LOG("Timer App CleanUp(): %f", timer.ReadMSec());
+    LOG("Timer App CleanUp(): %f ms", timer.ReadMSec());
 
     return result;
 }
@@ -233,6 +248,39 @@ void Engine::FinishUpdate()
     std::string titleStr = ss.str();
 
     window.get()->SetTitle(titleStr.c_str());
+
+    // Update performance data for editor telemetry & monitoring
+    performanceData.totalFrames = frameCount;
+    performanceData.uptimeSeconds = (float)secondsSinceStartup;
+    performanceData.currentMs = dt;
+    performanceData.currentFps = (dt > 0.0f) ? (1000.0f / dt) : 0.0f;
+
+    // Push into circular buffer
+    performanceData.fpsHistory[performanceData.historyIndex] = performanceData.currentFps;
+    performanceData.msHistory[performanceData.historyIndex] = performanceData.currentMs;
+    performanceData.historyIndex = (performanceData.historyIndex + 1) % PerformanceData::HISTORY_CAPACITY;
+
+    // Calculate min, max, avg (skipping startup warmup frames)
+    if (frameCount > 10)
+    {
+        if (performanceData.minFps == 0.0f || (performanceData.currentFps > 0.0f && performanceData.currentFps < performanceData.minFps))
+            performanceData.minFps = performanceData.currentFps;
+        if (performanceData.currentFps > performanceData.maxFps)
+            performanceData.maxFps = performanceData.currentFps;
+
+        if (performanceData.minMs == 0.0f || (performanceData.currentMs > 0.0f && performanceData.currentMs < performanceData.minMs))
+            performanceData.minMs = performanceData.currentMs;
+        if (performanceData.currentMs > performanceData.maxMs)
+            performanceData.maxMs = performanceData.currentMs;
+    }
+    performanceData.avgFps = averageFps;
+    performanceData.avgMs = (averageFps > 0.0f) ? (1000.0f / averageFps) : 0.0f;
+
+    // Periodically update process memory (every 60 frames to minimize OS call overhead)
+    if (frameCount % 60 == 0)
+    {
+        UpdateMemoryMetrics();
+    }
 }
 
 
@@ -311,6 +359,94 @@ bool Engine::LoadConfig()
     //}
 
     return ret;
+}
+
+void Engine::QueryHardwareMetrics()
+{
+	// CPU
+	hardwareMetrics.cpuCores = SDL_GetNumLogicalCPUCores();
+	hardwareMetrics.systemRamMB = SDL_GetSystemRAM();
+	hardwareMetrics.cpuCacheLineSize = SDL_GetCPUCacheLineSize();
+	hardwareMetrics.hasAVX = SDL_HasAVX();
+	hardwareMetrics.hasAVX2 = SDL_HasAVX2();
+	hardwareMetrics.hasAVX512 = SDL_HasAVX512F();
+	hardwareMetrics.hasSSE = SDL_HasSSE();
+	hardwareMetrics.hasSSE2 = SDL_HasSSE2();
+	hardwareMetrics.hasSSE3 = SDL_HasSSE3();
+	hardwareMetrics.hasSSE41 = SDL_HasSSE41();
+	hardwareMetrics.hasSSE42 = SDL_HasSSE42();
+
+	// GPU
+	const char* vendor = (const char*)glGetString(GL_VENDOR);
+	hardwareMetrics.gpuVendor = vendor ? vendor : "Desconocido";
+
+	const char* renderer = (const char*)glGetString(GL_RENDERER);
+	hardwareMetrics.gpuRenderer = renderer ? renderer : "Desconocido";
+
+	const char* ver = (const char*)glGetString(GL_VERSION);
+	hardwareMetrics.gpuVersion = ver ? ver : "Desconocido";
+
+	const char* glsl = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+	hardwareMetrics.glslVersion = glsl ? glsl : "Desconocido";
+
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &hardwareMetrics.maxTextureSize);
+	glGetIntegerv(GL_MAX_VIEWPORT_DIMS, hardwareMetrics.maxViewportDims);
+
+	// Dedicated VRAM query (NVIDIA NVX / AMD ATI extension)
+	GLint totalMemKb = 0;
+	GLint curAvailMemKb = 0;
+	// GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX 0x9048
+	glGetIntegerv(0x9048, &totalMemKb);
+	// GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX 0x9049
+	glGetIntegerv(0x9049, &curAvailMemKb);
+
+	if (totalMemKb > 0)
+	{
+		hardwareMetrics.vramTotalMB = totalMemKb / 1024;
+		hardwareMetrics.vramAvailableMB = curAvailMemKb / 1024;
+	}
+	else
+	{
+		// AMD ATI extension: GL_VBO_FREE_MEMORY_ATI 0x87FB
+		GLint atiMem[4] = { 0 };
+		glGetIntegerv(0x87FB, atiMem);
+		if (atiMem[0] > 0)
+		{
+			hardwareMetrics.vramAvailableMB = atiMem[0] / 1024;
+			hardwareMetrics.vramTotalMB = hardwareMetrics.vramAvailableMB;
+		}
+	}
+
+	// OS & Libraries
+	const char* platform = SDL_GetPlatform();
+	hardwareMetrics.osPlatform = platform ? platform : "Desconocido";
+
+	int sdlVer = SDL_GetVersion();
+	hardwareMetrics.sdlVersion = std::to_string(SDL_VERSIONNUM_MAJOR(sdlVer)) + "." +
+		std::to_string(SDL_VERSIONNUM_MINOR(sdlVer)) + "." +
+		std::to_string(SDL_VERSIONNUM_MICRO(sdlVer));
+
+	hardwareMetrics.openglVersion = hardwareMetrics.gpuVersion;
+
+	hardwareMetrics.devilVersion = std::to_string(ilGetInteger(IL_VERSION_NUM));
+
+	hardwareMetrics.assimpVersion = std::to_string(aiGetVersionMajor()) + "." +
+		std::to_string(aiGetVersionMinor()) + "." +
+		std::to_string(aiGetVersionRevision());
+
+	hardwareMetrics.imguiVersion = IMGUI_VERSION;
+}
+
+void Engine::UpdateMemoryMetrics()
+{
+#ifdef _WIN32
+	PROCESS_MEMORY_COUNTERS_EX pmc;
+	if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)))
+	{
+		performanceData.memoryUsageMB = (size_t)(pmc.WorkingSetSize / (1024 * 1024));
+		performanceData.peakMemoryUsageMB = (size_t)(pmc.PeakWorkingSetSize / (1024 * 1024));
+	}
+#endif
 }
 
 

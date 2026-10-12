@@ -183,11 +183,9 @@ void CameraComponent::PerformRaycast(float mX, float mY, float width, float heig
     // Coordenadas de Clip y Eye
     glm::vec4 ray_clip = glm::vec4(x, y, -1.0f, 1.0f);
 
-    // Obtenemos la resolución de la ventana principal (que es la que usa Render.cpp para dibujar)
-    // para mantener el Aspect Ratio intacto, en lugar de usar el Aspect Ratio del panel de ImGui.
-    int winWidth, winHeight;
-    Engine::GetInstance().window->GetWindowSize(winWidth, winHeight);
-    float aspectRatio = (winHeight > 0) ? (float)winWidth / (float)winHeight : 1.0f;
+    // Usamos el Aspect Ratio real del panel Scene de ImGui (width / height)
+    // para que la proyección del rayo coincida exactamente con la proyección de renderizado
+    float aspectRatio = (height > 0.0f) ? (width / height) : 1.0f;
 
     glm::mat4 projection = GetProjectionMatrix(aspectRatio);
 
