@@ -29,6 +29,8 @@ public:
 	// Called before quitting
 	bool CleanUp();
 
+	void CreateNewGameObject(vector<std::unique_ptr<Component>> objComponents);
+
 	GameObject* GetRoot() { return &sceneRoot; }
 	GameObject* GetMainCameraObject() const { return mainCameraPtr; }
 

@@ -121,6 +121,7 @@ bool Render::Start() {
 	return true;
 }
 
+
 void Render::CreateFramebuffer(int width, int height)
 {
 	if (framebuffer != 0) {
@@ -221,32 +222,7 @@ bool Render::Update(float dt)
     if (Engine::GetInstance().input->HasDroppedFile()) {
         std::string filePath = Engine::GetInstance().input->GetDroppedFilePath();
 
-        // Check if file extension is compatible (FBX, OBJ, etc.)
-        if (filePath.find(".fbx") != std::string::npos || 
-            filePath.find(".FBX") != std::string::npos ||
-            filePath.find(".obj") != std::string::npos) 
-        {
-            // CleanUp last model if it exists
-            loadedModel.reset(); 
-
-            // Load new model
-            loadedModel = ModelLoader::LoadFBX(filePath);
-        }
-
-        // Clean up drag & drop event
-        Engine::GetInstance().input->ClearDroppedFile();
-    }
-
-    // Draw model
-    if (loadedModel) {
-        glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(0.01f)); // Adjust scale
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
-        
-        // Assign default color/texture
-        glUniform3f(glGetUniformLocation(shaderProgram, "uColor"), 0.8f, 0.8f, 0.8f);
-        glUniform1i(glGetUniformLocation(shaderProgram, "uUseTexture"), false);
-        
-        loadedModel->Draw();
+		ImportModel(filePath);
     }
 
 	// Unbind FBO and prepare default framebuffer for UI rendering
@@ -330,4 +306,24 @@ void Render::DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useT
 	for (GameObject* child : go->GetChildren()) {
 		DrawGameObject(child, modelLoc, colorLoc, useTexLoc, texLoc, globalMatrix);
 	}
+}
+
+void Render::ImportModel(std::string filePath)
+{
+	// Check if file extension is compatible (FBX, OBJ, etc.)
+	if (filePath.find(".fbx") != std::string::npos ||
+		filePath.find(".FBX") != std::string::npos ||
+		filePath.find(".obj") != std::string::npos)
+	{
+		std::vector<std::unique_ptr<Component>> customComponents;
+
+		auto importedMesh = std::make_unique<MeshComponent>(nullptr, ModelLoader::LoadFBX(filePath));
+
+		customComponents.push_back(std::move(importedMesh));
+
+		Engine::GetInstance().scene->CreateNewGameObject(std::move(customComponents));
+	}
+
+	// Clean up drag & drop event
+	Engine::GetInstance().input->ClearDroppedFile();
 }

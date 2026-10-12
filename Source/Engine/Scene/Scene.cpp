@@ -8,6 +8,7 @@
 #include "GameObjects/Components/CameraComponent.h"
 #include "../Render/Primitives/GeometryGenerator.h"
 
+#include <unordered_set>
 
 #include <tracy/Tracy.hpp>
 
@@ -114,4 +115,48 @@ bool Scene::CleanUp()
 {
 
 	return true;
+}
+
+void Scene::CreateNewGameObject(vector<std::unique_ptr<Component>> objComponents)
+{
+	auto newObj = std::make_unique<GameObject>("NewGameObject");
+
+	std::unordered_set<ComponentType> presentTypes;
+
+	// Trasfer all components given
+	for (auto& comp : objComponents)
+	{
+		if (comp)
+		{
+			presentTypes.insert(comp->GetType());
+			newObj->AddComponent(std::move(comp));
+		}
+	}
+
+	// TransformComponent: 0,0,0 Default
+	if (presentTypes.find(COMPONENT_TRANSFORM) == presentTypes.end())
+	{
+		auto newTrans = std::make_unique<TransformComponent>(newObj.get());
+		newTrans->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+		newObj->AddComponent(std::move(newTrans));
+	}
+
+	// MeshComponent: Cube is default
+	if (presentTypes.find(COMPONENT_MESH) == presentTypes.end())
+	{
+		auto newMesh = std::make_unique<MeshComponent>(newObj.get(), GeometryGenerator::CreateCube(1.0f));
+		newObj->AddComponent(std::move(newMesh));
+	}
+
+	// MaterialComponent: Default Material: Color is red
+	if (presentTypes.find(COMPONENT_MATERIAL) == presentTypes.end())
+	{
+		auto cubeMat = std::make_unique<MaterialComponent>(newObj.get());
+		cubeMat->SetColor(glm::vec3(1.0f, 0.2f, 0.2f));
+		cubeMat->SetUseTexture(false);
+		newObj->AddComponent(std::move(cubeMat));
+	}
+
+	sceneRoot.AddChild(newObj.get());
+	sceneEntities.push_back(std::move(newObj));
 }

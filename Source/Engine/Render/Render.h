@@ -51,6 +51,8 @@ public:
 
 	unsigned int GetSceneTexture() const { return textureColorbuffer; }
 
+	void ImportModel(std::string filePath);
+
 private:
 	SDL_Color background;
 
@@ -63,8 +65,6 @@ private:
 	unsigned int shaderProgram;
 
 	//Scene
-	std::unique_ptr<Primitive> loadedModel = nullptr;
-
 	void DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useTexLoc, int texLoc, const glm::mat4& parentMatrix);
 
 };
