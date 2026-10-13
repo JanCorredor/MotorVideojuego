@@ -139,7 +139,10 @@ bool ModuleUI::Update(float dt)
 	{
 		if (ImGui::BeginMenu("File"))
 		{
-			ImGui::MenuItem("Exit", nullptr, &ret); //TODO IS NOT TOGGLE
+			if (ImGui::SmallButton("GitHub Documentation"))
+			{
+				ret = false;
+			}
 			ImGui::EndMenu();
 		}
 
@@ -159,12 +162,22 @@ bool ModuleUI::Update(float dt)
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::BeginMenu("Help")) //TODO MAKE BUTTONS WORK
+		if (ImGui::BeginMenu("Help")) 
 		{
-			ImGui::MenuItem("GitHub Documentation", nullptr, ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego", 0, 0, SW_SHOW));
-			ImGui::MenuItem("Report Bug", nullptr, ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/issues", 0, 0, SW_SHOW));
-			ImGui::MenuItem("Download Latest", nullptr, ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/releases", 0, 0, SW_SHOW));
-			ImGui::MenuItem("About", nullptr, &ret);
+			if (ImGui::SmallButton("GitHub Documentation"))
+			{
+				ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego", 0, 0, SW_SHOW);
+			}
+			if (ImGui::SmallButton("Report Bug"))
+			{
+				ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/issues", 0, 0, SW_SHOW);
+			}
+			if (ImGui::SmallButton("Download Latest"))
+			{
+				ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/releases", 0, 0, SW_SHOW);
+			}
+
+			ImGui::MenuItem("About", nullptr, &ret);//TODO MAKE BUTTON WORK
 
 			ImGui::EndMenu();
 		}
