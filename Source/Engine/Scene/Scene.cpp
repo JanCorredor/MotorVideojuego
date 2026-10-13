@@ -152,11 +152,11 @@ void Scene::CreateNewGameObject(vector<std::unique_ptr<Component>> objComponents
 		newObj->AddComponent(std::move(newMesh));
 	}
 
-	// MaterialComponent: Default Material: Color is red
+	// MaterialComponent: Default Material: Color is White
 	if (presentTypes.find(COMPONENT_MATERIAL) == presentTypes.end())
 	{
 		auto cubeMat = std::make_unique<MaterialComponent>(newObj.get());
-		cubeMat->SetColor(glm::vec3(1.0f, 0.2f, 0.2f));
+		cubeMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
 		cubeMat->SetUseTexture(false);
 		newObj->AddComponent(std::move(cubeMat));
 	}

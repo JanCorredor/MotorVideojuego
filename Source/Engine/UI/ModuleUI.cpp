@@ -23,6 +23,12 @@
 #include "../../Utils/Log.h"
 #include <algorithm>
 
+//Open Browser
+#include <windows.h>
+#include <shellapi.h>
+
+
+
 #include <tracy/Tracy.hpp>
 
 // Helper para alinear etiquetas y campos vec3 uniformemente en tablas
@@ -116,6 +122,8 @@ bool ModuleUI::Update(float dt)
 #endif
 	CheckDroppedFile();
 
+	bool ret = true;
+
 	// --- Sincronizar selección desde la cámara (Raycast) hacia la UI ---
 	GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
 	if (mainCamera) {
@@ -129,7 +137,13 @@ bool ModuleUI::Update(float dt)
 	// Barra de menú principal
 	if (ImGui::BeginMainMenuBar())
 	{
-		if (ImGui::BeginMenu("Window"))
+		if (ImGui::BeginMenu("File"))
+		{
+			ImGui::MenuItem("Exit", nullptr, &ret); //TODO IS NOT TOGGLE
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("View"))
 		{
 			ImGui::MenuItem("Scene", nullptr, &showScene);
 			ImGui::MenuItem("Hierarchy", nullptr, &showHierarchy);
@@ -144,6 +158,20 @@ bool ModuleUI::Update(float dt)
 			}
 			ImGui::EndMenu();
 		}
+
+		if (ImGui::BeginMenu("Help")) //TODO MAKE BUTTONS WORK
+		{
+			ImGui::MenuItem("GitHub Documentation", nullptr, ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego", 0, 0, SW_SHOW));
+			ImGui::MenuItem("Report Bug", nullptr, ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/issues", 0, 0, SW_SHOW));
+			ImGui::MenuItem("Download Latest", nullptr, ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/releases", 0, 0, SW_SHOW));
+			ImGui::MenuItem("About", nullptr, &ret);
+
+			ImGui::EndMenu();
+		}
+
+
+
+
 		ImGui::EndMainMenuBar();
 	}
 
@@ -356,7 +384,7 @@ bool ModuleUI::Update(float dt)
 		DrawConsolePanel();
 	}
 
-	return true;
+	return ret;
 }
 
 void ModuleUI::DrawHierarchyNode(GameObject* node)
