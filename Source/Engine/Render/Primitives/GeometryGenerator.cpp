@@ -112,32 +112,45 @@ std::unique_ptr<Primitive> GeometryGenerator::CreateSphere(float radius, unsigne
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    float const R = 1.0f / (float)(rings - 1);
-    float const S = 1.0f / (float)(sectors - 1);
+    float const R = 1.0f / (float)(rings);
+    float const S = 1.0f / (float)(sectors);
 
-    for (unsigned int r = 0; r < rings; ++r) {
-        for (unsigned int s = 0; s < sectors; ++s) {
-            float y = sin(-glm::half_pi<float>() + glm::pi<float>() * r * R);
-            float x = cos(2 * glm::pi<float>() * s * S) * sin(glm::pi<float>() * r * R);
-            float z = sin(2 * glm::pi<float>() * s * S) * sin(glm::pi<float>() * r * R);
+    for (unsigned int r = 0; r <= rings; ++r) {
+        float const phi = -glm::half_pi<float>() + glm::pi<float>() * r * R; // -PI/2 to PI/2
+        float const y = std::sin(phi);
+        float const ringRadius = std::cos(phi); 
+
+        for (unsigned int s = 0; s <= sectors; ++s) {
+            float const theta = 2.0f * glm::pi<float>() * s * S; // 0 to 2*PI
+            float const x = ringRadius * std::cos(theta);
+            float const z = ringRadius * std::sin(theta);
 
             Vertex v;
             v.position = glm::vec3(x, y, z) * radius;
-            v.normal = glm::vec3(x, y, z);
+            v.normal = glm::vec3(x, y, z); // Outward pointing normal
             v.texCoords = glm::vec2(s * S, r * R);
             vertices.push_back(v);
         }
     }
 
-    for (unsigned int r = 0; r < rings - 1; ++r) {
-        for (unsigned int s = 0; s < sectors - 1; ++s) {
-            indices.push_back(r * sectors + s);
-            indices.push_back(r * sectors + (s + 1));
-            indices.push_back((r + 1) * sectors + (s + 1));
+    // Generate Indices with Counter-Clockwise (CCW) winding
+    unsigned int const stride = sectors + 1;
+    for (unsigned int r = 0; r < rings; ++r) {
+        for (unsigned int s = 0; s < sectors; ++s) {
+            unsigned int current = r * stride + s;
+            unsigned int next = r * stride + (s + 1);
+            unsigned int bottom = (r + 1) * stride + s;
+            unsigned int bottomNext = (r + 1) * stride + (s + 1);
 
-            indices.push_back(r * sectors + s);
-            indices.push_back((r + 1) * sectors + (s + 1));
-            indices.push_back((r + 1) * sectors + s);
+            // First triangle (CCW)
+            indices.push_back(current);
+            indices.push_back(bottomNext);
+            indices.push_back(next);
+
+            // Second triangle (CCW)
+            indices.push_back(current);
+            indices.push_back(bottom);
+            indices.push_back(bottomNext);
         }
     }
 
