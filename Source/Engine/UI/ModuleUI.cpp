@@ -381,6 +381,7 @@ bool ModuleUI::Update(float dt)
 			ImGui::Checkbox("Cull Face", &Engine::GetInstance().render->cullFaceEnabled);
 			ImGui::Checkbox("Lighting", &Engine::GetInstance().render->lightingEnabled);
 			ImGui::Checkbox("Wireframe Mode", &Engine::GetInstance().render->wireframeMode);
+			ImGui::Checkbox("Draw Normals", &Engine::GetInstance().render->showNormals);
 		}
 		ImGui::End();
 	}
@@ -851,17 +852,6 @@ void ModuleUI::DrawConfigurationPanel()
 				auto rnd = Engine::GetInstance().render;
 
 				ImGui::SeparatorText("Opciones Gráficas en Tiempo Real");
-
-				bool vsync = rnd->GetVSync();
-				if (ImGui::Checkbox("V-Sync (Sincronización Vertical)", &vsync))
-				{
-					rnd->SetVSync(vsync);
-				}
-
-				ImGui::Checkbox("Depth Test (Prueba de Profundidad)", &rnd->depthTestEnabled);
-				ImGui::Checkbox("Cull Face (Descarte de Caras Traseras)", &rnd->cullFaceEnabled);
-				ImGui::Checkbox("Lighting (Iluminación básica)", &rnd->lightingEnabled);
-				ImGui::Checkbox("Wireframe Mode (Modo Alambre)", &rnd->wireframeMode);
 
 				ImGui::Spacing();
 				SDL_Color bg = rnd->GetBackgroundColor();

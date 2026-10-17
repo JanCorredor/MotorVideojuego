@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./Components/Component.h"
+#include "../../../Utils/UUID.h"
 
 #include <vector>
 #include <string>
@@ -8,11 +8,15 @@
 
 using namespace std;
 
+class Component;
+
 class GameObject
 {
 public:
-	GameObject(const string& name = "GameObject");
+	GameObject(const string& name = "GameObject", GameUUID uuid = GameUUID());
 	~GameObject();
+
+	GameUUID GetUUID() const { return uuid; }
 
 	void Update(float dt);
 
@@ -43,6 +47,8 @@ public:
 	void Disable() { this->active = false; }
 
 private:
+	GameUUID uuid; //Unique Identifier
+
 	bool active = true;
 	string name;
 	vector<std::unique_ptr<Component>> objComponents;

@@ -1,5 +1,15 @@
 #include "Render.h"
 
+//GLM Math Library
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+//3DModels
+#include "3DModels/ModelLoader.h"
+
+#include "../Scene/GameObjects/GameObject.h"
+
+//////////////////////////
 #include "../Engine.h"
 #include "../Window/Window.h"
 #include "../Input/Input.h"
@@ -140,6 +150,41 @@ bool Render::Start() {
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
 	
+	/////////////////////  Line Shader /////////////////////////////////////////////////////////////////
+	const char* lineVS = "#version 460 core\n"
+		"layout (location = 0) in vec3 aPos;\n"
+		"uniform mat4 view;\n"
+		"uniform mat4 projection;\n"
+		"void main()\n"
+		"{\n"
+		"   gl_Position = projection * view * vec4(aPos, 1.0);\n"
+		"}\0";
+
+	const char* lineFS = "#version 460 core\n"
+		"out vec4 FragColor;\n"
+		"uniform vec3 uLineColor;\n"
+		"void main()\n"
+		"{\n"
+		"   FragColor = vec4(uLineColor, 1.0);\n"
+		"}\0";
+
+	unsigned int lVS = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(lVS, 1, &lineVS, NULL);
+	glCompileShader(lVS);
+
+	unsigned int lFS = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(lFS, 1, &lineFS, NULL);
+	glCompileShader(lFS);
+
+	lineShaderProgram = glCreateProgram();
+	glAttachShader(lineShaderProgram, lVS);
+	glAttachShader(lineShaderProgram, lFS);
+	glLinkProgram(lineShaderProgram);
+
+	glDeleteShader(lVS);
+	glDeleteShader(lFS);
+	//////////////////////////////////////////////////////////////////////////////////////////////
+
 	int width, height;
 	Engine::GetInstance().window->GetWindowSize(width, height);
 	viewportWidth = width > 0 ? width : 800;
@@ -294,6 +339,11 @@ bool Render::Update(float dt)
 	if (root)
 	{
 		DrawGameObject(root, modelLoc, colorLoc, useTexLoc, texLoc, glm::mat4(1.0f));
+		
+		if (showNormals)
+		{
+			DrawNormals(root, view, projection, glm::mat4(1.0f));
+		}
 	}
 
 	// Check if file has been dropped in the window
@@ -396,6 +446,87 @@ void Render::DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useT
 		DrawGameObject(child, modelLoc, colorLoc, useTexLoc, texLoc, globalMatrix);
 	}
 }
+
+void Render::DrawNormals(GameObject* go, const glm::mat4& view, const glm::mat4& projection, const glm::mat4& parentMatrix)
+{
+	if (!go || !go->IsActive()) return;
+
+	// 1. Calcular la matriz global del objeto en el espacio de mundo
+	glm::mat4 globalMatrix = parentMatrix;
+	TransformComponent* transform = go->GetComponent<TransformComponent>();
+	if (transform) {
+		globalMatrix = parentMatrix * transform->GetLocalModelMatrix();
+	}
+
+	MeshComponent* mesh = go->GetComponent<MeshComponent>();
+	if (mesh && mesh->GetPrimitive()) {
+		Primitive* prim = mesh->GetPrimitive();
+		const auto& vertices = prim->GetVertices();
+
+		if (!vertices.empty())
+		{
+			std::vector<float> lineBuffer;
+			lineBuffer.reserve(vertices.size() * 6);
+
+			float normalLength = 0.25f; // How long normals are
+
+			// Matriz para transformar la normal correctamente al espacio de mundo (sin escalas deformadas)
+			glm::mat3 normalMatrix = glm::mat3(glm::transpose(glm::inverse(globalMatrix)));
+
+			for (const auto& v : vertices)
+			{
+				// Transformar posición y normal directamente al espacio de mundo (World Space)
+				glm::vec3 worldPos = glm::vec3(globalMatrix * glm::vec4(v.position, 1.0f));
+				glm::vec3 worldNormal = glm::normalize(normalMatrix * v.normal);
+				glm::vec3 endPos = worldPos + worldNormal * normalLength;
+
+				// Punto Origen de la línea (en el vértice de la figura)
+				lineBuffer.push_back(worldPos.x);
+				lineBuffer.push_back(worldPos.y);
+				lineBuffer.push_back(worldPos.z);
+
+				// Punto Destino de la línea (siguiendo la dirección de la normal)
+				lineBuffer.push_back(endPos.x);
+				lineBuffer.push_back(endPos.y);
+				lineBuffer.push_back(endPos.z);
+			}
+
+			// Renderizado con el Shader de Líneas simples
+			glUseProgram(lineShaderProgram);
+
+			glUniformMatrix4fv(glGetUniformLocation(lineShaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+			glUniformMatrix4fv(glGetUniformLocation(lineShaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+			glUniform3f(glGetUniformLocation(lineShaderProgram, "uLineColor"), 1.0f, 1.0f, 0.0f); // Color Amarillo brillante
+
+			unsigned int lVAO, lVBO;
+			glGenVertexArrays(1, &lVAO);
+			glGenBuffers(1, &lVBO);
+
+			glBindVertexArray(lVAO);
+			glBindBuffer(GL_ARRAY_BUFFER, lVBO);
+			glBufferData(GL_ARRAY_BUFFER, lineBuffer.size() * sizeof(float), lineBuffer.data(), GL_DYNAMIC_DRAW);
+
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+			// Dibujar todas las líneas de golpe en un solo comando
+			glLineWidth(2.0f);
+			glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(lineBuffer.size() / 3));
+
+			// Limpieza
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glDeleteBuffers(1, &lVBO);
+			glDeleteVertexArrays(1, &lVAO);
+		}
+	}
+
+	// Recorrer los hijos recursivamente
+	for (GameObject* child : go->GetChildren()) {
+		DrawNormals(child, view, projection, globalMatrix);
+	}
+}
+
 
 void Render::ImportModel(std::string filePath)
 {

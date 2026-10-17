@@ -165,5 +165,27 @@ void Scene::CreateNewGameObject(vector<std::unique_ptr<Component>> objComponents
 	sceneRoot.AddChild(newObj.get());
 	sceneEntities.push_back(std::move(newObj));
 
-	LOG("[Scene] GameObject '%s' registrado en la escena (Total entidades: %zu)", objName.c_str(), sceneEntities.size());
+	LOG("[Scene] NewGameObject '%s' has been created (Total GameObjects: %zu)", objName.c_str(), sceneEntities.size());
+}
+
+void Scene::CreateEmptyGameObject()
+{
+	auto newObj = std::make_unique<GameObject>("NewGameObject");
+
+	auto newTrans = std::make_unique<TransformComponent>(newObj.get());
+	newTrans->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+	newObj->AddComponent(std::move(newTrans));
+
+	std::string objName = newObj->GetName();
+	sceneRoot.AddChild(newObj.get());
+	sceneEntities.push_back(std::move(newObj));
+
+	LOG("[Scene] EmptyGameObject '%s' has been created (Total GameObjects: %zu)", objName.c_str(), sceneEntities.size());
+}
+
+void Scene::DuplicateGameObject(GameObject object) ////////TO DO
+{
+	auto newObj = std::make_unique<GameObject>(object.GetName());
+	
+
 }

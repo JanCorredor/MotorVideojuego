@@ -1,7 +1,11 @@
 #pragma once
-#include "../Render/Render.h"
+
 #include "Component.h"
+
+#include "../../../Render/Texture/TextureLoader.h"
 #include <glm/glm.hpp>
+
+class GameObject;
 
 class MaterialComponent : public Component
 {

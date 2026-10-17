@@ -30,6 +30,8 @@ public:
 	bool CleanUp();
 
 	void CreateNewGameObject(vector<std::unique_ptr<Component>> objComponents);
+	void CreateEmptyGameObject();
+	void DuplicateGameObject(GameObject object);
 
 	GameObject* GetRoot() { return &sceneRoot; }
 	GameObject* GetMainCameraObject() const { return mainCameraPtr; }

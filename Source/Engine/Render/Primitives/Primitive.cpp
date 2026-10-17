@@ -1,4 +1,6 @@
 #include "Primitive.h"
+#include <glad/glad.h>
+
 
 Primitive::~Primitive() 
 {
@@ -7,8 +9,10 @@ Primitive::~Primitive()
     if (EBO != 0) glDeleteBuffers(1, &EBO);
 }
 
-void Primitive::Init(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices) 
+void Primitive::Init(const std::vector<Vertex>& verts, const std::vector<unsigned int>& indices)
 {
+    this->vertices = verts;
+
     indexCount = static_cast<unsigned int>(indices.size());
 
     glGenVertexArrays(1, &VAO);

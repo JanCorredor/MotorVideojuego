@@ -1,8 +1,10 @@
 #include "GameObject.h"
 
+#include "./Components/Component.h"
+
 #include <tracy/Tracy.hpp>
 
-GameObject::GameObject(const string& name) : name(name), parent(nullptr) 
+GameObject::GameObject(const string& name, GameUUID id) : name(name), parent(nullptr)
 {
 }
 

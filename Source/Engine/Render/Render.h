@@ -1,21 +1,11 @@
 #pragma once
 
 #include "../Module.h"
+
 #include "SDL3/SDL.h"
-
-//GLM Math Library
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
-//Basic Geometry
-#include "Primitives/GeometryGenerator.h"
-#include "Texture/TextureLoader.h"
-
-//3DModels
-#include "3DModels/ModelLoader.h"
-
-#include "../Scene/GameObjects/GameObject.h"
+class GameObject;
 
 class Render : public Module
 {
@@ -49,8 +39,9 @@ public:
 	bool cullFaceEnabled = true;
 	bool lightingEnabled = true;
 	bool wireframeMode = false;
+	bool showNormals = false;
+	
 	bool vsync = true;
-
 	void SetVSync(bool enabled);
 	bool GetVSync() const { return vsync; }
 
@@ -78,8 +69,9 @@ private:
 
 	unsigned int VBO, VAO, EBO;
 	unsigned int shaderProgram;
+	unsigned int lineShaderProgram = 0;
 
 	//Scene
 	void DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useTexLoc, int texLoc, const glm::mat4& parentMatrix);
-
+	void DrawNormals(GameObject* go, const glm::mat4& view, const glm::mat4& projection, const glm::mat4& parentMatrix);
 };
