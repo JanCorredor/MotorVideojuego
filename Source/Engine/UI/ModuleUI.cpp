@@ -137,6 +137,28 @@ bool ModuleUI::PreUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+	SDL_Window* sdlWindow = Engine::GetInstance().window->GetWindow();
+	bool relativeMouse = (sdlWindow != nullptr) && SDL_GetWindowRelativeMouseMode(sdlWindow);
+
+	ImGuiIO& io = ImGui::GetIO();
+	if (relativeMouse)
+	{
+		ImGui_ImplSDL3_SetMouseCaptureMode(ImGui_ImplSDL3_MouseCaptureMode_Disabled);
+		io.ConfigFlags |= (ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
+		io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+		io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
+		io.AddMouseButtonEvent(ImGuiMouseButton_Middle, false);
+		for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); ++i)
+		{
+			io.MouseDown[i] = false;
+		}
+	}
+	else
+	{
+		ImGui_ImplSDL3_SetMouseCaptureMode(ImGui_ImplSDL3_MouseCaptureMode_Enabled);
+		io.ConfigFlags &= ~(ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
+	}
+
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL3_NewFrame();
 	ImGui::NewFrame();
@@ -170,14 +192,14 @@ bool ModuleUI::Update(float dt)
 			ImGuiID dock_main_id = dockspace_id;
 			ImGuiID dock_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, nullptr, &dock_main_id);
 			ImGuiID dock_right = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.30f, nullptr, &dock_main_id);
-			ImGuiID dock_right_down = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.45f, nullptr, &dock_right);
+			//ImGuiID dock_right_down = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.45f, nullptr, &dock_right);
 			ImGuiID dock_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.30f, nullptr, &dock_main_id);
 
 			ImGui::DockBuilderDockWindow("Hierarchy", dock_left);
 			ImGui::DockBuilderDockWindow("Scene", dock_main_id);
 			ImGui::DockBuilderDockWindow("Console", dock_down);
 			ImGui::DockBuilderDockWindow("Inspector", dock_right);
-			ImGui::DockBuilderDockWindow("Configuration", dock_right_down);
+			ImGui::DockBuilderDockWindow("Configuration", dock_main_id);
 
 			ImGui::DockBuilderFinish(dockspace_id);
 		}
@@ -338,7 +360,20 @@ void ModuleUI::DrawScenePanel()
 
 	if (camComp)
 	{
-		camComp->SetViewportHovered(imageHovered || ImGui::IsWindowHovered());
+		bool mouseDisabledForCamera = (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NoMouse) != 0;
+		if (camComp->IsControllingCamera())
+		{
+			ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+			camComp->SetViewportHovered(true);
+		}
+		else if (mouseDisabledForCamera)
+		{
+			camComp->SetViewportHovered(true);
+		}
+		else
+		{
+			camComp->SetViewportHovered(imageHovered || ImGui::IsWindowHovered());
+		}
 	}
 
 	ImGui::End();

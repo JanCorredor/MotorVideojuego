@@ -24,6 +24,7 @@ public:
     // El Editor informa si el ratón está sobre el viewport de Scene para filtrar el input de cámara
     void SetViewportHovered(bool hovered) { viewportHovered = hovered; }
     bool IsViewportHovered() const { return viewportHovered; }
+    bool IsControllingCamera() const { return isControllingCamera; }
 
     float fov = 45.0f;
     float nearPlane = 0.1f;
@@ -44,6 +45,9 @@ private:
     TransformComponent* transform = nullptr;
     bool viewportHovered = false;
     bool isControllingCamera = false;
+    bool wasRelativeMouseMode = false;
+    float lockedMouseX = 0.0f;
+    float lockedMouseY = 0.0f;
 
     glm::vec3 front;
     glm::vec3 up;

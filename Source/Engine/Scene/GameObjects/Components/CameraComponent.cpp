@@ -30,7 +30,7 @@ void CameraComponent::Update(float dt)
     bool lmbHeld = (lmbDown || input->GetMouseButton(SDL_BUTTON_LEFT) == KEY_REPEAT);
 
     // Solo iniciamos el control de cámara si el clic comienza dentro del viewport de Scene
-    if ((rmbDown || (altHeld && lmbDown)) && viewportHovered)
+    if ((rmbDown || (altHeld && lmbDown && selectedObject != nullptr)) && viewportHovered && !isControllingCamera)
     {
         isControllingCamera = true;
     }
@@ -41,8 +41,22 @@ void CameraComponent::Update(float dt)
 
     bool isFreeLooking = isControllingCamera && rmbHeld;
     bool isOrbiting = isControllingCamera && altHeld && lmbHeld && selectedObject != nullptr;
+    bool activeControl = isFreeLooking || isOrbiting;
+    isControllingCamera = activeControl;
 
-    SDL_SetWindowRelativeMouseMode(sdlWindow, isFreeLooking || isOrbiting);
+    if (activeControl && !wasRelativeMouseMode)
+    {
+        SDL_GetMouseState(&lockedMouseX, &lockedMouseY);
+        SDL_CaptureMouse(false);
+        SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+        wasRelativeMouseMode = true;
+    }
+    else if (!activeControl && wasRelativeMouseMode)
+    {
+        SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+        SDL_WarpMouseInWindow(sdlWindow, lockedMouseX, lockedMouseY);
+        wasRelativeMouseMode = false;
+    }
 
     float currentSpeed = movementSpeed;
     if (input->GetKey(SDL_SCANCODE_LSHIFT))
@@ -50,8 +64,8 @@ void CameraComponent::Update(float dt)
         currentSpeed *= 2.0f;
     }
 
-    // Rueda del ratón: Zoom (solo cuando el cursor está sobre el viewport de Scene)
-    if (viewportHovered)
+    // Rueda del ratón: Zoom (solo cuando el cursor está sobre el viewport de Scene o controlando la cámara)
+    if (viewportHovered || activeControl)
     {
         float scroll = input->GetMouseScrollDelta();
         if (scroll != 0.0f)

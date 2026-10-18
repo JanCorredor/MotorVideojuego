@@ -131,9 +131,20 @@ bool Input::PreUpdate()
 			mouseButtons[i] = KEY_IDLE;
 	}
 
+	SDL_Window* sdlWindow = Engine::GetInstance().window->GetWindow();
+	bool relativeMouse = (sdlWindow != nullptr) && SDL_GetWindowRelativeMouseMode(sdlWindow);
+
 	while (SDL_PollEvent(&event))
 	{
-		ImGui_ImplSDL3_ProcessEvent(&event);
+		bool isMouseEvent = (event.type == SDL_EVENT_MOUSE_MOTION ||
+		                     event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+		                     event.type == SDL_EVENT_MOUSE_BUTTON_UP ||
+		                     event.type == SDL_EVENT_MOUSE_WHEEL);
+
+		if (!relativeMouse || !isMouseEvent)
+		{
+			ImGui_ImplSDL3_ProcessEvent(&event);
+		}
 
 		switch (event.type)
 		{
@@ -141,10 +152,18 @@ bool Input::PreUpdate()
 			windowEvents[WE_QUIT] = true;
 			break;
 
+		case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+			if (sdlWindow != nullptr && event.window.windowID == SDL_GetWindowID(sdlWindow))
+			{
+				windowEvents[WE_QUIT] = true;
+			}
+			break;
+
 		case SDL_EVENT_WINDOW_HIDDEN:
 		case SDL_EVENT_WINDOW_MINIMIZED:
 		case SDL_EVENT_WINDOW_FOCUS_LOST:
 			windowEvents[WE_HIDE] = true;
+			ClearMouseInput();
 			break;
 
 		case SDL_EVENT_WINDOW_SHOWN:
@@ -173,15 +192,18 @@ bool Input::PreUpdate()
 		case SDL_EVENT_MOUSE_MOTION:
 		{
 			int scale = Engine::GetInstance().window->GetScale();
-			mouseMotionX = (int)(event.motion.xrel / scale);
-			mouseMotionY = (int)(event.motion.yrel / scale);
-			mouseX = (int)(event.motion.x / scale);
-			mouseY = (int)(event.motion.y / scale);
+			mouseMotionX += (int)(event.motion.xrel / scale);
+			mouseMotionY += (int)(event.motion.yrel / scale);
+			if (!relativeMouse)
+			{
+				mouseX = (int)(event.motion.x / scale);
+				mouseY = (int)(event.motion.y / scale);
+			}
 		}
 		break;
 
 		case SDL_EVENT_MOUSE_WHEEL:
-			mouseScrollDelta = event.wheel.y;
+			mouseScrollDelta += event.wheel.y;
 			break;
 
 		case SDL_EVENT_GAMEPAD_ADDED:
