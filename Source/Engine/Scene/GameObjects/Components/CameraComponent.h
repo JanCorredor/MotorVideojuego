@@ -17,21 +17,33 @@ public:
     glm::mat4 GetViewMatrix();
     glm::mat4 GetProjectionMatrix(float aspectRatio);
 
-    void SetSelectedObject(GameObject* obj) { selectedObject = obj; }
-    GameObject* GetSelectedObject() const { return selectedObject; }
     void PerformRaycast(float mouseX, float mouseY, float width, float height);
-
     void FocusOnObject(GameObject* target);
+    void ResetCamera();
+
+    // El Editor informa si el ratón está sobre el viewport de Scene para filtrar el input de cámara
+    void SetViewportHovered(bool hovered) { viewportHovered = hovered; }
+    bool IsViewportHovered() const { return viewportHovered; }
 
     float fov = 45.0f;
     float nearPlane = 0.1f;
     float farPlane = 100.0f;
 
+    float GetMovementSpeed() const { return movementSpeed; }
+    void SetMovementSpeed(float speed) { movementSpeed = speed; }
+
+    float GetMouseSensitivity() const { return mouseSensitivity; }
+    void SetMouseSensitivity(float sens) { mouseSensitivity = sens; }
+
+    float GetOrbitDistance() const { return orbitDistance; }
+    void SetOrbitDistance(float dist) { orbitDistance = dist; }
+
 private:
     void UpdateCameraVectors();
 
     TransformComponent* transform = nullptr;
-    GameObject* selectedObject = nullptr;
+    bool viewportHovered = false;
+    bool isControllingCamera = false;
 
     glm::vec3 front;
     glm::vec3 up;

@@ -183,18 +183,91 @@ std::unique_ptr<Primitive> GeometryGenerator::CreateCylinder(float radius, float
         vertices.push_back({{x * radius,  h2, z * radius}, {x, 0.0f, z}, {(float)i / sectors, 1.0f}});
     }
 
-    // Side indices
+    // Side indices (CCW visto desde fuera)
     for (unsigned int i = 0; i < sectors; ++i) {
         unsigned int k1 = i * 2;
         unsigned int k2 = k1 + 1;
         unsigned int k3 = (i + 1) * 2;
         unsigned int k4 = k3 + 1;
 
-        indices.push_back(k1); indices.push_back(k3); indices.push_back(k2);
-        indices.push_back(k2); indices.push_back(k3); indices.push_back(k4);
+        indices.push_back(k1); indices.push_back(k2); indices.push_back(k3);
+        indices.push_back(k2); indices.push_back(k4); indices.push_back(k3);
+    }
+
+    // Tapas: vértices propios para tener normales (0,±1,0)
+    for (int cap = 0; cap < 2; ++cap) {
+        const bool top = (cap == 1);
+        const float y = top ? h2 : -h2;
+        const glm::vec3 n(0.0f, top ? 1.0f : -1.0f, 0.0f);
+
+        unsigned int centerIndex = static_cast<unsigned int>(vertices.size());
+        vertices.push_back({{0.0f, y, 0.0f}, n, {0.5f, 0.5f}});
+
+        unsigned int ringStart = static_cast<unsigned int>(vertices.size());
+        for (unsigned int i = 0; i <= sectors; ++i) {
+            float a = i * sectorStep;
+            vertices.push_back({{cos(a) * radius, y, sin(a) * radius}, n, {0.5f + 0.5f * cos(a), 0.5f + 0.5f * sin(a)}});
+        }
+
+        for (unsigned int i = 0; i < sectors; ++i) {
+            if (top) {
+                indices.push_back(centerIndex); indices.push_back(ringStart + i + 1); indices.push_back(ringStart + i);
+            } else {
+                indices.push_back(centerIndex); indices.push_back(ringStart + i); indices.push_back(ringStart + i + 1);
+            }
+        }
     }
 
     auto cylinder = std::make_unique<Primitive>();
     cylinder->Init(vertices, indices);
     return cylinder;
 }
+
+// -------------------------------------------------------------
+// 5. Plane (en XZ, normal +Y)
+// -------------------------------------------------------------
+std::unique_ptr<Primitive> GeometryGenerator::CreatePlane(float size)
+{
+    float h = size * 0.5f;
+
+    std::vector<Vertex> vertices = {
+        {{-h, 0.0f,  h}, {0, 1, 0}, {0, 0}},
+        {{ h, 0.0f,  h}, {0, 1, 0}, {1, 0}},
+        {{ h, 0.0f, -h}, {0, 1, 0}, {1, 1}},
+        {{-h, 0.0f, -h}, {0, 1, 0}, {0, 1}}
+    };
+    std::vector<unsigned int> indices = { 0, 1, 2, 0, 2, 3 };
+
+    auto plane = std::make_unique<Primitive>();
+    plane->Init(vertices, indices);
+    return plane;
+}
+
+// -------------------------------------------------------------
+// Factoría
+// -------------------------------------------------------------
+std::unique_ptr<Primitive> GeometryGenerator::Create(PrimitiveType type)
+{
+    switch (type)
+    {
+    case PrimitiveType::Cube:     return CreateCube(1.0f);
+    case PrimitiveType::Sphere:   return CreateSphere(0.5f, 20, 20);
+    case PrimitiveType::Plane:    return CreatePlane(1.0f);
+    case PrimitiveType::Cylinder: return CreateCylinder(0.5f, 1.0f, 32);
+    case PrimitiveType::Pyramid:  return CreatePyramid(1.0f, 1.0f);
+    }
+    return nullptr;
+}
+
+const char* GeometryGenerator::GetName(PrimitiveType type)
+{
+    switch (type)
+    {
+    case PrimitiveType::Cube:     return "Cube";
+    case PrimitiveType::Sphere:   return "Sphere";
+    case PrimitiveType::Plane:    return "Plane";
+    case PrimitiveType::Cylinder: return "Cylinder";
+    case PrimitiveType::Pyramid:  return "Pyramid";
+    }
+    return "GameObject";
+}

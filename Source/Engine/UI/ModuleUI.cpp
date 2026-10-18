@@ -3,7 +3,10 @@
 #include "../Window/Window.h"
 #include "../Input/Input.h"
 #include "../Render/Render.h"
+#include "../Render/Texture/TextureManager.h"
+#include "../Render/Primitives/GeometryGenerator.h"
 #include "../Scene/Scene.h"
+#include "../Scene/GameObjects/GameObject.h"
 #include "../Scene/GameObjects/Components/TransformComponent.h"
 #include "../Scene/GameObjects/Components/MeshComponent.h"
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
@@ -12,7 +15,6 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-// ImGui headers (adjust paths as needed depending on your project structure)
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
@@ -22,28 +24,56 @@
 
 #include "../../Utils/Log.h"
 #include <algorithm>
-
-//Open Browser
-#include <windows.h>
-#include <shellapi.h>
-
-
+#include <cctype>
+#include <string>
 
 #include <tracy/Tracy.hpp>
 
-// Helper para alinear etiquetas y campos vec3 uniformemente en tablas
-static void DrawVec3Control(const char* label, glm::vec3& values, float speed = 0.1f)
+namespace
 {
-	ImGui::TableNextRow();
-	ImGui::TableSetColumnIndex(0);
-	ImGui::AlignTextToFramePadding();
-	ImGui::TextUnformatted(label);
+	constexpr const char* REPO_URL_DOCS     = "https://github.com/JanCorredor/MotorVideojuego";
+	constexpr const char* REPO_URL_ISSUES   = "https://github.com/JanCorredor/MotorVideojuego/issues";
+	constexpr const char* REPO_URL_RELEASES = "https://github.com/JanCorredor/MotorVideojuego/releases";
 
-	ImGui::TableSetColumnIndex(1);
-	ImGui::PushItemWidth(-1.0f);
-	std::string id = std::string("##") + label;
-	ImGui::DragFloat3(id.c_str(), glm::value_ptr(values), speed);
-	ImGui::PopItemWidth();
+	// Helper para alinear etiquetas y campos vec3 uniformemente en tablas
+	bool DrawVec3Control(const char* label, glm::vec3& values, float speed = 0.1f)
+	{
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(0);
+		ImGui::AlignTextToFramePadding();
+		ImGui::TextUnformatted(label);
+
+		ImGui::TableSetColumnIndex(1);
+		ImGui::PushItemWidth(-1.0f);
+		std::string id = std::string("##") + label;
+		bool changed = ImGui::DragFloat3(id.c_str(), glm::value_ptr(values), speed);
+		ImGui::PopItemWidth();
+		return changed;
+	}
+
+	bool ContainsCaseInsensitive(const std::string& haystack, const std::string& needleLower)
+	{
+		if (needleLower.empty()) return true;
+		if (needleLower.size() > haystack.size()) return false;
+		auto it = std::search(
+			haystack.begin(), haystack.end(),
+			needleLower.begin(), needleLower.end(),
+			[](unsigned char a, unsigned char b) { return std::tolower(a) == b; }
+		);
+		return it != haystack.end();
+	}
+
+	void OpenWebURL(const char* url)
+	{
+		if (!SDL_OpenURL(url))
+		{
+			LOG_ERROR("[UI] No se pudo abrir la URL '%s': %s", url, SDL_GetError());
+		}
+		else
+		{
+			LOG("[UI] Abriendo navegador en: %s", url);
+		}
+	}
 }
 
 ModuleUI::ModuleUI() : Module()
@@ -107,11 +137,10 @@ bool ModuleUI::PreUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
-	// Start the Dear ImGui frame
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL3_NewFrame();
 	ImGui::NewFrame();
-	
+
 	return true;
 }
 
@@ -120,73 +149,8 @@ bool ModuleUI::Update(float dt)
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
-	CheckDroppedFile();
-
-	bool ret = true;
-
-	// --- Sincronizar selección desde la cámara (Raycast) hacia la UI ---
-	GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
-	if (mainCamera) {
-		CameraComponent* camComp = mainCamera->GetComponent<CameraComponent>();
-		// Si la cámara tiene seleccionado un objeto distinto al de la UI, actualizamos la UI
-		if (camComp && camComp->GetSelectedObject() != selectedGameObject) {
-			selectedGameObject = camComp->GetSelectedObject();
-		}
-	}
-
-	// Barra de menú principal
-	if (ImGui::BeginMainMenuBar())
-	{
-		if (ImGui::BeginMenu("File"))
-		{
-			if (ImGui::SmallButton("GitHub Documentation"))
-			{
-				ret = false;
-			}
-			ImGui::EndMenu();
-		}
-
-		if (ImGui::BeginMenu("View"))
-		{
-			ImGui::MenuItem("Scene", nullptr, &showScene);
-			ImGui::MenuItem("Hierarchy", nullptr, &showHierarchy);
-			ImGui::MenuItem("Inspector", nullptr, &showInspector);
-			ImGui::MenuItem("Console", nullptr, &showConsole);
-			ImGui::MenuItem("Configuration", nullptr, &showConfiguration);
-			ImGui::MenuItem("Render Settings", nullptr, &showRenderSettings);
-			ImGui::Separator();
-			if (ImGui::MenuItem("Reset Layout"))
-			{
-				resetLayout = true;
-			}
-			ImGui::EndMenu();
-		}
-
-		if (ImGui::BeginMenu("Help")) 
-		{
-			if (ImGui::SmallButton("GitHub Documentation"))
-			{
-				ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego", 0, 0, SW_SHOW);
-			}
-			if (ImGui::SmallButton("Report Bug"))
-			{
-				ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/issues", 0, 0, SW_SHOW);
-			}
-			if (ImGui::SmallButton("Download Latest"))
-			{
-				ShellExecute(0, 0, "https://github.com/JanCorredor/MotorVideojuego/releases", 0, 0, SW_SHOW);
-			}
-
-			ImGui::MenuItem("About", nullptr, &ret);//TODO MAKE BUTTON WORK
-
-			ImGui::EndMenu();
-		}
-
-
-
-
-		ImGui::EndMainMenuBar();
-	}
+	(void)dt;
+	bool ret = DrawMainMenuBar();
 
 	// Enable a DockSpace over the entire main viewport so windows can be docked properly
 	ImGuiViewport* mainViewport = ImGui::GetMainViewport();
@@ -214,7 +178,6 @@ bool ModuleUI::Update(float dt)
 			ImGui::DockBuilderDockWindow("Console", dock_down);
 			ImGui::DockBuilderDockWindow("Inspector", dock_right);
 			ImGui::DockBuilderDockWindow("Configuration", dock_right_down);
-			ImGui::DockBuilderDockWindow("Render Settings", dock_right_down);
 
 			ImGui::DockBuilderFinish(dockspace_id);
 		}
@@ -222,217 +185,448 @@ bool ModuleUI::Update(float dt)
 		resetLayout = false;
 	}
 
-	// Scene panel
-	if (showScene)
+	DrawScenePanel();
+	DrawHierarchyPanel();
+	DrawInspectorPanel();
+	DrawConfigurationPanel();
+	DrawConsolePanel();
+	DrawAboutPanel();
+
+	return ret;
+}
+
+bool ModuleUI::DrawMainMenuBar()
+{
+	bool continueRunning = true;
+
+	if (ImGui::BeginMainMenuBar())
 	{
-		ImGui::Begin("Scene", &showScene);
-		ImVec2 viewportSize = ImGui::GetContentRegionAvail();
-		if (viewportSize.x > 0 && viewportSize.y > 0) {
-			Engine::GetInstance().render->SetViewportSize((int)viewportSize.x, (int)viewportSize.y);
+		if (ImGui::BeginMenu("File"))
+		{
+			if (ImGui::MenuItem("Exit", "Alt+F4"))
+			{
+				LOG("[UI] Solicitud de salida desde el menú File -> Exit");
+				continueRunning = false;
+			}
+			ImGui::EndMenu();
 		}
-		unsigned int sceneTexture = Engine::GetInstance().render->GetSceneTexture();
-		if (sceneTexture != 0 && viewportSize.x > 0 && viewportSize.y > 0) {
 
-			// Guardamos la posición en la pantalla donde empieza la imagen
-			ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+		if (ImGui::BeginMenu("View"))
+		{
+			ImGui::MenuItem("Scene", nullptr, &showScene);
+			ImGui::MenuItem("Hierarchy", nullptr, &showHierarchy);
+			ImGui::MenuItem("Inspector", nullptr, &showInspector);
+			ImGui::MenuItem("Console", nullptr, &showConsole);
+			ImGui::MenuItem("Configuration", nullptr, &showConfiguration);
+			ImGui::Separator();
+			if (ImGui::MenuItem("Reset Layout"))
+			{
+				resetLayout = true;
+			}
+			ImGui::EndMenu();
+		}
 
-			// Dibujamos la imagen de la escena
-			ImGui::Image((ImTextureID)(intptr_t)sceneTexture, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
-
-			// Detectamos si se ha hecho clic IZQUIERDO específicamente dentro de la imagen
-			if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-				// Obtenemos la posición global del ratón en ImGui
-				ImVec2 mousePos = ImGui::GetMousePos();
-
-				// Calculamos la posición local del ratón restando el inicio de la imagen
-				float localMouseX = mousePos.x - cursorScreenPos.x;
-				float localMouseY = mousePos.y - cursorScreenPos.y;
-
-				// Disparamos el Raycast desde la cámara con estas coordenadas perfectas
-				GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
-				if (mainCamera) {
-					CameraComponent* camComp = mainCamera->GetComponent<CameraComponent>();
-					if (camComp) {
-						camComp->PerformRaycast(localMouseX, localMouseY, viewportSize.x, viewportSize.y);
-
-						// Sincronizamos la UI con el nuevo objeto seleccionado
-						selectedGameObject = camComp->GetSelectedObject();
+		if (ImGui::BeginMenu("GameObject"))
+		{
+			Scene* scene = Engine::GetInstance().scene.get();
+			if (ImGui::MenuItem("Create Empty"))
+			{
+				if (scene)
+				{
+					GameObject* created = scene->CreateEmptyGameObject();
+					scene->SetSelected(created);
+				}
+			}
+			ImGui::SeparatorText("3D Primitives");
+			const PrimitiveType types[] = {
+				PrimitiveType::Cube,
+				PrimitiveType::Sphere,
+				PrimitiveType::Plane,
+				PrimitiveType::Cylinder,
+				PrimitiveType::Pyramid
+			};
+			for (PrimitiveType type : types)
+			{
+				if (ImGui::MenuItem(GeometryGenerator::GetName(type)))
+				{
+					if (scene)
+					{
+						GameObject* created = scene->CreatePrimitive(type);
+						scene->SetSelected(created);
 					}
 				}
 			}
+			ImGui::EndMenu();
 		}
-		ImGui::End();
+
+		if (ImGui::BeginMenu("Help"))
+		{
+			if (ImGui::MenuItem("GitHub Documentation"))
+			{
+				OpenWebURL(REPO_URL_DOCS);
+			}
+			if (ImGui::MenuItem("Report a Bug"))
+			{
+				OpenWebURL(REPO_URL_ISSUES);
+			}
+			if (ImGui::MenuItem("Download Latest"))
+			{
+				OpenWebURL(REPO_URL_RELEASES);
+			}
+			ImGui::Separator();
+			ImGui::MenuItem("About", nullptr, &showAbout);
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
 	}
 
-	// Hierarchy panel
-	if (showHierarchy)
+	return continueRunning;
+}
+
+void ModuleUI::DrawScenePanel()
+{
+	Render* render = Engine::GetInstance().render.get();
+	Scene* scene = Engine::GetInstance().scene.get();
+	GameObject* mainCamera = scene ? scene->GetMainCameraObject() : nullptr;
+	CameraComponent* camComp = mainCamera ? mainCamera->GetComponent<CameraComponent>() : nullptr;
+
+	if (!showScene)
 	{
-		ImGui::Begin("Hierarchy", &showHierarchy);
-		if (selectedGameObject)
+		if (render) render->SetViewportVisible(false);
+		if (camComp) camComp->SetViewportHovered(false);
+		return;
+	}
+
+	bool visible = ImGui::Begin("Scene", &showScene);
+	if (!visible)
+	{
+		if (render) render->SetViewportVisible(false);
+		if (camComp) camComp->SetViewportHovered(false);
+		ImGui::End();
+		return;
+	}
+
+	if (render) render->SetViewportVisible(true);
+
+	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+	if (render && viewportSize.x > 0 && viewportSize.y > 0)
+	{
+		render->SetViewportSize((int)viewportSize.x, (int)viewportSize.y);
+	}
+
+	unsigned int sceneTexture = render ? render->GetSceneTexture() : 0;
+	bool imageHovered = false;
+	if (sceneTexture != 0 && viewportSize.x > 0 && viewportSize.y > 0)
+	{
+		ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+		ImGui::Image((ImTextureID)(intptr_t)sceneTexture, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+		imageHovered = ImGui::IsItemHovered();
+
+		Input* input = Engine::GetInstance().input.get();
+		bool altHeld = input && (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT);
+
+		// Selección por Raycast al hacer clic izquierdo sobre el viewport (sin Alt para no interferir con la órbita)
+		if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !altHeld && camComp)
 		{
+			ImVec2 mousePos = ImGui::GetMousePos();
+			float localMouseX = mousePos.x - cursorScreenPos.x;
+			float localMouseY = mousePos.y - cursorScreenPos.y;
+			camComp->PerformRaycast(localMouseX, localMouseY, viewportSize.x, viewportSize.y);
+		}
+	}
+
+	if (camComp)
+	{
+		camComp->SetViewportHovered(imageHovered || ImGui::IsWindowHovered());
+	}
+
+	ImGui::End();
+}
+
+void ModuleUI::DrawHierarchyPanel()
+{
+	if (!showHierarchy) return;
+
+	if (ImGui::Begin("Hierarchy", &showHierarchy))
+	{
+		Scene* scene = Engine::GetInstance().scene.get();
+		GameObject* selected = scene ? scene->GetSelected() : nullptr;
+
+		if (ImGui::SmallButton("+ Empty"))
+		{
+			if (scene)
+			{
+				GameObject* created = scene->CreateEmptyGameObject();
+				scene->SetSelected(created);
+				selected = created;
+			}
+		}
+
+		if (selected)
+		{
+			ImGui::SameLine();
 			if (ImGui::SmallButton("Deseleccionar"))
 			{
-				selectedGameObject = nullptr;
-				GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
-				if (mainCamera) {
-					CameraComponent* camComp = mainCamera->GetComponent<CameraComponent>();
-					if (camComp) camComp->SetSelectedObject(nullptr);
+				scene->SetSelected(nullptr);
+				selected = nullptr;
+			}
+		}
+		ImGui::Separator();
+
+		if (scene)
+		{
+			GameObject* root = scene->GetRoot();
+			if (root)
+			{
+				for (GameObject* child : root->GetChildren())
+				{
+					DrawHierarchyNode(child, selected);
 				}
 			}
-			ImGui::Separator();
 		}
+	}
+	ImGui::End();
+}
 
-		if (Engine::GetInstance().scene) {
-			GameObject* root = Engine::GetInstance().scene->GetRoot();
-			if (root) {
-				DrawHierarchyNode(root);
-			}
-		}
-		ImGui::End();
+void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
+{
+	if (!node) return;
+
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
+	if (selected == node)
+	{
+		flags |= ImGuiTreeNodeFlags_Selected;
 	}
 
-	// Inspector panel
-	if (showInspector)
+	if (node->GetChildren().empty())
 	{
-		ImGui::Begin("Inspector", &showInspector);
-		if (selectedGameObject) {
-			ImGui::TextDisabled("Entidad Seleccionada");
+		flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+	}
+
+	if (!node->IsActive())
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+	}
+
+	bool nodeOpen = ImGui::TreeNodeEx((void*)node, flags, "%s", node->GetName().c_str());
+
+	if (!node->IsActive())
+	{
+		ImGui::PopStyleColor();
+	}
+
+	if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+	{
+		if (Engine::GetInstance().scene)
+		{
+			Engine::GetInstance().scene->SetSelected(node);
+		}
+	}
+
+	if (nodeOpen && !node->GetChildren().empty())
+	{
+		for (GameObject* child : node->GetChildren())
+		{
+			DrawHierarchyNode(child, selected);
+		}
+		ImGui::TreePop();
+	}
+}
+
+void ModuleUI::DrawInspectorPanel()
+{
+	if (!showInspector) return;
+
+	if (ImGui::Begin("Inspector", &showInspector))
+	{
+		Scene* scene = Engine::GetInstance().scene.get();
+		GameObject* selected = scene ? scene->GetSelected() : nullptr;
+
+		if (selected)
+		{
+			bool isActive = selected->IsActive();
+			if (ImGui::Checkbox("##ActiveGO", &isActive))
+			{
+				if (isActive) selected->Enable();
+				else selected->Disable();
+			}
 			ImGui::SameLine();
-			ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "%s", selectedGameObject->GetName().c_str());
-			
+
+			char nameBuf[128] = "";
+			strncpy_s(nameBuf, sizeof(nameBuf), selected->GetName().c_str(), _TRUNCATE);
+			ImGui::SetNextItemWidth(-1.0f);
+			if (ImGui::InputText("##GOName", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
+			{
+				if (nameBuf[0] != '\0')
+				{
+					selected->SetName(nameBuf);
+				}
+			}
+
 			ImGui::Separator();
 
-			TransformComponent* transform = selectedGameObject->GetComponent<TransformComponent>();
-			if (transform && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) 
+			// =====================================================================
+			// 1. TRANSFORM COMPONENT
+			// =====================================================================
+			TransformComponent* transform = selected->GetComponent<TransformComponent>();
+			if (transform && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				if (ImGui::BeginTable("TransformTable", 2, ImGuiTableFlags_SizingFixedFit)) 
+				if (ImGui::BeginTable("TransformTable", 2, ImGuiTableFlags_SizingFixedFit))
 				{
 					ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
 					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
 					glm::vec3 pos = transform->GetPosition();
-					DrawVec3Control("Position", pos, 0.1f);
-					transform->SetPosition(pos);
-					
+					if (DrawVec3Control("Position", pos, 0.1f))
+					{
+						transform->SetPosition(pos);
+					}
+
 					glm::vec3 rot = transform->GetRotation();
-					DrawVec3Control("Rotation", rot, 1.0f);
-					transform->SetRotation(rot);
-					
+					if (DrawVec3Control("Rotation", rot, 1.0f))
+					{
+						transform->SetRotation(rot);
+					}
+
 					glm::vec3 scl = transform->GetScale();
-					DrawVec3Control("Scale", scl, 0.1f);
-					transform->SetScale(scl);
+					if (DrawVec3Control("Scale", scl, 0.05f))
+					{
+						transform->SetScale(scl);
+					}
 
 					ImGui::EndTable();
 				}
-			} 
-			else if (!transform)
-			{
-				ImGui::TextDisabled("Sin TransformComponent");
-			}
 
-			MeshComponent* mesh = selectedGameObject->GetComponent<MeshComponent>();
-			if (mesh && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen)) 
-			{
-				ImGui::BulletText("Primitiva: %s", mesh->GetPrimitive() ? "Malla cargada en GPU" : "Ninguna");
-			}
-			else if (!mesh)
-			{
-				ImGui::TextDisabled("Sin MeshComponent");
-			}
-
-			MaterialComponent* mat = selectedGameObject->GetComponent<MaterialComponent>();
-			if (mat && ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				bool usingTexture = mat->GetUseTexture();
-				if (ImGui::Checkbox("Usar Textura", &usingTexture)) mat->SetUseTexture(usingTexture);
-
-				if (usingTexture)
+				if (ImGui::SmallButton("Reset Transform"))
 				{
-					ImGui::BulletText("ID Textura OpenGL: %u", mat->GetTextureID());
+					transform->SetPosition(glm::vec3(0.0f));
+					transform->SetRotation(glm::vec3(0.0f));
+					transform->SetScale(glm::vec3(1.0f));
 				}
+			}
 
-				ImGui::Spacing();
+			// =====================================================================
+			// 2. MESH COMPONENT
+			// =====================================================================
+			MeshComponent* mesh = selected->GetComponent<MeshComponent>();
+			if (mesh && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				const Primitive* prim = mesh->GetPrimitive();
+				if (prim)
+				{
+					ImGui::BulletText("Vértices: %zu", prim->GetVertexCount());
+					ImGui::BulletText("Triángulos (Caras): %zu", prim->GetTriangleCount());
+					ImGui::BulletText("Índices: %zu", prim->GetIndices().size());
+
+					const glm::vec3 bMin = prim->GetBoundsMin();
+					const glm::vec3 bMax = prim->GetBoundsMax();
+					ImGui::BulletText("AABB Min: (%.2f, %.2f, %.2f)", bMin.x, bMin.y, bMin.z);
+					ImGui::BulletText("AABB Max: (%.2f, %.2f, %.2f)", bMax.x, bMax.y, bMax.z);
+
+					ImGui::Spacing();
+					ImGui::SeparatorText("Visualización de Normales");
+
+					Render* render = Engine::GetInstance().render.get();
+					if (render)
+					{
+						RenderSettings rs = render->GetSettings();
+						bool vertexNormals = (rs.normals == NormalsMode::Vertex || rs.normals == NormalsMode::Both);
+						bool faceNormals = (rs.normals == NormalsMode::Face || rs.normals == NormalsMode::Both);
+
+						bool changed = false;
+						changed |= ImGui::Checkbox("Mostrar Normales por Vértice (Amarillo)", &vertexNormals);
+						changed |= ImGui::Checkbox("Mostrar Normales por Cara (Cian)", &faceNormals);
+						changed |= ImGui::Checkbox("Aplicar a todos los objetos de la escena", &rs.normalsAllObjects);
+
+						if (changed)
+						{
+							if (vertexNormals && faceNormals) rs.normals = NormalsMode::Both;
+							else if (vertexNormals) rs.normals = NormalsMode::Vertex;
+							else if (faceNormals) rs.normals = NormalsMode::Face;
+							else rs.normals = NormalsMode::None;
+
+							render->SetSettings(rs);
+						}
+					}
+				}
+				else
+				{
+					ImGui::TextDisabled("Sin malla cargada en GPU");
+				}
+			}
+
+			// =====================================================================
+			// 3. MATERIAL / TEXTURE COMPONENT
+			// =====================================================================
+			MaterialComponent* mat = selected->GetComponent<MaterialComponent>();
+			if (mat && ImGui::CollapsingHeader("Texture & Material", ImGuiTreeNodeFlags_DefaultOpen))
+			{
 				glm::vec3 color = mat->GetColor();
-				ImGui::Text("Color Base:");
-				if (ImGui::ColorEdit3("##MatColor", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel)) 
+				if (ImGui::ColorEdit3("Color Base", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
 				{
 					mat->SetColor(color);
 				}
+
+				ImGui::Spacing();
+				bool usingTexture = mat->GetUseTexture();
+				if (ImGui::Checkbox("Usar Textura Difusa", &usingTexture))
+				{
+					mat->SetUseTexture(usingTexture);
+				}
+
+				bool usingChecker = mat->GetUseCheckerboard();
+				if (ImGui::Checkbox("Textura Checkerboard (Blanco/Negro)", &usingChecker))
+				{
+					mat->SetUseCheckerboard(usingChecker);
+				}
+
+				ImGui::Spacing();
+				ImGui::SeparatorText("Datos de Textura");
+				const TextureInfo* texInfo = mat->GetTexture();
+				if (texInfo)
+				{
+					ImGui::BulletText("Path: %s", texInfo->path.c_str());
+					ImGui::BulletText("Tamaño: %d x %d px", texInfo->width, texInfo->height);
+					ImGui::BulletText("OpenGL Texture ID: %u", texInfo->id);
+				}
+				else
+				{
+					ImGui::TextDisabled("Sin textura difusa asignada (arrastra un PNG/JPG/DDS a la ventana).");
+				}
+
+				unsigned int activeId = mat->GetActiveTextureID();
+				if (activeId != 0)
+				{
+					ImGui::Spacing();
+					ImGui::TextDisabled("Vista previa activa:");
+					ImGui::Image((ImTextureID)(intptr_t)activeId, ImVec2(64, 64));
+				}
 			}
-			else if (!mat)
+
+			// =====================================================================
+			// 4. CAMERA COMPONENT (si el GameObject seleccionado es una cámara)
+			// =====================================================================
+			CameraComponent* cam = selected->GetComponent<CameraComponent>();
+			if (cam && ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				ImGui::TextDisabled("Sin MaterialComponent");
-			}
-		} 
-		else 
-		{
-			ImGui::TextDisabled("Selecciona un GameObject en Hierarchy para inspeccionar sus componentes.");
-		}
-		ImGui::End();
-	}
+				ImGui::SliderFloat("FOV (Grados)", &cam->fov, 10.0f, 120.0f, "%.1f");
+				ImGui::DragFloat("Near Plane", &cam->nearPlane, 0.01f, 0.01f, 10.0f, "%.2f");
+				ImGui::DragFloat("Far Plane", &cam->farPlane, 1.0f, 10.0f, 1000.0f, "%.1f");
 
-	// Render Options panel
-	if (showRenderSettings)
-	{
-		ImGui::Begin("Render Settings", &showRenderSettings);
-		if (ImGui::CollapsingHeader("Ajustes OpenGL", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			ImGui::Checkbox("Depth Test", &Engine::GetInstance().render->depthTestEnabled);
-			ImGui::Checkbox("Cull Face", &Engine::GetInstance().render->cullFaceEnabled);
-			ImGui::Checkbox("Lighting", &Engine::GetInstance().render->lightingEnabled);
-			ImGui::Checkbox("Wireframe Mode", &Engine::GetInstance().render->wireframeMode);
-			ImGui::Checkbox("Draw Normals", &Engine::GetInstance().render->showNormals);
-		}
-		ImGui::End();
-	}
-
-	// Configuration panel
-	if (showConfiguration)
-	{
-		DrawConfigurationPanel();
-	}
-
-	// Console panel
-	if (showConsole)
-	{
-		DrawConsolePanel();
-	}
-
-	return ret;
-}
-
-void ModuleUI::DrawHierarchyNode(GameObject* node)
-{
-	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-	if (selectedGameObject == node) {
-		flags |= ImGuiTreeNodeFlags_Selected;
-	}
-
-	if (node->GetChildren().empty()) {
-		flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-	}
-
-	bool nodeOpen = ImGui::TreeNodeEx(node, flags, node->GetName().c_str());
-
-	if (ImGui::IsItemClicked()) {
-		selectedGameObject = node;
-
-		// Sincronizar selección desde la UI hacia la cámara
-		GameObject* mainCamera = Engine::GetInstance().scene->GetMainCameraObject();
-		if (mainCamera) {
-			CameraComponent* camComp = mainCamera->GetComponent<CameraComponent>();
-			if (camComp) {
-				camComp->SetSelectedObject(node);
+				float speed = cam->GetMovementSpeed();
+				if (ImGui::SliderFloat("Velocidad", &speed, 0.5f, 30.0f, "%.1f"))
+				{
+					cam->SetMovementSpeed(speed);
+				}
 			}
 		}
-	}
-
-	if (nodeOpen && !node->GetChildren().empty()) {
-		for (auto child : node->GetChildren()) {
-			DrawHierarchyNode(child);
+		else
+		{
+			ImGui::TextDisabled("Selecciona un GameObject en Hierarchy o en Scene para inspeccionar sus componentes.");
 		}
-		ImGui::TreePop();
 	}
+	ImGui::End();
 }
 
 bool ModuleUI::PostUpdate()
@@ -447,6 +641,9 @@ bool ModuleUI::PostUpdate()
 bool ModuleUI::CleanUp()
 {
 	LOG("[ImGui] Apagando Dear ImGui y liberando recursos...");
+	consoleViewCache.clear();
+	consoleViewCache.shrink_to_fit();
+
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplSDL3_Shutdown();
 	ImGui::DestroyContext();
@@ -454,50 +651,12 @@ bool ModuleUI::CleanUp()
 	return true;
 }
 
-void ModuleUI::CheckDroppedFile()
-{
-	// Check if file has been dropped in the window
-	if (Engine::GetInstance().input->HasDroppedFile())
-	{
-		std::string filePath = Engine::GetInstance().input->GetDroppedFilePath();
-
-		if (filePath.find(".png") != std::string::npos ||
-			filePath.find(".dds") != std::string::npos ||
-			filePath.find(".jpg") != std::string::npos ||
-			filePath.find(".jpeg") != std::string::npos ||
-			filePath.find(".tga") != std::string::npos)
-		{
-			if (selectedGameObject != nullptr)
-			{
-				MaterialComponent* mat = selectedGameObject->GetComponent<MaterialComponent>();
-				if (mat != nullptr)
-				{
-					mat->SetTexture(filePath.c_str());
-					mat->SetUseTexture(true);
-					LOG("[UI] Textura '%s' asignada exitosamente al GameObject '%s'", filePath.c_str(), selectedGameObject->GetName().c_str());
-				}
-				else
-				{
-					LOG_WARNING("[UI] El GameObject '%s' seleccionado no tiene un MaterialComponent para asignar la textura '%s'",
-						selectedGameObject->GetName().c_str(), filePath.c_str());
-				}
-			}
-			else
-			{
-				LOG_WARNING("[UI] Se soltó la textura '%s' pero no hay ningún GameObject seleccionado en la jerarquía", filePath.c_str());
-			}
-		}
-	}
-}
-
 void ModuleUI::RenderUI()
 {
 	ImGui::Render();
-	
+
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-	// Update and Render additional Platform Windows
-	// (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
 	ImGuiIO& io = ImGui::GetIO();
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
@@ -513,30 +672,44 @@ void ModuleUI::DrawConsolePanel()
 {
 	if (!showConsole) return;
 
-	ImGui::Begin("Console", &showConsole);
+	if (!ImGui::Begin("Console", &showConsole))
+	{
+		ImGui::End();
+		return;
+	}
+
+	LogSystem& logSys = LogSystem::GetInstance();
 
 	// 1. Barra de herramientas superior
 	if (ImGui::Button("Clear"))
 	{
-		LogSystem::GetInstance().Clear();
+		logSys.Clear();
 		selectedLogIndex = -1;
+		consoleFilterDirty = true;
 	}
 	ImGui::SameLine();
 
-	ImGui::Checkbox("Collapse", &collapseLogs);
+	if (ImGui::Checkbox("Collapse", &collapseLogs))
+	{
+		consoleFilterDirty = true;
+	}
 	ImGui::SameLine();
 	ImGui::Checkbox("Auto-scroll", &autoScroll);
 	ImGui::SameLine();
 
 	// Filtro de búsqueda por texto
 	ImGui::SetNextItemWidth(160.0f);
-	ImGui::InputTextWithHint("##ConsoleSearch", "Buscar...", consoleFilter, sizeof(consoleFilter));
+	if (ImGui::InputTextWithHint("##ConsoleSearch", "Buscar...", consoleFilter, sizeof(consoleFilter)))
+	{
+		consoleFilterDirty = true;
+	}
 	if (consoleFilter[0] != '\0')
 	{
 		ImGui::SameLine();
 		if (ImGui::SmallButton("x"))
 		{
 			consoleFilter[0] = '\0';
+			consoleFilterDirty = true;
 		}
 	}
 
@@ -545,69 +718,97 @@ void ModuleUI::DrawConsolePanel()
 	ImGui::SameLine();
 
 	// Filtros por Categoría con Contadores
-	LogSystem& logSys = LogSystem::GetInstance();
-
-	// Info
 	ImVec4 infoColor = showInfo ? ImVec4(0.35f, 0.75f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
 	ImGui::PushStyleColor(ImGuiCol_Text, infoColor);
 	std::string infoLabel = "[i] Info (" + std::to_string(logSys.GetInfoCount()) + ")";
 	if (ImGui::SmallButton(infoLabel.c_str()))
 	{
 		showInfo = !showInfo;
+		consoleFilterDirty = true;
 	}
 	ImGui::PopStyleColor();
 	ImGui::SameLine();
 
-	// Warning
 	ImVec4 warnColor = showWarnings ? ImVec4(1.0f, 0.82f, 0.25f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
 	ImGui::PushStyleColor(ImGuiCol_Text, warnColor);
 	std::string warnLabel = "[!] Warn (" + std::to_string(logSys.GetWarningCount()) + ")";
 	if (ImGui::SmallButton(warnLabel.c_str()))
 	{
 		showWarnings = !showWarnings;
+		consoleFilterDirty = true;
 	}
 	ImGui::PopStyleColor();
 	ImGui::SameLine();
 
-	// Error
 	ImVec4 errColor = showErrors ? ImVec4(1.0f, 0.4f, 0.4f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
 	ImGui::PushStyleColor(ImGuiCol_Text, errColor);
 	std::string errLabel = "[X] Error (" + std::to_string(logSys.GetErrorCount()) + ")";
 	if (ImGui::SmallButton(errLabel.c_str()))
 	{
 		showErrors = !showErrors;
+		consoleFilterDirty = true;
 	}
 	ImGui::PopStyleColor();
 
 	ImGui::Separator();
 
-	// 2. Cálculo de altura para panel de detalles inferior
-	float detailsHeight = (selectedLogIndex >= 0) ? 95.0f : 0.0f;
+	// 2. Reconstruir la caché de índices visibles solo si cambió la revisión del LogSystem o los filtros
+	const uint64_t currentRev = logSys.GetRevision();
+	if (currentRev != lastConsoleRevision || consoleFilterDirty)
+	{
+		if (currentRev != lastConsoleRevision && autoScroll)
+		{
+			scrollToBottom = true;
+		}
+		lastConsoleRevision = currentRev;
+		consoleFilterDirty = false;
+
+		consoleViewCache.clear();
+		std::string searchLower = consoleFilter;
+		std::transform(searchLower.begin(), searchLower.end(), searchLower.begin(),
+			[](unsigned char c) { return (char)std::tolower(c); });
+
+		std::string prevText;
+		LogType prevType = LogType::Info;
+
+		logSys.ForEach([&](int index, const LogEntry& entry)
+		{
+			if (entry.type == LogType::Info && !showInfo) return;
+			if (entry.type == LogType::Warning && !showWarnings) return;
+			if (entry.type == LogType::Error && !showErrors) return;
+			if (!ContainsCaseInsensitive(entry.text, searchLower)) return;
+
+			if (collapseLogs && !consoleViewCache.empty() && entry.type == prevType && entry.text == prevText)
+			{
+				consoleViewCache.back().collapsedCount++;
+				return;
+			}
+
+			consoleViewCache.push_back({ index, 1 });
+			prevText = entry.text;
+			prevType = entry.type;
+		});
+	}
+
+	// 3. Región de lista y panel de detalles inferior
+	LogEntry selectedEntry;
+	const bool hasSelectedEntry = (selectedLogIndex >= 0) && logSys.GetEntry(selectedLogIndex, selectedEntry);
+	if (!hasSelectedEntry)
+	{
+		selectedLogIndex = -1;
+	}
+
+	float detailsHeight = hasSelectedEntry ? 95.0f : 0.0f;
 	float listHeight = ImGui::GetContentRegionAvail().y - detailsHeight;
 	if (detailsHeight > 0.0f) listHeight -= ImGui::GetStyle().ItemSpacing.y;
 
 	ImGui::BeginChild("LogScrollRegion", ImVec2(0, listHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
 
-	const std::vector<LogEntry> logs = logSys.GetLogs();
-	std::string searchLower = consoleFilter;
-	std::transform(searchLower.begin(), searchLower.end(), searchLower.begin(), ::tolower);
-
-	for (int i = 0; i < (int)logs.size(); ++i)
+	LogEntry entry;
+	for (size_t viewIdx = 0; viewIdx < consoleViewCache.size(); ++viewIdx)
 	{
-		const auto& entry = logs[i];
-
-		// Filtro por categoría
-		if (entry.type == LogType::Info && !showInfo) continue;
-		if (entry.type == LogType::Warning && !showWarnings) continue;
-		if (entry.type == LogType::Error && !showErrors) continue;
-
-		// Filtro de búsqueda por texto
-		if (!searchLower.empty())
-		{
-			std::string textLower = entry.text;
-			std::transform(textLower.begin(), textLower.end(), textLower.begin(), ::tolower);
-			if (textLower.find(searchLower) == std::string::npos) continue;
-		}
+		const ConsoleDisplayItem& item = consoleViewCache[viewIdx];
+		if (!logSys.GetEntry(item.logIndex, entry)) continue;
 
 		ImVec4 textColor;
 		const char* typeTag = "[INFO]";
@@ -627,58 +828,52 @@ void ModuleUI::DrawConsolePanel()
 			break;
 		}
 
-		ImGui::PushID(i);
+		ImGui::PushID(item.logIndex);
 
-		bool isSelected = (selectedLogIndex == i);
+		bool isSelected = (selectedLogIndex == item.logIndex);
 
-		// Timestamp
 		ImGui::TextDisabled("[%s]", entry.timestamp.c_str());
 		ImGui::SameLine();
 
-		// Tag con color
 		ImGui::PushStyleColor(ImGuiCol_Text, textColor);
 		ImGui::TextUnformatted(typeTag);
 		ImGui::PopStyleColor();
 		ImGui::SameLine();
 
-		// Badge de Collapse
-		if (collapseLogs && entry.count > 1)
+		if (collapseLogs && item.collapsedCount > 1)
 		{
-			std::string countStr = "[" + std::to_string(entry.count) + "]";
-			ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.4f, 1.0f), "%s", countStr.c_str());
+			ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.4f, 1.0f), "[x%d]", item.collapsedCount);
 			ImGui::SameLine();
 		}
 
-		// Texto del log seleccionable
 		if (ImGui::Selectable(entry.text.c_str(), isSelected))
 		{
-			selectedLogIndex = (selectedLogIndex == i) ? -1 : i;
+			selectedLogIndex = isSelected ? -1 : item.logIndex;
 		}
 
 		ImGui::PopID();
 	}
 
-	if (autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+	if (scrollToBottom || (autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
 	{
 		ImGui::SetScrollHereY(1.0f);
+		scrollToBottom = false;
 	}
 
 	ImGui::EndChild();
 
-	// 3. Panel inferior de detalle del mensaje seleccionado
-	if (selectedLogIndex >= 0 && selectedLogIndex < (int)logs.size())
+	// 4. Panel inferior de detalle del mensaje seleccionado
+	if (hasSelectedEntry)
 	{
 		ImGui::Separator();
-		const auto& sel = logs[selectedLogIndex];
-
 		ImGui::BeginChild("LogDetailsRegion", ImVec2(0, detailsHeight), true);
 
 		ImGui::TextDisabled("Detalle:");
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Copiar Mensaje"))
 		{
-			std::string fullText = "[" + sel.timestamp + "] " + sel.text;
-			if (!sel.file.empty()) fullText += " (" + sel.file + ":" + std::to_string(sel.line) + ")";
+			std::string fullText = "[" + selectedEntry.timestamp + "] " + selectedEntry.text;
+			if (!selectedEntry.file.empty()) fullText += " (" + selectedEntry.file + ":" + std::to_string(selectedEntry.line) + ")";
 			ImGui::SetClipboardText(fullText.c_str());
 		}
 		ImGui::SameLine();
@@ -687,13 +882,13 @@ void ModuleUI::DrawConsolePanel()
 			selectedLogIndex = -1;
 		}
 
-		if (!sel.file.empty())
+		if (!selectedEntry.file.empty())
 		{
 			ImGui::SameLine();
-			ImGui::TextDisabled("| Origen: %s:%d", sel.file.c_str(), sel.line);
+			ImGui::TextDisabled("| Origen: %s:%d", selectedEntry.file.c_str(), selectedEntry.line);
 		}
 
-		ImGui::TextWrapped("%s", sel.text.c_str());
+		ImGui::TextWrapped("%s", selectedEntry.text.c_str());
 
 		ImGui::EndChild();
 	}
@@ -739,14 +934,12 @@ void ModuleUI::DrawConfigurationPanel()
 				ImGui::Spacing();
 				ImGui::SeparatorText("Gráficos de Rendimiento en Tiempo Real");
 
-				// Gráfico FPS
 				char fpsOverlay[128];
 				sprintf_s(fpsOverlay, sizeof(fpsOverlay), "FPS: %.1f (Min: %.1f, Max: %.1f, Med: %.1f)",
 					perf.currentFps, perf.minFps, perf.maxFps, perf.avgFps);
 				ImGui::PlotLines("##FPSGraph", perf.fpsHistory, (int)PerformanceData::HISTORY_CAPACITY,
 					(int)perf.historyIndex, fpsOverlay, 0.0f, 140.0f, ImVec2(0, 80));
 
-				// Gráfico Frame Time (ms)
 				char msOverlay[128];
 				sprintf_s(msOverlay, sizeof(msOverlay), "Frame Time: %.2f ms (Min: %.2f, Max: %.2f, Med: %.2f)",
 					perf.currentMs, perf.minMs, perf.maxMs, perf.avgMs);
@@ -808,7 +1001,7 @@ void ModuleUI::DrawConfigurationPanel()
 					win->SetWindowSize(configWindowWidth, configWindowHeight);
 				}
 				ImGui::SameLine();
-				if (ImGui::Button("Restablecer Valores"))
+				if (ImGui::Button("Sincronizar Actual"))
 				{
 					configWindowWidth = curW;
 					configWindowHeight = curH;
@@ -834,24 +1027,51 @@ void ModuleUI::DrawConfigurationPanel()
 				}
 
 				ImGui::Spacing();
-				ImGui::SeparatorText("Parámetros Fijos [Requiere Reinicio]");
+				ImGui::SeparatorText("Parámetros de Contexto [Requiere Reinicio]");
 				ImGui::TextDisabled("• API Gráfica: OpenGL 4.6 Core Profile");
 				ImGui::TextDisabled("• Doble Búfer (Double Buffer): Habilitado");
-				ImGui::TextDisabled("• Profundidad Z-Buffer: 24 bits");
-				ImGui::TextDisabled("• Stencil Buffer: 8 bits");
-				ImGui::TextDisabled("• Posición Inicial: Centrada en pantalla");
+				ImGui::TextDisabled("• Profundidad Z-Buffer: 24 bits | Stencil: 8 bits");
 
 				ImGui::EndTabItem();
 			}
 
 			// =========================================================================
-			// 3. CONFIGURACIÓN DEL MÓDULO RENDERER
+			// 3. CONFIGURACIÓN DEL MÓDULO RENDERER (Única fuente de verdad)
 			// =========================================================================
 			if (ImGui::BeginTabItem("Renderer"))
 			{
 				auto rnd = Engine::GetInstance().render;
+				RenderSettings rs = rnd->GetSettings();
+				bool settingsChanged = false;
 
-				ImGui::SeparatorText("Opciones Gráficas en Tiempo Real");
+				ImGui::SeparatorText("Pipeline OpenGL en Tiempo Real");
+				settingsChanged |= ImGui::Checkbox("Depth Test (GL_DEPTH_TEST)", &rs.depthTest);
+				settingsChanged |= ImGui::Checkbox("Face Culling (GL_CULL_FACE)", &rs.cullFace);
+				settingsChanged |= ImGui::Checkbox("Iluminación Direccional (Shader Lighting)", &rs.lighting);
+				settingsChanged |= ImGui::Checkbox("Modo Wireframe (GL_LINE)", &rs.wireframe);
+				settingsChanged |= ImGui::Checkbox("Resaltar Selección (Outline Naranja)", &rs.highlightSelection);
+				settingsChanged |= ImGui::Checkbox("V-Sync", &rs.vsync);
+
+				ImGui::Spacing();
+				ImGui::SeparatorText("Depuración de Normales");
+				static const char* normalModes[] = {
+					"Desactivado",
+					"Por Vértice (Amarillo)",
+					"Por Cara / Triángulo (Cian)",
+					"Ambos (Vértice + Cara)"
+				};
+				int currentNormalsMode = (int)rs.normals;
+				if (ImGui::Combo("Modo Normales", &currentNormalsMode, normalModes, IM_ARRAYSIZE(normalModes)))
+				{
+					rs.normals = (NormalsMode)currentNormalsMode;
+					settingsChanged = true;
+				}
+				settingsChanged |= ImGui::Checkbox("Mostrar normales en toda la escena", &rs.normalsAllObjects);
+
+				if (settingsChanged)
+				{
+					rnd->SetSettings(rs);
+				}
 
 				ImGui::Spacing();
 				SDL_Color bg = rnd->GetBackgroundColor();
@@ -869,23 +1089,81 @@ void ModuleUI::DrawConfigurationPanel()
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Estado del Framebuffer (FBO)");
-				ImGui::BulletText("Resolución Render: %d x %d px", rnd->GetViewportWidth(), rnd->GetViewportHeight());
+				ImGui::BulletText("Resolución Viewport: %d x %d px", rnd->GetViewportWidth(), rnd->GetViewportHeight());
 				ImGui::BulletText("ID Framebuffer (FBO): %u", rnd->GetFramebufferID());
 				ImGui::BulletText("ID Textura Color: %u", rnd->GetSceneTexture());
-				ImGui::BulletText("ID Renderbuffer (RBO Profundidad): %u", rnd->GetRboID());
-				ImGui::BulletText("Estado OpenGL: GL_FRAMEBUFFER_COMPLETE");
-
-				ImGui::Spacing();
-				ImGui::SeparatorText("Arquitectura de Shaders [Requiere Reinicio]");
-				ImGui::TextDisabled("• Pipeline: Forward Rendering");
-				ImGui::TextDisabled("• Versión GLSL: #version 460 core");
-				ImGui::TextDisabled("• Formato Colorbuffer: GL_RGB 8-bit");
+				ImGui::BulletText("ID Renderbuffer (RBO): %u", rnd->GetRboID());
+				ImGui::BulletText("Estado OpenGL: %s", rnd->IsFramebufferComplete() ? "GL_FRAMEBUFFER_COMPLETE" : "INCOMPLETO");
 
 				ImGui::EndTabItem();
 			}
 
 			// =========================================================================
-			// 4. CONFIGURACIÓN DEL MÓDULO INPUT
+			// 4. CONFIGURACIÓN DE CÁMARA DE EDITOR (CAMERA)
+			// =========================================================================
+			if (ImGui::BeginTabItem("Camera"))
+			{
+				Scene* scene = Engine::GetInstance().scene.get();
+				GameObject* camObj = scene ? scene->GetMainCameraObject() : nullptr;
+				CameraComponent* cam = camObj ? camObj->GetComponent<CameraComponent>() : nullptr;
+				TransformComponent* camTrans = camObj ? camObj->GetComponent<TransformComponent>() : nullptr;
+
+				if (cam && camTrans)
+				{
+					ImGui::SeparatorText("Parámetros de Proyección");
+					ImGui::SliderFloat("Campo de Visión (FOV)", &cam->fov, 10.0f, 120.0f, "%.1f deg");
+					ImGui::DragFloat("Plano Cercano (Near)", &cam->nearPlane, 0.01f, 0.01f, 10.0f, "%.2f");
+					ImGui::DragFloat("Plano Lejano (Far)", &cam->farPlane, 1.0f, 10.0f, 2000.0f, "%.1f");
+
+					ImGui::Spacing();
+					ImGui::SeparatorText("Navegación y Control");
+					glm::vec3 pos = camTrans->GetPosition();
+					if (ImGui::DragFloat3("Posición Cámara", glm::value_ptr(pos), 0.1f))
+					{
+						camTrans->SetPosition(pos);
+					}
+
+					float speed = cam->GetMovementSpeed();
+					if (ImGui::SliderFloat("Velocidad Movimiento", &speed, 0.5f, 30.0f, "%.1f u/s"))
+					{
+						cam->SetMovementSpeed(speed);
+					}
+
+					float sens = cam->GetMouseSensitivity();
+					if (ImGui::SliderFloat("Sensibilidad Ratón", &sens, 0.01f, 1.0f, "%.2f"))
+					{
+						cam->SetMouseSensitivity(sens);
+					}
+
+					float orbitDist = cam->GetOrbitDistance();
+					if (ImGui::SliderFloat("Distancia de Órbita", &orbitDist, 1.0f, 30.0f, "%.1f"))
+					{
+						cam->SetOrbitDistance(orbitDist);
+					}
+
+					if (ImGui::Button("Restablecer Cámara"))
+					{
+						cam->ResetCamera();
+					}
+					if (scene && scene->GetSelected())
+					{
+						ImGui::SameLine();
+						if (ImGui::Button("Enfocar Seleccionado (F)"))
+						{
+							cam->FocusOnObject(scene->GetSelected());
+						}
+					}
+				}
+				else
+				{
+					ImGui::TextDisabled("No hay cámara activa en la escena.");
+				}
+
+				ImGui::EndTabItem();
+			}
+
+			// =========================================================================
+			// 5. CONFIGURACIÓN DEL MÓDULO INPUT
 			// =========================================================================
 			if (ImGui::BeginTabItem("Input"))
 			{
@@ -931,69 +1209,64 @@ void ModuleUI::DrawConfigurationPanel()
 						inp->GetGamepadAxis(GAMEPAD_AXIS_LT), inp->GetGamepadAxis(GAMEPAD_AXIS_RT));
 				}
 
-				ImGui::Spacing();
-				ImGui::SeparatorText("Drag & Drop (Archivos Arrastrados)");
-				if (inp->HasDroppedFile())
-				{
-					ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.4f, 1.0f), "Archivo detectado: %s", inp->GetDroppedFilePath().c_str());
-				}
-				else
-				{
-					ImGui::TextDisabled("Ningún archivo arrastrado en este frame.");
-				}
-
 				ImGui::EndTabItem();
 			}
 
 			// =========================================================================
-			// 5. CONFIGURACIÓN DEL MÓDULO TEXTURES (DEVIL / OPENGL)
+			// 6. CONFIGURACIÓN DEL MÓDULO TEXTURES (DEVIL / OPENGL)
 			// =========================================================================
 			if (ImGui::BeginTabItem("Textures"))
 			{
 				const auto& hw = Engine::GetInstance().GetHardwareMetrics();
+				TextureManager* texMgr = Engine::GetInstance().textures.get();
 
-				ImGui::SeparatorText("Subsistema DevIL");
-				ImGui::BulletText("Librería de Carga: Developer's Image Library (DevIL)");
-				ImGui::BulletText("Versión Interna DevIL: %s", hw.devilVersion.c_str());
+				ImGui::SeparatorText("Subsistema DevIL & Caché GPU");
+				ImGui::BulletText("Librería de Carga: Developer's Image Library (DevIL v%s)", hw.devilVersion.c_str());
 				ImGui::BulletText("Formatos Compatibles: PNG, JPG, JPEG, DDS, TGA, BMP");
+				if (texMgr)
+				{
+					ImGui::BulletText("Texturas en Caché VRAM: %zu (+1 Checkerboard procedural)", texMgr->GetLoadedCount());
+				}
 
-				ImGui::Spacing();
-				ImGui::SeparatorText("Parámetros por Defecto para Nuevas Texturas");
+				if (texMgr)
+				{
+					ImGui::Spacing();
+					ImGui::SeparatorText("Parámetros de Muestreo OpenGL (Tiempo Real)");
 
-				static const char* minFilters[] = {
-					"GL_LINEAR_MIPMAP_LINEAR (Máxima Calidad)",
-					"GL_LINEAR (Bilineal sin Mipmaps)",
-					"GL_NEAREST (Pixel Art / Más rápido)"
-				};
-				static int currentMinFilter = 0;
-				ImGui::Combo("Filtro Minificación", &currentMinFilter, minFilters, IM_ARRAYSIZE(minFilters));
+					TextureSettings ts = texMgr->GetSettings();
+					bool texChanged = false;
 
-				static const char* magFilters[] = {
-					"GL_LINEAR (Suave)",
-					"GL_NEAREST (Pixelado)"
-				};
-				static int currentMagFilter = 0;
-				ImGui::Combo("Filtro Magnificación", &currentMagFilter, magFilters, IM_ARRAYSIZE(magFilters));
+					static const char* minFilters[] = {
+						"GL_LINEAR_MIPMAP_LINEAR (Trilineal)",
+						"GL_LINEAR (Bilineal)",
+						"GL_NEAREST (Vecino más cercano)"
+					};
+					texChanged |= ImGui::Combo("Filtro Minificación", &ts.minFilter, minFilters, IM_ARRAYSIZE(minFilters));
 
-				static const char* wrapModes[] = {
-					"GL_REPEAT (Repetición)",
-					"GL_CLAMP_TO_EDGE (Abrazar bordes)",
-					"GL_MIRRORED_REPEAT (Espejado)"
-				};
-				static int currentWrap = 0;
-				ImGui::Combo("Modo Wrap (S/T)", &currentWrap, wrapModes, IM_ARRAYSIZE(wrapModes));
+					static const char* magFilters[] = {
+						"GL_LINEAR (Suave)",
+						"GL_NEAREST (Pixelado)"
+					};
+					texChanged |= ImGui::Combo("Filtro Magnificación", &ts.magFilter, magFilters, IM_ARRAYSIZE(magFilters));
 
-				ImGui::Spacing();
-				ImGui::SeparatorText("Gestión de Memoria de Texturas [Requiere Reinicio]");
-				ImGui::TextDisabled("• Las texturas instanciadas en GPU residen en la VRAM de OpenGL.");
-				ImGui::TextDisabled("• Para re-muestrear texturas existentes con nuevos filtros globales,");
-				ImGui::TextDisabled("  es necesario reasignar la textura al material o reiniciar la escena.");
+					static const char* wrapModes[] = {
+						"GL_REPEAT (Repetición)",
+						"GL_CLAMP_TO_EDGE (Abrazar bordes)",
+						"GL_MIRRORED_REPEAT (Espejado)"
+					};
+					texChanged |= ImGui::Combo("Modo Wrap (S/T)", &ts.wrapMode, wrapModes, IM_ARRAYSIZE(wrapModes));
+
+					if (texChanged)
+					{
+						texMgr->SetSettings(ts);
+					}
+				}
 
 				ImGui::EndTabItem();
 			}
 
 			// =========================================================================
-			// 6. CONFIGURACIÓN DEL MÓDULO AUDIO
+			// 7. CONFIGURACIÓN DEL MÓDULO AUDIO
 			// =========================================================================
 			if (ImGui::BeginTabItem("Audio"))
 			{
@@ -1022,7 +1295,7 @@ void ModuleUI::DrawConfigurationPanel()
 			}
 
 			// =========================================================================
-			// 7. INFORMACIÓN DEL SISTEMA Y HARDWARE
+			// 8. INFORMACIÓN DEL SISTEMA, HARDWARE Y VERSIONES (Cacheadas)
 			// =========================================================================
 			if (ImGui::BeginTabItem("Hardware"))
 			{
@@ -1063,24 +1336,27 @@ void ModuleUI::DrawConfigurationPanel()
 				ImGui::BulletText("Tamaño Máx. de Textura: %d x %d px", hw.maxTextureSize, hw.maxTextureSize);
 				ImGui::BulletText("Tamaño Máx. de Viewport: %d x %d px", hw.maxViewportDims[0], hw.maxViewportDims[1]);
 
+				// Memoria (RAM y VRAM)
+				ImGui::Spacing();
+				ImGui::SeparatorText("Consumo de Memoria (RAM y VRAM)");
+				ImGui::BulletText("RAM del Proceso (Working Set): %zu MB (Pico: %zu MB)", perf.memoryUsageMB, perf.peakMemoryUsageMB);
 				if (hw.vramTotalMB > 0)
 				{
+					int vramUsed = std::max(0, hw.vramTotalMB - hw.vramAvailableMB);
 					ImGui::BulletText("VRAM Dedicada Total: %d MB", hw.vramTotalMB);
-					ImGui::BulletText("VRAM Disponible: %d MB", hw.vramAvailableMB);
+					ImGui::BulletText("VRAM Disponible: %d MB (En uso aprox.: %d MB)", hw.vramAvailableMB, vramUsed);
 				}
-
-				// Memoria del proceso
-				ImGui::Spacing();
-				ImGui::SeparatorText("Consumo de Memoria del Proceso (RAM)");
-				ImGui::BulletText("Memoria de Trabajo Actual (Working Set): %zu MB", perf.memoryUsageMB);
-				ImGui::BulletText("Pico Máximo de Memoria (Peak Working Set): %zu MB", perf.peakMemoryUsageMB);
+				else
+				{
+					ImGui::BulletText("VRAM: No reportada por el driver actual (sin extensión NVX/ATI)");
+				}
 
 				// Software y Bibliotecas
 				ImGui::Spacing();
-				ImGui::SeparatorText("Software & Bibliotecas Integradas");
+				ImGui::SeparatorText("Versiones Activas de Software");
 				ImGui::BulletText("Sistema Operativo: %s", hw.osPlatform.c_str());
 				ImGui::BulletText("SDL3: v%s", hw.sdlVersion.c_str());
-				ImGui::BulletText("OpenGL: 4.6 Core Profile");
+				ImGui::BulletText("OpenGL: %s", hw.openglVersion.c_str());
 				ImGui::BulletText("DevIL: v%s", hw.devilVersion.c_str());
 				ImGui::BulletText("Assimp: v%s", hw.assimpVersion.c_str());
 				ImGui::BulletText("Dear ImGui: v%s", hw.imguiVersion.c_str());
@@ -1094,3 +1370,59 @@ void ModuleUI::DrawConfigurationPanel()
 	ImGui::End();
 }
 
+void ModuleUI::DrawAboutPanel()
+{
+	if (!showAbout) return;
+
+	ImGui::SetNextWindowSize(ImVec2(520, 440), ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("About MotorVideojuego", &showAbout))
+	{
+		const auto& hw = Engine::GetInstance().GetHardwareMetrics();
+
+		ImGui::TextColored(ImVec4(0.35f, 0.8f, 1.0f, 1.0f), "MotorVideojuego 3D Engine");
+		ImGui::SameLine();
+		ImGui::TextDisabled("v0.0.1");
+		ImGui::TextWrapped("Motor gráfico 3D educativo desarrollado en c++ con arquitectura modular de Entidades/Componentes y editor integrado.");
+
+		ImGui::Spacing();
+		ImGui::SeparatorText("Equipo de Desarrollo");
+		ImGui::BulletText("Jan Corredor");
+		ImGui::BulletText("Rubén Mateo Guerrero");
+		ImGui::BulletText("Marc Jiménez Marquina");
+
+		ImGui::Spacing();
+		ImGui::SeparatorText("Librerías Utilizadas");
+		ImGui::BulletText("SDL3 v%s (Ventana, Contexto, Input y Audio)", hw.sdlVersion.c_str());
+		ImGui::BulletText("OpenGL %s + GLAD (Renderizado 3D)", hw.openglVersion.c_str());
+		ImGui::BulletText("Dear ImGui v%s (Interfaz del Editor y Docking)", hw.imguiVersion.c_str());
+		ImGui::BulletText("Assimp v%s (Importación de Modelos 3D)", hw.assimpVersion.c_str());
+		ImGui::BulletText("DevIL v%s (Carga de Texturas)", hw.devilVersion.c_str());
+		ImGui::BulletText("GLM (Matemáticas 3D, Matrices y Transformaciones)");
+		ImGui::BulletText("Tracy Profiler (Profiling y Rendimiento)");
+
+		ImGui::Spacing();
+		ImGui::SeparatorText("Licencia MIT");
+		ImGui::BeginChild("MITLicenseChild", ImVec2(0, 130), true);
+		ImGui::TextWrapped(
+			"MIT License\n\n"
+			"Copyright (c) 2026 MotorVideojuego Team\n\n"
+			"Permission is hereby granted, free of charge, to any person obtaining a copy "
+			"of this software and associated documentation files (the \"Software\"), to deal "
+			"in the Software without restriction, including without limitation the rights "
+			"to use, copy, modify, merge, publish, distribute, sublicense, and/or sell "
+			"copies of the Software, and to permit persons to whom the Software is "
+			"furnished to do so, subject to the following conditions:\n\n"
+			"The above copyright notice and this permission notice shall be included in all "
+			"copies or substantial portions of the Software.\n\n"
+			"THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR "
+			"IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, "
+			"FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE "
+			"AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER "
+			"LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, "
+			"OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE "
+			"SOFTWARE."
+		);
+		ImGui::EndChild();
+	}
+	ImGui::End();
+}

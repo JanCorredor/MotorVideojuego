@@ -2,18 +2,17 @@
 
 #include "../../../Utils/UUID.h"
 
+#include <glm/glm.hpp>
 #include <vector>
 #include <string>
 #include <memory>
-
-using namespace std;
 
 class Component;
 
 class GameObject
 {
 public:
-	GameObject(const string& name = "GameObject", GameUUID uuid = GameUUID());
+	GameObject(const std::string& name = "GameObject", GameUUID uuid = GameUUID());
 	~GameObject();
 
 	GameUUID GetUUID() const { return uuid; }
@@ -33,26 +32,40 @@ public:
 		return nullptr;
 	}
 
+	template <typename T>
+	const T* GetComponent() const
+	{
+		for (const auto& comp : objComponents)
+		{
+			const T* casted = dynamic_cast<const T*>(comp.get());
+			if (casted) return casted;
+		}
+		return nullptr;
+	}
+
     void AddChild(GameObject* child);
     void RemoveChild(GameObject* child);
 
     GameObject* GetParent() const { return parent; }
     const std::vector<GameObject*>& GetChildren() const { return children; }
     
-    void SetName(const string& n) { name = n; }
-    string GetName() const { return name; }
+    void SetName(const std::string& n) { name = n; }
+    const std::string& GetName() const { return name; }
 
     bool IsActive() const { return active; }
 	void Enable() { this->active = true; }
 	void Disable() { this->active = false; }
 
+	// Matriz de transformación global (cadena de padres * local). Sin Transform => identidad.
+	glm::mat4 GetWorldMatrix() const;
+
 private:
 	GameUUID uuid; //Unique Identifier
 
 	bool active = true;
-	string name;
-	vector<std::unique_ptr<Component>> objComponents;
+	std::string name;
+	std::vector<std::unique_ptr<Component>> objComponents;
     
     GameObject* parent = nullptr;
-    vector<GameObject*> children;
+    std::vector<GameObject*> children;
 };

@@ -1,4 +1,5 @@
 #include <glad/glad.h>
+#include "OpenGLDebug.h"
 #include "Log.h"
 
 #ifdef _DEBUG
@@ -30,17 +31,33 @@ static void __stdcall OpenGLErrorFunction(GLenum source, GLenum type, GLuint id,
 	case GL_DEBUG_SEVERITY_LOW: tmp_severity = "low"; break;
 	case GL_DEBUG_SEVERITY_NOTIFICATION: tmp_severity = "notification"; break;
 	};
-	if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
+
+	if (severity == GL_DEBUG_SEVERITY_HIGH)
 	{
-		LOG("<Source:%s> <Type:%s> <Severity:%s> <ID:%d> <Message:%s>\n", tmp_source, tmp_type, tmp_severity, id, message);
+		LOG_ERROR("[OpenGL] <Source:%s> <Type:%s> <Severity:%s> <ID:%u> %s", tmp_source, tmp_type, tmp_severity, id, message);
+	}
+	else if (severity == GL_DEBUG_SEVERITY_MEDIUM)
+	{
+		LOG_WARNING("[OpenGL] <Source:%s> <Type:%s> <Severity:%s> <ID:%u> %s", tmp_source, tmp_type, tmp_severity, id, message);
 	}
 }
 #endif // _DEBUG
 
-//#ifdef _DEBUG
-//glEnable(GL_DEBUG_OUTPUT);
-//glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-//glDebugMessageCallback(OpenGLErrorFunction, nullptr);
-//glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, true);
-//glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, false);
-//#endif // _DEBUG
+void EnableOpenGLDebugOutput()
+{
+#ifdef _DEBUG
+	if (!GLAD_GL_VERSION_4_3) return;
+
+	glEnable(GL_DEBUG_OUTPUT);
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+	glDebugMessageCallback(OpenGLErrorFunction, nullptr);
+	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
+
+	// Filtrar aviso 131218 de NVIDIA (recompilación inocua de vertex shader en tiempo de ejecución por glPolygonMode/estado GL)
+	GLuint ignoreIds[] = { 131218 };
+	glDebugMessageControl(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_PERFORMANCE, GL_DONT_CARE, 1, ignoreIds, GL_FALSE);
+
+	LOG("[OpenGL] Debug output activado (errores graves -> ERROR, medios -> WARNING)");
+#endif
+}

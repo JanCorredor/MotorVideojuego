@@ -19,35 +19,51 @@ void CameraComponent::Update(float dt)
     if (!transform) return;
 
     Input* input = Engine::GetInstance().input.get();
+    Scene* scene = Engine::GetInstance().scene.get();
+    GameObject* selectedObject = scene ? scene->GetSelected() : nullptr;
 
-    // CONTROL DE RATÓN RELATIVO (Para movimiento infinito de cámara)
     SDL_Window* sdlWindow = Engine::GetInstance().window->GetWindow();
-    bool isFreeLooking = (input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_DOWN || input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_REPEAT);
-    bool isOrbiting = (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT) && selectedObject;
+    bool rmbDown = (input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_DOWN);
+    bool rmbHeld = (rmbDown || input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_REPEAT);
+    bool altHeld = (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT);
+    bool lmbDown = (input->GetMouseButton(SDL_BUTTON_LEFT) == KEY_DOWN);
+    bool lmbHeld = (lmbDown || input->GetMouseButton(SDL_BUTTON_LEFT) == KEY_REPEAT);
 
-    if (isFreeLooking || isOrbiting) {
-        SDL_SetWindowRelativeMouseMode(sdlWindow, true);
+    // Solo iniciamos el control de cámara si el clic comienza dentro del viewport de Scene
+    if ((rmbDown || (altHeld && lmbDown)) && viewportHovered)
+    {
+        isControllingCamera = true;
     }
-    else {
-        SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+    if (!rmbHeld && !(altHeld && lmbHeld))
+    {
+        isControllingCamera = false;
     }
+
+    bool isFreeLooking = isControllingCamera && rmbHeld;
+    bool isOrbiting = isControllingCamera && altHeld && lmbHeld && selectedObject != nullptr;
+
+    SDL_SetWindowRelativeMouseMode(sdlWindow, isFreeLooking || isOrbiting);
 
     float currentSpeed = movementSpeed;
-
-    // Shift: Duplica la velocidad
-    if (input->GetKey(SDL_SCANCODE_LSHIFT)) {
+    if (input->GetKey(SDL_SCANCODE_LSHIFT))
+    {
         currentSpeed *= 2.0f;
     }
 
-    // Rueda del ratón: Zoom (modificando FOV)
-    float scroll = input->GetMouseScrollDelta();
-    if (scroll != 0.0f) {
-        fov -= scroll * 2.0f;
-        fov = std::max(1.0f, std::min(fov, 120.0f));
+    // Rueda del ratón: Zoom (solo cuando el cursor está sobre el viewport de Scene)
+    if (viewportHovered)
+    {
+        float scroll = input->GetMouseScrollDelta();
+        if (scroll != 0.0f)
+        {
+            fov -= scroll * 2.0f;
+            fov = std::max(1.0f, std::min(fov, 120.0f));
+        }
     }
 
     // Botón derecho: Free look y WASD
-    if (input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_DOWN || input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_REPEAT) {
+    if (isFreeLooking)
+    {
         glm::vec2 mouseDelta = input->GetMouseDelta();
         yaw += mouseDelta.x * mouseSensitivity;
         pitch -= mouseDelta.y * mouseSensitivity;
@@ -56,36 +72,36 @@ void CameraComponent::Update(float dt)
         UpdateCameraVectors();
 
         glm::vec3 pos = transform->GetPosition();
+        float step = currentSpeed * (dt / 1000.0f);
 
-        // Movimiento WASD: dirección * velocidad * (delta time / 1000)
-        if (input->GetKey(SDL_SCANCODE_W)) pos += front * currentSpeed * (dt / 1000);
-        if (input->GetKey(SDL_SCANCODE_S)) pos -= front * currentSpeed * (dt / 1000);
-        if (input->GetKey(SDL_SCANCODE_A)) pos -= right * currentSpeed * (dt / 1000);
-        if (input->GetKey(SDL_SCANCODE_D)) pos += right * currentSpeed * (dt / 1000);
+        if (input->GetKey(SDL_SCANCODE_W)) pos += front * step;
+        if (input->GetKey(SDL_SCANCODE_S)) pos -= front * step;
+        if (input->GetKey(SDL_SCANCODE_A)) pos -= right * step;
+        if (input->GetKey(SDL_SCANCODE_D)) pos += right * step;
+        if (input->GetKey(SDL_SCANCODE_E)) pos += worldUp * step;
+        if (input->GetKey(SDL_SCANCODE_Q)) pos -= worldUp * step;
 
         transform->SetPosition(pos);
     }
 
-    // Alt + Click Izquierdo: Orbitar objeto
-    if ((input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT) && selectedObject) {
+    // Alt + Click Izquierdo: Orbitar objeto seleccionado
+    if (isOrbiting && selectedObject)
+    {
+        glm::vec2 mouseDelta = input->GetMouseDelta();
+        yaw += mouseDelta.x * mouseSensitivity;
+        pitch -= mouseDelta.y * mouseSensitivity;
+        pitch = std::max(-89.0f, std::min(pitch, 89.0f));
 
-        TransformComponent* targetTrans = selectedObject->GetComponent<TransformComponent>();
-        if (targetTrans) {
-            glm::vec2 mouseDelta = input->GetMouseDelta();
-            yaw += mouseDelta.x * mouseSensitivity;
-            pitch -= mouseDelta.y * mouseSensitivity;
-            pitch = std::max(-89.0f, std::min(pitch, 89.0f));
+        UpdateCameraVectors();
 
-            UpdateCameraVectors();
-
-            glm::vec3 targetPos = targetTrans->GetPosition();
-            glm::vec3 newPos = targetPos - (front * orbitDistance);
-            transform->SetPosition(newPos);
-        }
+        glm::vec3 targetPos = glm::vec3(selectedObject->GetWorldMatrix()[3]);
+        glm::vec3 newPos = targetPos - (front * orbitDistance);
+        transform->SetPosition(newPos);
     }
 
-    // Tecla F: Focus
-    if (input->GetKeyDown(SDL_SCANCODE_F) && selectedObject) {
+    // Tecla F: Focus en el objeto seleccionado (cuando el viewport está activo)
+    if (viewportHovered && input->GetKeyDown(SDL_SCANCODE_F) && selectedObject)
+    {
         FocusOnObject(selectedObject);
     }
 }
@@ -115,12 +131,24 @@ glm::mat4 CameraComponent::GetProjectionMatrix(float aspectRatio)
 
 void CameraComponent::FocusOnObject(GameObject* target)
 {
-    TransformComponent* targetTrans = target->GetComponent<TransformComponent>();
-    if (targetTrans && transform) {
-        selectedObject = target;
-        glm::vec3 targetPos = targetTrans->GetPosition();
+    if (!target || !transform) return;
+    if (Engine::GetInstance().scene)
+    {
+        Engine::GetInstance().scene->SetSelected(target);
+    }
+    glm::vec3 targetPos = glm::vec3(target->GetWorldMatrix()[3]);
+    transform->SetPosition(targetPos - (front * orbitDistance));
+}
 
-        transform->SetPosition(targetPos - (front * orbitDistance));
+void CameraComponent::ResetCamera()
+{
+    yaw = -90.0f;
+    pitch = 0.0f;
+    fov = 45.0f;
+    UpdateCameraVectors();
+    if (transform)
+    {
+        transform->SetPosition(glm::vec3(0.0f, 1.0f, 5.0f));
     }
 }
 
@@ -145,72 +173,76 @@ void CameraComponent::CheckRaycastRecursive(GameObject* go, glm::vec3 rayOrigin,
     glm::mat4 globalMatrix = parentMatrix;
     TransformComponent* trans = go->GetComponent<TransformComponent>();
 
-    if (trans) {
+    if (trans)
+    {
         globalMatrix = parentMatrix * trans->GetLocalModelMatrix();
 
-        // Solo intentamos seleccionar objetos que tengan geometría visual y que no sean la propia cámara
-        if (go->GetComponent<MeshComponent>() && go != owner) {
-            glm::vec3 objPos = glm::vec3(globalMatrix[3]); // La posición global se almacena en la última columna de la matriz
+        MeshComponent* mesh = go->GetComponent<MeshComponent>();
+        if (mesh && mesh->GetPrimitive() && go != owner)
+        {
+            Primitive* prim = mesh->GetPrimitive();
+            glm::vec3 localCenter = 0.5f * (prim->GetBoundsMin() + prim->GetBoundsMax());
+            float localRadius = 0.5f * glm::length(prim->GetBoundsMax() - prim->GetBoundsMin());
+            if (localRadius <= 0.001f) localRadius = 0.75f;
 
-            // Calculamos un radio aproximado basado en la escala global mayor del objeto
+            glm::vec3 objPos = glm::vec3(globalMatrix * glm::vec4(localCenter, 1.0f));
+
             float scaleX = glm::length(glm::vec3(globalMatrix[0]));
             float scaleY = glm::length(glm::vec3(globalMatrix[1]));
             float scaleZ = glm::length(glm::vec3(globalMatrix[2]));
-            float radius = std::max({ scaleX, scaleY, scaleZ });
+            float radius = localRadius * std::max({ scaleX, scaleY, scaleZ });
 
             float hitDistance = 0.0f;
-            if (RaySphereIntersection(rayOrigin, rayDir, objPos, radius, hitDistance)) {
-                if (hitDistance < minDistance) {
-                    minDistance = hitDistance; // Guardamos el más cercano a la cámara
+            if (RaySphereIntersection(rayOrigin, rayDir, objPos, radius, hitDistance))
+            {
+                if (hitDistance < minDistance)
+                {
+                    minDistance = hitDistance;
                     closestObject = go;
                 }
             }
         }
     }
 
-    // Comprobar los hijos en la jerarquía
-    for (GameObject* child : go->GetChildren()) {
+    for (GameObject* child : go->GetChildren())
+    {
         CheckRaycastRecursive(child, rayOrigin, rayDir, closestObject, minDistance, globalMatrix);
     }
 }
 
 void CameraComponent::PerformRaycast(float mX, float mY, float width, float height)
 {
-    // Convertir a Normalized Device Coordinates (NDC) [-1 a 1] usando el tamaño del panel
+    if (width <= 0.0f || height <= 0.0f || !transform) return;
+
     float x = (2.0f * mX) / width - 1.0f;
-    float y = 1.0f - (2.0f * mY) / height; // Invertido porque la Y en pantalla baja y en 3D sube
+    float y = 1.0f - (2.0f * mY) / height;
 
-    // Coordenadas de Clip y Eye
     glm::vec4 ray_clip = glm::vec4(x, y, -1.0f, 1.0f);
-
-    // Usamos el Aspect Ratio real del panel Scene de ImGui (width / height)
-    // para que la proyección del rayo coincida exactamente con la proyección de renderizado
-    float aspectRatio = (height > 0.0f) ? (width / height) : 1.0f;
-
+    float aspectRatio = width / height;
     glm::mat4 projection = GetProjectionMatrix(aspectRatio);
 
     glm::vec4 ray_eye = glm::inverse(projection) * ray_clip;
     ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
 
-    // Coordenadas de World (Rayo final en el mundo)
     glm::mat4 view = GetViewMatrix();
-    glm::vec3 ray_wor = glm::vec3(glm::inverse(view) * ray_eye);
-    ray_wor = glm::normalize(ray_wor);
-
+    glm::vec3 ray_wor = glm::normalize(glm::vec3(glm::inverse(view) * ray_eye));
     glm::vec3 rayOrigin = transform->GetPosition();
 
-    // Comprobar colisión recursivamente con todos los objetos
-    GameObject* root = Engine::GetInstance().scene->GetRoot();
+    Scene* scene = Engine::GetInstance().scene.get();
+    if (!scene) return;
+
+    GameObject* root = scene->GetRoot();
     GameObject* closestObj = nullptr;
     float minDistance = FLT_MAX;
 
-    if (root) {
+    if (root)
+    {
         CheckRaycastRecursive(root, rayOrigin, ray_wor, closestObj, minDistance, glm::mat4(1.0f));
     }
 
-    // Asignar el objeto colisionado
-    if (closestObj) {
-        selectedObject = closestObj;
-        LOG("Objeto clickeado y seleccionado correctamente.");
+    scene->SetSelected(closestObj);
+    if (closestObj)
+    {
+        LOG("[Scene] GameObject seleccionado por Raycast: '%s'", closestObj->GetName().c_str());
     }
 }

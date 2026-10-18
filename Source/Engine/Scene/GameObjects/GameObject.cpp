@@ -1,10 +1,13 @@
 #include "GameObject.h"
 
 #include "./Components/Component.h"
+#include "./Components/TransformComponent.h"
+
+#include <algorithm>
 
 #include <tracy/Tracy.hpp>
 
-GameObject::GameObject(const string& name, GameUUID id) : name(name), parent(nullptr)
+GameObject::GameObject(const std::string& name, GameUUID id) : uuid(id), name(name), parent(nullptr)
 {
 }
 
@@ -59,4 +62,16 @@ void GameObject::RemoveChild(GameObject* child)
         (*it)->parent = nullptr;
         children.erase(it);
     }
+}
+
+glm::mat4 GameObject::GetWorldMatrix() const
+{
+    // Se recorre la cadena de padres de forma iterativa (de la hoja a la raíz)
+    glm::mat4 world(1.0f);
+    for (const GameObject* node = this; node != nullptr; node = node->parent)
+    {
+        const TransformComponent* t = node->GetComponent<TransformComponent>();
+        if (t) world = t->GetLocalModelMatrix() * world;
+    }
+    return world;
 }

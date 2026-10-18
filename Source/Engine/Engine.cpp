@@ -7,8 +7,10 @@
 #include "Input/Input.h"
 #include "Render/Render.h"
 #include "Audio/Audio.h"
+#include "Render/Texture/TextureManager.h"
 #include "Scene/Scene.h"
 #include "UI/ModuleUI.h"
+#include "System/SystemInfo.h"
 #include "../Utils/Log.h"
 #include "../Utils/Timer.h"
 #include "../Utils/PerfTimer.h"
@@ -43,6 +45,7 @@ Engine::Engine()
     input = std::make_shared<Input>();
     render = std::make_shared<Render>();
     audio = std::make_shared<Audio>();
+    textures = std::make_shared<TextureManager>();
     scene = std::make_shared<Scene>();
     ui = std::make_shared<ModuleUI>();
 
@@ -52,6 +55,7 @@ Engine::Engine()
     AddModule(std::static_pointer_cast<Module>(window));
     AddModule(std::static_pointer_cast<Module>(input));
     AddModule(std::static_pointer_cast<Module>(audio));
+    AddModule(std::static_pointer_cast<Module>(textures));
     AddModule(std::static_pointer_cast<Module>(scene));
 
     // UI module
@@ -363,77 +367,33 @@ bool Engine::LoadConfig()
 
 void Engine::QueryHardwareMetrics()
 {
-	// CPU
-	hardwareMetrics.cpuCores = SDL_GetNumLogicalCPUCores();
-	hardwareMetrics.systemRamMB = SDL_GetSystemRAM();
-	hardwareMetrics.cpuCacheLineSize = SDL_GetCPUCacheLineSize();
-	hardwareMetrics.hasAVX = SDL_HasAVX();
-	hardwareMetrics.hasAVX2 = SDL_HasAVX2();
-	hardwareMetrics.hasAVX512 = SDL_HasAVX512F();
-	hardwareMetrics.hasSSE = SDL_HasSSE();
-	hardwareMetrics.hasSSE2 = SDL_HasSSE2();
-	hardwareMetrics.hasSSE3 = SDL_HasSSE3();
-	hardwareMetrics.hasSSE41 = SDL_HasSSE41();
-	hardwareMetrics.hasSSE42 = SDL_HasSSE42();
+	SystemInfo sys = SystemInfo::Query();
 
-	// GPU
-	const char* vendor = (const char*)glGetString(GL_VENDOR);
-	hardwareMetrics.gpuVendor = vendor ? vendor : "Desconocido";
+	hardwareMetrics.cpuCores = sys.cpuCores;
+	hardwareMetrics.systemRamMB = sys.systemRamMB;
+	hardwareMetrics.cpuCacheLineSize = sys.cpuCacheLineSize;
+	hardwareMetrics.hasAVX = sys.hasAVX;
+	hardwareMetrics.hasAVX2 = sys.hasAVX2;
+	hardwareMetrics.hasAVX512 = sys.hasAVX512;
+	hardwareMetrics.hasSSE = sys.hasSSE;
+	hardwareMetrics.hasSSE2 = sys.hasSSE2;
+	hardwareMetrics.hasSSE3 = sys.hasSSE3;
+	hardwareMetrics.hasSSE41 = sys.hasSSE41;
+	hardwareMetrics.hasSSE42 = sys.hasSSE42;
 
-	const char* renderer = (const char*)glGetString(GL_RENDERER);
-	hardwareMetrics.gpuRenderer = renderer ? renderer : "Desconocido";
+	hardwareMetrics.gpuVendor = sys.gpuVendor;
+	hardwareMetrics.gpuRenderer = sys.gpuRenderer;
+	hardwareMetrics.gpuVersion = sys.glVersion;
+	hardwareMetrics.glslVersion = sys.glslVersion;
+	hardwareMetrics.maxTextureSize = sys.maxTextureSize;
+	hardwareMetrics.maxViewportDims[0] = sys.maxViewportDims[0];
+	hardwareMetrics.maxViewportDims[1] = sys.maxViewportDims[1];
 
-	const char* ver = (const char*)glGetString(GL_VERSION);
-	hardwareMetrics.gpuVersion = ver ? ver : "Desconocido";
-
-	const char* glsl = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-	hardwareMetrics.glslVersion = glsl ? glsl : "Desconocido";
-
-	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &hardwareMetrics.maxTextureSize);
-	glGetIntegerv(GL_MAX_VIEWPORT_DIMS, hardwareMetrics.maxViewportDims);
-
-	// Dedicated VRAM query (NVIDIA NVX / AMD ATI extension)
-	GLint totalMemKb = 0;
-	GLint curAvailMemKb = 0;
-	// GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX 0x9048
-	glGetIntegerv(0x9048, &totalMemKb);
-	// GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX 0x9049
-	glGetIntegerv(0x9049, &curAvailMemKb);
-
-	if (totalMemKb > 0)
-	{
-		hardwareMetrics.vramTotalMB = totalMemKb / 1024;
-		hardwareMetrics.vramAvailableMB = curAvailMemKb / 1024;
-	}
-	else
-	{
-		// AMD ATI extension: GL_VBO_FREE_MEMORY_ATI 0x87FB
-		GLint atiMem[4] = { 0 };
-		glGetIntegerv(0x87FB, atiMem);
-		if (atiMem[0] > 0)
-		{
-			hardwareMetrics.vramAvailableMB = atiMem[0] / 1024;
-			hardwareMetrics.vramTotalMB = hardwareMetrics.vramAvailableMB;
-		}
-	}
-
-	// OS & Libraries
-	const char* platform = SDL_GetPlatform();
-	hardwareMetrics.osPlatform = platform ? platform : "Desconocido";
-
-	int sdlVer = SDL_GetVersion();
-	hardwareMetrics.sdlVersion = std::to_string(SDL_VERSIONNUM_MAJOR(sdlVer)) + "." +
-		std::to_string(SDL_VERSIONNUM_MINOR(sdlVer)) + "." +
-		std::to_string(SDL_VERSIONNUM_MICRO(sdlVer));
-
-	hardwareMetrics.openglVersion = hardwareMetrics.gpuVersion;
-
-	hardwareMetrics.devilVersion = std::to_string(ilGetInteger(IL_VERSION_NUM));
-
-	hardwareMetrics.assimpVersion = std::to_string(aiGetVersionMajor()) + "." +
-		std::to_string(aiGetVersionMinor()) + "." +
-		std::to_string(aiGetVersionRevision());
-
+	hardwareMetrics.osPlatform = sys.osPlatform;
+	hardwareMetrics.sdlVersion = sys.sdlVersion;
+	hardwareMetrics.openglVersion = sys.glVersion;
+	hardwareMetrics.devilVersion = sys.devilVersion;
+	hardwareMetrics.assimpVersion = sys.assimpVersion;
 	hardwareMetrics.imguiVersion = IMGUI_VERSION;
 }
 
@@ -447,6 +407,38 @@ void Engine::UpdateMemoryMetrics()
 		performanceData.peakMemoryUsageMB = (size_t)(pmc.PeakWorkingSetSize / (1024 * 1024));
 	}
 #endif
+
+	// Dedicated VRAM query (NVIDIA NVX / AMD ATI extension)
+	GLint totalMemKb = 0;
+	GLint curAvailMemKb = 0;
+	if (glGetString != nullptr && glGetString(GL_VERSION) != nullptr)
+	{
+		// GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX 0x9048
+		glGetIntegerv(0x9048, &totalMemKb);
+		// GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX 0x9049
+		glGetIntegerv(0x9049, &curAvailMemKb);
+		// Limpiar posible GL_INVALID_ENUM en GPUs Intel/AMD sin extensión NVX
+		while (glGetError() != GL_NO_ERROR) {}
+
+		if (totalMemKb > 0)
+		{
+			hardwareMetrics.vramTotalMB = totalMemKb / 1024;
+			hardwareMetrics.vramAvailableMB = curAvailMemKb / 1024;
+		}
+		else
+		{
+			// AMD ATI extension: GL_VBO_FREE_MEMORY_ATI 0x87FB
+			GLint atiMem[4] = { 0 };
+			glGetIntegerv(0x87FB, atiMem);
+			while (glGetError() != GL_NO_ERROR) {}
+			if (atiMem[0] > 0)
+			{
+				hardwareMetrics.vramAvailableMB = atiMem[0] / 1024;
+				if (hardwareMetrics.vramTotalMB == 0)
+					hardwareMetrics.vramTotalMB = hardwareMetrics.vramAvailableMB;
+			}
+		}
+	}
 }
 
 

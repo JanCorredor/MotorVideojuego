@@ -14,6 +14,7 @@ class Render;
 class Audio;
 class Scene;
 class ModuleUI;
+class TextureManager;
 
 struct PerformanceData
 {
@@ -152,6 +153,7 @@ public:
 	std::shared_ptr<Input> input;
 	std::shared_ptr<Render> render;
 	std::shared_ptr<Audio> audio;
+	std::shared_ptr<TextureManager> textures;
 	std::shared_ptr<Scene> scene;
 	std::shared_ptr<ModuleUI> ui;
 

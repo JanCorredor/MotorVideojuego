@@ -9,11 +9,39 @@ Primitive::~Primitive()
     if (EBO != 0) glDeleteBuffers(1, &EBO);
 }
 
-void Primitive::Init(const std::vector<Vertex>& verts, const std::vector<unsigned int>& indices)
+void Primitive::Init(const std::vector<Vertex>& verts, const std::vector<unsigned int>& inds)
 {
     this->vertices = verts;
+    this->indices = inds;
 
     indexCount = static_cast<unsigned int>(indices.size());
+
+    // Bounds locales
+    if (!vertices.empty())
+    {
+        boundsMin = boundsMax = vertices[0].position;
+        for (const Vertex& v : vertices)
+        {
+            boundsMin = glm::min(boundsMin, v.position);
+            boundsMax = glm::max(boundsMax, v.position);
+        }
+    }
+
+    // Normal y centroide de cada triángulo (se calcula una sola vez, no por frame)
+    faces.clear();
+    faces.reserve(indices.size() / 3);
+    for (size_t i = 0; i + 2 < indices.size(); i += 3)
+    {
+        const glm::vec3& a = vertices[indices[i]].position;
+        const glm::vec3& b = vertices[indices[i + 1]].position;
+        const glm::vec3& c = vertices[indices[i + 2]].position;
+        glm::vec3 n = glm::cross(b - a, c - a);
+        float len = glm::length(n);
+        FaceData face;
+        face.centroid = (a + b + c) / 3.0f;
+        face.normal = (len > 1e-8f) ? n / len : glm::vec3(0.0f, 1.0f, 0.0f);
+        faces.push_back(face);
+    }
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);

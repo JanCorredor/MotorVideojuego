@@ -1,9 +1,11 @@
 #pragma once
 
 #include "../Module.h"
+#include "RenderSettings.h"
 
 #include "SDL3/SDL.h"
 #include <glm/glm.hpp>
+#include <vector>
 
 class GameObject;
 
@@ -34,44 +36,72 @@ public:
 	void SetBackgroundColor(SDL_Color color);
 	SDL_Color GetBackgroundColor() const { return background; }
 
-	// Render settings
-	bool depthTestEnabled = true;
-	bool cullFaceEnabled = true;
-	bool lightingEnabled = true;
-	bool wireframeMode = false;
-	bool showNormals = false;
-	
-	bool vsync = true;
-	void SetVSync(bool enabled);
-	bool GetVSync() const { return vsync; }
+	// Render settings (única fuente de verdad)
+	const RenderSettings& GetSettings() const { return settings; }
+	void SetSettings(const RenderSettings& newSettings);
 
+	void SetVSync(bool enabled);
+	bool GetVSync() const { return settings.vsync; }
+
+	// Framebuffer de la escena
 	unsigned int GetFramebufferID() const { return framebuffer; }
 	unsigned int GetSceneTexture() const { return textureColorbuffer; }
 	unsigned int GetRboID() const { return rbo; }
+	bool IsFramebufferComplete() const { return fboComplete; }
 
 	void SetViewportSize(int width, int height);
 	int GetViewportWidth() const { return viewportWidth; }
 	int GetViewportHeight() const { return viewportHeight; }
 
-	void ImportModel(std::string filePath);
+	// El Editor indica si el viewport de la escena es visible. Si no lo es, no se renderiza el pase 3D.
+	void SetViewportVisible(bool visible) { viewportVisible = visible; }
+	bool IsViewportVisible() const { return viewportVisible; }
 
 private:
+	RenderSettings settings;
 	SDL_Color background;
+	bool viewportVisible = true;
 
+	// Framebuffer de la escena
 	unsigned int framebuffer = 0;
 	unsigned int textureColorbuffer = 0;
 	unsigned int rbo = 0;
+	bool fboComplete = false;
 	int fboWidth = 0;
 	int fboHeight = 0;
 	int viewportWidth = 800;
 	int viewportHeight = 600;
 	void CreateFramebuffer(int width, int height);
+	void DestroyFramebuffer();
 
-	unsigned int VBO, VAO, EBO;
-	unsigned int shaderProgram;
+	// Shaders
+	unsigned int shaderProgram = 0;
 	unsigned int lineShaderProgram = 0;
 
-	//Scene
-	void DrawGameObject(GameObject* go, int modelLoc, int colorLoc, int useTexLoc, int texLoc, const glm::mat4& parentMatrix);
-	void DrawNormals(GameObject* go, const glm::mat4& view, const glm::mat4& projection, const glm::mat4& parentMatrix);
+	struct SceneUniforms
+	{
+		int model = -1, view = -1, projection = -1;
+		int color = -1, useTexture = -1, texture = -1, lighting = -1;
+	} u;
+
+	struct LineUniforms
+	{
+		int model = -1, view = -1, projection = -1, color = -1;
+	} lu;
+
+	// Dibujo de depuración (normales + contorno de selección): un único VAO/VBO persistente
+	unsigned int debugVAO = 0;
+	unsigned int debugVBO = 0;
+	size_t debugVBOCapacityBytes = 0;
+	std::vector<float> debugVertexLines; // reutilizado entre frames (sin realloc)
+	std::vector<float> debugFaceLines;
+
+	void RenderScene();
+	void BindDefaultFramebuffer();
+
+	void DrawGameObject(GameObject* go, const glm::mat4& parentMatrix);
+	void DrawDebug(const glm::mat4& view, const glm::mat4& projection);
+	void CollectNormals(GameObject* go, const glm::mat4& parentMatrix);
+	void AppendNormals(GameObject* go, const glm::mat4& worldMatrix);
+	void DrawSelectionOutline(GameObject* selected);
 };

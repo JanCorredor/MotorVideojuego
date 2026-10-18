@@ -2,7 +2,10 @@
 
 #include <string>
 #include <vector>
+#include <deque>
 #include <mutex>
+#include <atomic>
+#include <cstdint>
 #include <cstdarg>
 #include <cstdio>
 
@@ -20,9 +23,11 @@ struct LogEntry
 	std::string text;
 	std::string file;
 	int line = 0;
-	int count = 1;
+	int count = 1; // Siempre 1: la agrupación (Collapse) es una decisión de la vista
 };
 
+// Sistema de log único y thread-safe. El Editor lo consume sin copiar el buffer
+// (ForEach) y detecta cambios mediante GetRevision().
 class LogSystem
 {
 public:
@@ -35,10 +40,31 @@ public:
 	void AddLog(LogType type, const char* file, int line, const char* format, ...);
 	void AddLogVA(LogType type, const char* file, int line, const char* format, va_list args);
 
+	// Recorre las entradas bajo lock, sin copiarlas.
+	template <typename F>
+	void ForEach(F&& fn) const
+	{
+		std::lock_guard<std::mutex> lock(logMutex);
+		int index = 0;
+		for (const LogEntry& entry : logs)
+		{
+			fn(index++, entry);
+		}
+	}
+
+	// Copia de una única entrada (para el panel de detalle). Devuelve false si el índice ya no existe.
+	bool GetEntry(int index, LogEntry& out) const
+	{
+		std::lock_guard<std::mutex> lock(logMutex);
+		if (index < 0 || index >= (int)logs.size()) return false;
+		out = logs[index];
+		return true;
+	}
+
 	std::vector<LogEntry> GetLogs() const
 	{
 		std::lock_guard<std::mutex> lock(logMutex);
-		return logs;
+		return std::vector<LogEntry>(logs.begin(), logs.end());
 	}
 
 	void Clear()
@@ -48,29 +74,26 @@ public:
 		infoCount = 0;
 		warningCount = 0;
 		errorCount = 0;
+		revision++;
 	}
 
-	int GetInfoCount() const { return infoCount; }
-	int GetWarningCount() const { return warningCount; }
-	int GetErrorCount() const { return errorCount; }
+	// Se incrementa con cada cambio (nueva entrada o Clear)
+	uint64_t GetRevision() const { return revision.load(); }
+
+	int GetInfoCount() const { return infoCount.load(); }
+	int GetWarningCount() const { return warningCount.load(); }
+	int GetErrorCount() const { return errorCount.load(); }
 
 private:
 	LogSystem() = default;
 	mutable std::mutex logMutex;
-	std::vector<LogEntry> logs;
-	int infoCount = 0;
-	int warningCount = 0;
-	int errorCount = 0;
+	std::deque<LogEntry> logs;
+	std::atomic<int> infoCount{ 0 };
+	std::atomic<int> warningCount{ 0 };
+	std::atomic<int> errorCount{ 0 };
+	std::atomic<uint64_t> revision{ 0 };
 	const size_t maxLogs = 2000;
 };
-
-// Retrocompatibilidad con el motor existente
-void Log(const char file[], int line, const char* format, ...);
-
-// Funciones globales estándar
-void Log(const char* format, ...);
-void Warning(const char* format, ...);
-void Error(const char* format, ...);
 
 // Macros de logging con captura automática de fichero y línea
 #define LOG(format, ...) LogSystem::GetInstance().AddLog(LogType::Info, __FILE__, __LINE__, format, ##__VA_ARGS__)
