@@ -158,7 +158,7 @@ bool Render::Start() {
 
 	shaderProgram = BuildProgram(vertexShaderSource, fragmentShaderSource, "Scene");
 
-	/////////////////////  Line Shader (normales y contorno de selección) /////////////////////////////
+	/////////////////////  Line Shader (grid, ejes, normales y contorno de selección) /////////////////////////////
 	const char* lineVS = "#version 460 core\n"
 		"layout (location = 0) in vec3 aPos;\n"
 		"uniform mat4 model;\n"
@@ -203,13 +203,134 @@ bool Render::Start() {
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	int width, height;
-	Engine::GetInstance().window->GetWindowSize(width, height);
+	// Inicializar geometría persistente de Grid y Axis
+	CreateGridAndAxisBuffers();
+
+	int width = Engine::GetInstance().window->GetWidth();
+	int height = Engine::GetInstance().window->GetHeight();
 	viewportWidth = width > 0 ? width : 800;
 	viewportHeight = height > 0 ? height : 600;
 	CreateFramebuffer(viewportWidth, viewportHeight);
 
 	return true;
+}
+
+void Render::CreateGridAndAxisBuffers()
+{
+	// Cuadrícula en el plano XZ de -50 a +50 con paso 1.0
+	std::vector<float> gridVerts;
+	gridVerts.reserve((101 + 101) * 2 * 3);
+
+	constexpr int GRID_RANGE = 50;
+	for (int i = -GRID_RANGE; i <= GRID_RANGE; ++i)
+	{
+		const float coord = static_cast<float>(i);
+		// Líneas paralelas a Z (avanzan en X)
+		gridVerts.push_back(coord); gridVerts.push_back(0.0f); gridVerts.push_back(-static_cast<float>(GRID_RANGE));
+		gridVerts.push_back(coord); gridVerts.push_back(0.0f); gridVerts.push_back(static_cast<float>(GRID_RANGE));
+
+		// Líneas paralelas a X (avanzan en Z)
+		gridVerts.push_back(-static_cast<float>(GRID_RANGE)); gridVerts.push_back(0.0f); gridVerts.push_back(coord);
+		gridVerts.push_back(static_cast<float>(GRID_RANGE));  gridVerts.push_back(0.0f); gridVerts.push_back(coord);
+	}
+
+	gridVertexCount = static_cast<int>(gridVerts.size() / 3);
+
+	glGenVertexArrays(1, &gridVAO);
+	glGenBuffers(1, &gridVBO);
+	glBindVertexArray(gridVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+	glBufferData(GL_ARRAY_BUFFER, gridVerts.size() * sizeof(float), gridVerts.data(), GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Ejes centrados en (0,0,0)
+	std::vector<float> axisVerts = {
+		// Eje X (Rojo): de -50 a +50 a lo largo del centro
+		-50.0f, 0.0005f, 0.0f,
+		 50.0f, 0.0005f, 0.0f,
+
+		// Eje Y (Verde): vertical de 0 a 25
+		 0.0f,  0.0f,    0.0f,
+		 0.0f, 25.0f,    0.0f,
+
+		// Eje Z (Azul): de -50 a +50 a lo largo del centro
+		 0.0f, 0.0005f, -50.0f,
+		 0.0f, 0.0005f,  50.0f
+	};
+
+	axisVertexCount = static_cast<int>(axisVerts.size() / 3);
+
+	glGenVertexArrays(1, &axisVAO);
+	glGenBuffers(1, &axisVBO);
+	glBindVertexArray(axisVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, axisVBO);
+	glBufferData(GL_ARRAY_BUFFER, axisVerts.size() * sizeof(float), axisVerts.data(), GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	LOG("[Render] Buffers estáticos creados para Grid (%d vértices) y Axis (%d vértices)",
+		gridVertexCount, axisVertexCount);
+}
+
+void Render::DestroyGridAndAxisBuffers()
+{
+	if (gridVBO != 0) { glDeleteBuffers(1, &gridVBO); gridVBO = 0; }
+	if (gridVAO != 0) { glDeleteVertexArrays(1, &gridVAO); gridVAO = 0; }
+	gridVertexCount = 0;
+
+	if (axisVBO != 0) { glDeleteBuffers(1, &axisVBO); axisVBO = 0; }
+	if (axisVAO != 0) { glDeleteVertexArrays(1, &axisVAO); axisVAO = 0; }
+	axisVertexCount = 0;
+}
+
+void Render::DrawGridAndAxis(const glm::mat4& view, const glm::mat4& projection)
+{
+	if (!settings.showGrid && !settings.showAxis) return;
+
+	glUseProgram(lineShaderProgram);
+	glUniformMatrix4fv(lu.view, 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(lu.projection, 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(lu.model, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
+
+	glEnable(GL_DEPTH_TEST);
+
+	// Dibujar Grid
+	if (settings.showGrid && gridVAO != 0)
+	{
+		glLineWidth(1.0f);
+		// Color gris tenue
+		glUniform3f(lu.color, 0.32f, 0.32f, 0.35f);
+		glBindVertexArray(gridVAO);
+		glDrawArrays(GL_LINES, 0, gridVertexCount);
+		glBindVertexArray(0);
+	}
+
+	// Dibujar Axis con mayor grosor para destacar sobre la cuadrícula
+	if (settings.showAxis && axisVAO != 0)
+	{
+		glLineWidth(2.5f);
+		glBindVertexArray(axisVAO);
+
+		// Eje X: Rojo
+		glUniform3f(lu.color, 0.95f, 0.22f, 0.22f);
+		glDrawArrays(GL_LINES, 0, 2);
+
+		// Eje Y: Verde
+		glUniform3f(lu.color, 0.22f, 0.95f, 0.22f);
+		glDrawArrays(GL_LINES, 2, 2);
+
+		// Eje Z: Azul
+		glUniform3f(lu.color, 0.25f, 0.55f, 1.0f);
+		glDrawArrays(GL_LINES, 4, 2);
+
+		glBindVertexArray(0);
+		glLineWidth(1.0f);
+	}
 }
 
 void Render::SetViewportSize(int width, int height)
@@ -305,8 +426,8 @@ void Render::BindDefaultFramebuffer()
 	// Unbind FBO and prepare default framebuffer for UI rendering
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	int winW, winH;
-	Engine::GetInstance().window->GetWindowSize(winW, winH);
+	int winW = Engine::GetInstance().window->GetWidth();
+	int winH = Engine::GetInstance().window->GetHeight();
 	glViewport(0, 0, winW > 0 ? winW : 800, winH > 0 ? winH : 600);
 
 	// Reset states that might affect ImGui
@@ -382,6 +503,11 @@ void Render::RenderScene()
 		DrawGameObject(root, glm::mat4(1.0f));
 	}
 
+	// -------------------------------------------------------------------------
+	// Draw Grid and Axis inside FBO
+	// -------------------------------------------------------------------------
+	DrawGridAndAxis(view, projection);
+
 	// Normales y contorno de selección (no se ven afectados por el modo wireframe global)
 	DrawDebug(view, projection);
 
@@ -403,6 +529,7 @@ bool Render::PostUpdate()
 bool Render::CleanUp() 
 {
 	DestroyFramebuffer();
+	DestroyGridAndAxisBuffers();
 
 	if (debugVBO != 0) { glDeleteBuffers(1, &debugVBO); debugVBO = 0; }
 	if (debugVAO != 0) { glDeleteVertexArrays(1, &debugVAO); debugVAO = 0; }
@@ -415,7 +542,7 @@ bool Render::CleanUp()
 	if (shaderProgram != 0) { glDeleteProgram(shaderProgram); shaderProgram = 0; }
 	if (lineShaderProgram != 0) { glDeleteProgram(lineShaderProgram); lineShaderProgram = 0; }
 
-	LOG("[Render] Recursos OpenGL liberados (FBO, RBO, textura de color, shaders, buffers de depuración)");
+	LOG("[Render] Recursos OpenGL liberados (FBO, RBO, textura de color, shaders, buffers de depuración, Grid y Axis)");
 	return true;
 }
 

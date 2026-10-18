@@ -22,4 +22,8 @@ struct RenderSettings
 	NormalsMode normals = NormalsMode::None;
 	bool normalsAllObjects = false;   // false: solo el GameObject seleccionado
 	bool highlightSelection = true;   // contorno del GameObject seleccionado
+
+	// Rejilla de referencia en el plano XZ y eje de coordenadas en el origen
+	bool showGrid = true;
+	bool showAxis = true;
 };

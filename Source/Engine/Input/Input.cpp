@@ -174,9 +174,12 @@ bool Input::PreUpdate()
 			break;
 
 		case SDL_EVENT_WINDOW_RESIZED:
-			//Engine::GetInstance().window-> //TODO
-			break;
 		case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+			
+			if (sdlWindow != nullptr && event.window.windowID == SDL_GetWindowID(sdlWindow))
+			{
+				Engine::GetInstance().window->RefreshSize();
+			}
 			break;
 
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -319,8 +322,8 @@ void Input::UpdateUINavigation()
 
 	if (fabs(stickX) > stickThresholdX || fabs(stickY) > stickThresholdY)
 	{
-		int screenW = 0, screenH = 0;
-		SDL_GetWindowSize(Engine::GetInstance().window->GetWindow(), &screenW, &screenH);
+		const int screenW = Engine::GetInstance().window->GetWidth();
+		const int screenH = Engine::GetInstance().window->GetHeight();
 
 		float currentMouseX = 0.0f, currentMouseY = 0.0f;
 		SDL_GetMouseState(&currentMouseX, &currentMouseY);

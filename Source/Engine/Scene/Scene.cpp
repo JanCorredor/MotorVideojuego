@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <filesystem>
+#include <functional>
 #include <tracy/Tracy.hpp>
 
 Scene::Scene() : Module()
@@ -95,6 +96,7 @@ bool Scene::PreUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+	ProcessPendingDestructions();
 	return true;
 }
 
@@ -103,7 +105,7 @@ bool Scene::Update(float dt)
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
-	// Centralización del drag & drop
+	// Centralización del drag & drop de archivos
 	if (Engine::GetInstance().input && Engine::GetInstance().input->HasDroppedFile())
 	{
 		std::string droppedPath = Engine::GetInstance().input->GetDroppedFilePath();
@@ -112,6 +114,7 @@ bool Scene::Update(float dt)
 	}
 
 	sceneRoot.Update(dt);
+	ProcessPendingDestructions();
 	return true;
 }
 
@@ -126,6 +129,7 @@ bool Scene::PostUpdate()
 bool Scene::CleanUp()
 {
 	LOG("[Scene] Limpiando entidades de la escena (%zu entidades)...", sceneEntities.size());
+	pendingDestruction.clear();
 	selected = nullptr;
 	mainCameraPtr = nullptr;
 	sceneEntities.clear();
@@ -166,6 +170,13 @@ std::string Scene::MakeUniqueName(const std::string& baseName) const
 bool Scene::OwnsObject(const GameObject* object) const
 {
 	if (!object || object == &sceneRoot) return false;
+
+	// Si está encolado para destrucción, ya no se considera disponible
+	for (const GameObject* pending : pendingDestruction)
+	{
+		if (pending == object) return false;
+	}
+
 	for (const auto& entity : sceneEntities)
 	{
 		if (entity.get() == object) return true;
@@ -190,15 +201,22 @@ void Scene::SetSelected(GameObject* object)
 	}
 }
 
-GameObject* Scene::Register(std::unique_ptr<GameObject> newObj)
+GameObject* Scene::Register(std::unique_ptr<GameObject> newObj, GameObject* parent)
 {
 	GameObject* ptr = newObj.get();
-	sceneRoot.AddChild(ptr);
+	if (parent != nullptr && (parent == &sceneRoot || OwnsObject(parent)))
+	{
+		parent->AddChild(ptr);
+	}
+	else
+	{
+		sceneRoot.AddChild(ptr);
+	}
 	sceneEntities.push_back(std::move(newObj));
 	return ptr;
 }
 
-GameObject* Scene::CreateNewGameObject(std::vector<std::unique_ptr<Component>> objComponents, const std::string& name)
+GameObject* Scene::CreateNewGameObject(std::vector<std::unique_ptr<Component>> objComponents, const std::string& name, GameObject* parent)
 {
 	std::string uniqueName = MakeUniqueName(name);
 	auto newObj = std::make_unique<GameObject>(uniqueName);
@@ -234,12 +252,12 @@ GameObject* Scene::CreateNewGameObject(std::vector<std::unique_ptr<Component>> o
 		newObj->AddComponent(std::move(cubeMat));
 	}
 
-	GameObject* registered = Register(std::move(newObj));
+	GameObject* registered = Register(std::move(newObj), parent);
 	LOG("[Scene] GameObject '%s' creado (Total entidades: %zu)", uniqueName.c_str(), sceneEntities.size());
 	return registered;
 }
 
-GameObject* Scene::CreateEmptyGameObject()
+GameObject* Scene::CreateEmptyGameObject(GameObject* parent)
 {
 	std::string uniqueName = MakeUniqueName("GameObject");
 	auto newObj = std::make_unique<GameObject>(uniqueName);
@@ -248,12 +266,12 @@ GameObject* Scene::CreateEmptyGameObject()
 	newTrans->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
 	newObj->AddComponent(std::move(newTrans));
 
-	GameObject* registered = Register(std::move(newObj));
+	GameObject* registered = Register(std::move(newObj), parent);
 	LOG("[Scene] Empty GameObject '%s' creado (Total entidades: %zu)", uniqueName.c_str(), sceneEntities.size());
 	return registered;
 }
 
-GameObject* Scene::CreatePrimitive(PrimitiveType type)
+GameObject* Scene::CreatePrimitive(PrimitiveType type, GameObject* parent)
 {
 	std::string baseName = GeometryGenerator::GetName(type);
 	std::string uniqueName = MakeUniqueName(baseName);
@@ -272,12 +290,12 @@ GameObject* Scene::CreatePrimitive(PrimitiveType type)
 	mat->SetUseTexture(false);
 	newObj->AddComponent(std::move(mat));
 
-	GameObject* registered = Register(std::move(newObj));
+	GameObject* registered = Register(std::move(newObj), parent);
 	LOG("[Scene] Primitiva '%s' creada (Total entidades: %zu)", uniqueName.c_str(), sceneEntities.size());
 	return registered;
 }
 
-GameObject* Scene::ImportModel(const std::string& filePath)
+GameObject* Scene::ImportModel(const std::string& filePath, GameObject* parent)
 {
 	LOG("[Scene] Importando modelo 3D desde: %s", filePath.c_str());
 	auto modelPrimitive = ModelLoader::LoadFBX(filePath);
@@ -306,10 +324,95 @@ GameObject* Scene::ImportModel(const std::string& filePath)
 	mat->SetUseTexture(false);
 	newObj->AddComponent(std::move(mat));
 
-	GameObject* registered = Register(std::move(newObj));
+	GameObject* registered = Register(std::move(newObj), parent);
 	SetSelected(registered);
 	LOG("[Scene] Modelo '%s' importado y seleccionado en la escena", uniqueName.c_str());
 	return registered;
+}
+
+void Scene::DestroyGameObject(GameObject* target)
+{
+	
+	if (target == nullptr || target == &sceneRoot) return;
+
+	// Verificar pertenencia real a la escena
+	if (!OwnsObject(target)) return;
+
+	std::vector<GameObject*> toDestroy;
+	std::function<void(GameObject*)> collectPostOrder = [&](GameObject* node)
+	{
+		for (GameObject* child : node->GetChildren())
+		{
+			collectPostOrder(child);
+		}
+		toDestroy.push_back(node);
+	};
+	collectPostOrder(target);
+
+	for (GameObject* obj : toDestroy)
+	{
+		if (selected == obj)
+		{
+			SetSelected(nullptr);
+			break;
+		}
+	}
+
+	// Si la cámara principal estuviera en el subárbol, desvincularla para no dejar puntero colgante
+	for (GameObject* obj : toDestroy)
+	{
+		if (mainCameraPtr == obj)
+		{
+			mainCameraPtr = nullptr;
+			break;
+		}
+	}
+
+	// Desvinculación inmediata del padre superior
+	if (target->GetParent())
+	{
+		target->GetParent()->RemoveChild(target);
+	}
+
+	for (GameObject* obj : toDestroy)
+	{
+		if (std::find(pendingDestruction.begin(), pendingDestruction.end(), obj) == pendingDestruction.end())
+		{
+			pendingDestruction.push_back(obj);
+		}
+	}
+
+	LOG("[Scene] GameObject '%s' y %zu descendiente(s) marcados para eliminación segura",
+		target->GetName().c_str(), toDestroy.size() - 1);
+}
+
+void Scene::ProcessPendingDestructions()
+{
+	if (pendingDestruction.empty()) return;
+
+	std::unordered_set<GameObject*> destroySet(pendingDestruction.begin(), pendingDestruction.end());
+	pendingDestruction.clear();
+
+	// Desvincular relaciones padre-hijo internas antes de la destrucción de memoria
+	for (GameObject* obj : destroySet)
+	{
+		if (obj->GetParent() && destroySet.find(obj->GetParent()) == destroySet.end())
+		{
+			obj->GetParent()->RemoveChild(obj);
+		}
+	}
+
+	const size_t initialCount = sceneEntities.size();
+	sceneEntities.erase(
+		std::remove_if(sceneEntities.begin(), sceneEntities.end(), [&](const std::unique_ptr<GameObject>& ptr)
+		{
+			return destroySet.find(ptr.get()) != destroySet.end();
+		}),
+		sceneEntities.end()
+	);
+
+	LOG("[Scene] Liberados %zu GameObjects de la memoria de la escena (%zu restantes)",
+		initialCount - sceneEntities.size(), sceneEntities.size());
 }
 
 void Scene::DuplicateGameObject(GameObject object)

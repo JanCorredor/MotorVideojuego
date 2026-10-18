@@ -1,6 +1,4 @@
 #include <iostream>
-#include <sstream>
-#include <iomanip>
 
 #include "Engine.h"
 #include "Window/Window.h"
@@ -239,19 +237,6 @@ void Engine::FinishUpdate()
         framesPerSecond = lastSecFrameCount;
         lastSecFrameCount = 0;
     }
-
-    // Shows the time measurements in the window title
-    // check sprintf formats here https://cplusplus.com/reference/cstdio/printf/
-    std::stringstream ss;
-    ss << windowTitle << ": Av.FPS: " << std::fixed << std::setprecision(2) << averageFps
-        << " Last sec frames: " << framesPerSecond
-        << " Last dt: " << std::fixed << std::setprecision(3) << dt
-        << " Time since startup: " << secondsSinceStartup
-        << " Frame Count: " << frameCount;
-
-    std::string titleStr = ss.str();
-
-    window.get()->SetTitle(titleStr.c_str());
 
     // Update performance data for editor telemetry & monitoring
     performanceData.totalFrames = frameCount;

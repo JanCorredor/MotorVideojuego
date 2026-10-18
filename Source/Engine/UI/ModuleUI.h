@@ -43,6 +43,9 @@ private:
 	bool showConfiguration = true;
 	bool showAbout = false;
 
+	// Foco para atajos de teclado (Supr / Delete)
+	bool sceneOrHierarchyFocused = false;
+
 	// Estado del panel Console
 	struct ConsoleDisplayItem
 	{
@@ -64,6 +67,4 @@ private:
 
 	// Estado del panel Configuration
 	char windowTitleBuffer[128] = "Motor Videojuego";
-	int configWindowWidth = 1280;
-	int configWindowHeight = 780;
 };

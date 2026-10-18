@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+
 class TransformComponent : public Component
 {
 public:
@@ -14,9 +15,9 @@ public:
 	virtual ~TransformComponent() {}
 
 	// Los setters solo invalidan la matriz si el valor cambia realmente
-	void SetPosition(const glm::vec3& pos) { if (pos != position) { position = pos; dirty = true; } }
-	void SetRotation(const glm::vec3& rot) { if (rot != rotation) { rotation = rot; dirty = true; } }
-	void SetScale(const glm::vec3& scl) { if (scl != scale) { scale = scl; dirty = true; } }
+	void SetPosition(const glm::vec3& pos) { if (pos != position) { position = pos; MarkDirty(); } }
+	void SetRotation(const glm::vec3& rot) { if (rot != rotation) { rotation = rot; MarkDirty(); } }
+	void SetScale(const glm::vec3& scl) { if (scl != scale) { scale = scl; MarkDirty(); } }
 
 	const glm::vec3& GetPosition() const { return position; }
 	const glm::vec3& GetRotation() const { return rotation; } // grados (Euler XYZ)
@@ -38,11 +39,22 @@ public:
 		return localMatrix;
 	}
 
+	// Matriz global cacheada: WorldMatrix = ParentWorldMatrix * LocalMatrix
+	const glm::mat4& GetWorldMatrix() const;
+
+	// Invalida la matriz local y la global (este nodo y todos sus descendientes)
+	void MarkDirty() { dirty = true; InvalidateWorld(); }
+
+	// Invalida solo la matriz global de este nodo y sus descendientes 
+	void InvalidateWorld();
+
 private:
 	glm::vec3 position;
 	glm::vec3 rotation;
 	glm::vec3 scale;
 
 	mutable glm::mat4 localMatrix = glm::mat4(1.0f);
+	mutable glm::mat4 worldMatrix = glm::mat4(1.0f);
 	mutable bool dirty = true;
+	mutable bool worldDirty = true;
 };

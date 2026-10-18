@@ -43,8 +43,14 @@ public:
 		return nullptr;
 	}
 
-    void AddChild(GameObject* child);
+    bool SetParent(GameObject* newParent);
+
+    // Atajos sobre SetParent (única ruta de modificación de la jerarquía)
+    bool AddChild(GameObject* child);
     void RemoveChild(GameObject* child);
+
+    // true si 'ancestor' aparece en la cadena de padres de este nodo
+    bool IsDescendantOf(const GameObject* ancestor) const;
 
     GameObject* GetParent() const { return parent; }
     const std::vector<GameObject*>& GetChildren() const { return children; }
@@ -56,8 +62,11 @@ public:
 	void Enable() { this->active = true; }
 	void Disable() { this->active = false; }
 
-	// Matriz de transformación global (cadena de padres * local). Sin Transform => identidad.
+	// Matriz de transformación global (ParentWorld * Local), cacheada en el TransformComponent.
 	glm::mat4 GetWorldMatrix() const;
+
+	// Marca como sucia la matriz global de este nodo y de todos sus descendientes
+	void InvalidateWorldTransform();
 
 private:
 	GameUUID uuid; //Unique Identifier

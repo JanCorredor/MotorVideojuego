@@ -119,15 +119,8 @@ bool ModuleUI::Start()
 	LOG("[ImGui] Inicializando Dear ImGui versión: %s", IMGUI_VERSION);
 	LOG("[ImGui] Backends inicializados: SDL3 + OpenGL3 (#version 130), Docking habilitado");
 
-	int initW = 0, initH = 0;
-	Engine::GetInstance().window->GetWindowSize(initW, initH);
-	configWindowWidth = initW;
-	configWindowHeight = initH;
-	const char* initTitle = Engine::GetInstance().window->GetTitle();
-	if (initTitle != nullptr)
-	{
-		strncpy_s(windowTitleBuffer, sizeof(windowTitleBuffer), initTitle, _TRUNCATE);
-	}
+	const std::string& initTitle = Engine::GetInstance().window->GetTitle();
+	strncpy_s(windowTitleBuffer, sizeof(windowTitleBuffer), initTitle.c_str(), _TRUNCATE);
 
 	return true;
 }
@@ -207,12 +200,24 @@ bool ModuleUI::Update(float dt)
 		resetLayout = false;
 	}
 
+	sceneOrHierarchyFocused = false;
+
 	DrawScenePanel();
 	DrawHierarchyPanel();
 	DrawInspectorPanel();
 	DrawConfigurationPanel();
 	DrawConsolePanel();
 	DrawAboutPanel();
+
+	// Atajo de teclado: Supr (Delete) para eliminar el GameObject seleccionado si Scene o Hierarchy tienen el foco
+	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Delete))
+	{
+		Scene* scene = Engine::GetInstance().scene.get();
+		if (scene && scene->GetSelected())
+		{
+			scene->DestroyGameObject(scene->GetSelected());
+		}
+	}
 
 	return ret;
 }
@@ -321,6 +326,11 @@ void ModuleUI::DrawScenePanel()
 	}
 
 	bool visible = ImGui::Begin("Scene", &showScene);
+	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+	{
+		sceneOrHierarchyFocused = true;
+	}
+
 	if (!visible)
 	{
 		if (render) render->SetViewportVisible(false);
@@ -385,6 +395,11 @@ void ModuleUI::DrawHierarchyPanel()
 
 	if (ImGui::Begin("Hierarchy", &showHierarchy))
 	{
+		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+		{
+			sceneOrHierarchyFocused = true;
+		}
+
 		Scene* scene = Engine::GetInstance().scene.get();
 		GameObject* selected = scene ? scene->GetSelected() : nullptr;
 
@@ -420,6 +435,25 @@ void ModuleUI::DrawHierarchyPanel()
 				}
 			}
 		}
+
+		// Zona vacía inferior: soltar aquí reemparenta al nodo raíz de la escena
+		ImVec2 avail = ImGui::GetContentRegionAvail();
+		if (avail.y > 0.0f)
+		{
+			ImGui::Dummy(avail);
+			if (ImGui::BeginDragDropTarget())
+			{
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT"))
+				{
+					GameObject* droppedNode = *(GameObject**)payload->Data;
+					if (droppedNode && scene)
+					{
+						droppedNode->SetParent(scene->GetRoot());
+					}
+				}
+				ImGui::EndDragDropTarget();
+			}
+		}
 	}
 	ImGui::End();
 }
@@ -451,12 +485,85 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 		ImGui::PopStyleColor();
 	}
 
+	// 1. Selección con clic izquierdo
 	if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
 	{
 		if (Engine::GetInstance().scene)
 		{
 			Engine::GetInstance().scene->SetSelected(node);
 		}
+	}
+
+	// 2. Drag & Drop: Origen de arrastre
+	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+	{
+		ImGui::SetDragDropPayload("HIERARCHY_GAMEOBJECT", &node, sizeof(GameObject*));
+		ImGui::Text("Mover '%s'", node->GetName().c_str());
+		ImGui::EndDragDropSource();
+	}
+
+	// 3. Drag & Drop: Destino de soltado (reemparentar como hijo de 'node')
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT"))
+		{
+			GameObject* droppedNode = *(GameObject**)payload->Data;
+			if (droppedNode && droppedNode != node)
+			{
+				droppedNode->SetParent(node);
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
+
+	// 4. Menú contextual con clic derecho
+	if (ImGui::BeginPopupContextItem())
+	{
+		Scene* scene = Engine::GetInstance().scene.get();
+
+		if (ImGui::MenuItem("Create Empty Child"))
+		{
+			if (scene)
+			{
+				GameObject* child = scene->CreateEmptyGameObject(node);
+				scene->SetSelected(child);
+			}
+		}
+
+		if (ImGui::BeginMenu("Create Primitive Child"))
+		{
+			const PrimitiveType types[] = {
+				PrimitiveType::Cube,
+				PrimitiveType::Sphere,
+				PrimitiveType::Plane,
+				PrimitiveType::Cylinder,
+				PrimitiveType::Pyramid
+			};
+			for (PrimitiveType type : types)
+			{
+				if (ImGui::MenuItem(GeometryGenerator::GetName(type)))
+				{
+					if (scene)
+					{
+						GameObject* child = scene->CreatePrimitive(type, node);
+						scene->SetSelected(child);
+					}
+				}
+			}
+			ImGui::EndMenu();
+		}
+
+		ImGui::Separator();
+
+		if (ImGui::MenuItem("Delete", "Supr"))
+		{
+			if (scene)
+			{
+				scene->DestroyGameObject(node);
+			}
+		}
+
+		ImGui::EndPopup();
 	}
 
 	if (nodeOpen && !node->GetChildren().empty())
@@ -490,7 +597,7 @@ void ModuleUI::DrawInspectorPanel()
 
 			char nameBuf[128] = "";
 			strncpy_s(nameBuf, sizeof(nameBuf), selected->GetName().c_str(), _TRUNCATE);
-			ImGui::SetNextItemWidth(-1.0f);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 68.0f);
 			if (ImGui::InputText("##GOName", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
 			{
 				if (nameBuf[0] != '\0')
@@ -498,6 +605,16 @@ void ModuleUI::DrawInspectorPanel()
 					selected->SetName(nameBuf);
 				}
 			}
+
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.3f, 0.3f, 1.0f));
+			if (ImGui::Button("Delete"))
+			{
+				scene->DestroyGameObject(selected);
+				selected = nullptr;
+			}
+			ImGui::PopStyleColor(2);
 
 			ImGui::Separator();
 
@@ -1016,30 +1133,35 @@ void ModuleUI::DrawConfigurationPanel()
 			if (ImGui::BeginTabItem("Window"))
 			{
 				auto win = Engine::GetInstance().window;
-				int curW = 0, curH = 0;
-				win->GetWindowSize(curW, curH);
+				const int curW = win->GetWidth();
+				const int curH = win->GetHeight();
 
 				ImGui::SeparatorText("Propiedades en Tiempo Real");
 
-				ImGui::InputText("Título", windowTitleBuffer, sizeof(windowTitleBuffer));
+				bool applyTitle = false;
+				if (ImGui::InputText("Título", windowTitleBuffer, sizeof(windowTitleBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+				{
+					applyTitle = true;
+				}
 				ImGui::SameLine();
 				if (ImGui::Button("Aplicar Título"))
+				{
+					applyTitle = true;
+				}
+				if (applyTitle && windowTitleBuffer[0] != '\0')
 				{
 					win->SetTitle(windowTitleBuffer);
 				}
 
-				ImGui::DragInt("Ancho (px)", &configWindowWidth, 5.0f, 640, 3840);
-				ImGui::DragInt("Alto (px)", &configWindowHeight, 5.0f, 480, 2160);
-
-				if (ImGui::Button("Aplicar Tamaño"))
+				// Modificación 100% reactiva del tamaño de ventana (sin botones intermedios)
+				int w = curW;
+				int h = curH;
+				bool sizeChanged = false;
+				sizeChanged |= ImGui::DragInt("Ancho (px)", &w, 2.0f, Window::MIN_WIDTH, 3840);
+				sizeChanged |= ImGui::DragInt("Alto (px)", &h, 2.0f, Window::MIN_HEIGHT, 2160);
+				if (sizeChanged)
 				{
-					win->SetWindowSize(configWindowWidth, configWindowHeight);
-				}
-				ImGui::SameLine();
-				if (ImGui::Button("Sincronizar Actual"))
-				{
-					configWindowWidth = curW;
-					configWindowHeight = curH;
+					win->SetSize(w, h);
 				}
 
 				ImGui::Spacing();
@@ -1085,7 +1207,12 @@ void ModuleUI::DrawConfigurationPanel()
 				settingsChanged |= ImGui::Checkbox("Iluminación Direccional (Shader Lighting)", &rs.lighting);
 				settingsChanged |= ImGui::Checkbox("Modo Wireframe (GL_LINE)", &rs.wireframe);
 				settingsChanged |= ImGui::Checkbox("Resaltar Selección (Outline Naranja)", &rs.highlightSelection);
-				settingsChanged |= ImGui::Checkbox("V-Sync", &rs.vsync);
+
+				// Subapartado para Grid y Central Axis
+				ImGui::Spacing();
+				ImGui::SeparatorText("Grid & Origin Axis");
+				settingsChanged |= ImGui::Checkbox("Mostrar Rejilla (Plano XZ)", &rs.showGrid);
+				settingsChanged |= ImGui::Checkbox("Mostrar Ejes Centrales (X: Rojo, Y: Verde, Z: Azul)", &rs.showAxis);
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Depuración de Normales");

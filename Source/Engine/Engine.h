@@ -180,8 +180,6 @@ private:
 	//Maximun frame duration in miliseconds.
 	int targetFrameRate = 60;
 
-	std::string windowTitle = "Motor Videojuego";
-
 	PerformanceData performanceData;
 	HardwareMetrics hardwareMetrics;
 	void QueryHardwareMetrics();
