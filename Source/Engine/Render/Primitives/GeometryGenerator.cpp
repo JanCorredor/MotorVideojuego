@@ -95,8 +95,8 @@ std::unique_ptr<Primitive> GeometryGenerator::CreatePyramid(float baseSize, floa
         6, 7, 8,
         9, 10, 11,
         // Base
-        12, 14, 13,
-        12, 15, 14
+        12, 13, 14,
+        12, 14, 15
     };
 
     auto pyramid = std::make_unique<Primitive>();
@@ -270,4 +270,4 @@ const char* GeometryGenerator::GetName(PrimitiveType type)
     case PrimitiveType::Pyramid:  return "Pyramid";
     }
     return "GameObject";
-}
+}
