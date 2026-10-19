@@ -403,27 +403,6 @@ void ModuleUI::DrawHierarchyPanel()
 		Scene* scene = Engine::GetInstance().scene.get();
 		GameObject* selected = scene ? scene->GetSelected() : nullptr;
 
-		if (ImGui::SmallButton("+ Empty"))
-		{
-			if (scene)
-			{
-				GameObject* created = scene->CreateEmptyGameObject();
-				scene->SetSelected(created);
-				selected = created;
-			}
-		}
-
-		if (selected)
-		{
-			ImGui::SameLine();
-			if (ImGui::SmallButton("Deseleccionar"))
-			{
-				scene->SetSelected(nullptr);
-				selected = nullptr;
-			}
-		}
-		ImGui::Separator();
-
 		if (scene)
 		{
 			GameObject* root = scene->GetRoot();
@@ -605,16 +584,6 @@ void ModuleUI::DrawInspectorPanel()
 					selected->SetName(nameBuf);
 				}
 			}
-
-			ImGui::SameLine();
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.3f, 0.3f, 1.0f));
-			if (ImGui::Button("Delete"))
-			{
-				scene->DestroyGameObject(selected);
-				selected = nullptr;
-			}
-			ImGui::PopStyleColor(2);
 
 			ImGui::Separator();
 
