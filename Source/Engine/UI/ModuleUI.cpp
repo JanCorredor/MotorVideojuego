@@ -481,7 +481,7 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 		ImGui::EndDragDropSource();
 	}
 
-	// 3. Drag & Drop: Destino de soltado (reemparentar como hijo de 'node')
+	// 3. Drag & Drop: Destino de soltado (reemparentar como hijo de 'node') //TODO: PASAR ESTO CON EL OTRO DROP
 	if (ImGui::BeginDragDropTarget())
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT"))
@@ -545,7 +545,7 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 		ImGui::EndPopup();
 	}
 
-	if (nodeOpen && !node->GetChildren().empty())
+	if (nodeOpen && !node->GetChildren().empty()) // & node != scene root
 	{
 		for (GameObject* child : node->GetChildren())
 		{
@@ -755,6 +755,10 @@ bool ModuleUI::PostUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+
+
+
+
 	RenderUI();
 	return true;
 }

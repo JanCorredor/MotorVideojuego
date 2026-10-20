@@ -59,13 +59,10 @@ bool Scene::Start()
 	cubeObj->AddComponent(std::move(cubeMesh));
 
 	auto cubeMat = std::make_unique<MaterialComponent>(cubeObj.get());
-	cubeMat->SetColor(glm::vec3(1.0f, 0.2f, 0.2f));
-	cubeMat->SetUseTexture(false);
+	cubeMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	cubeMat->SetTexture("../Assets/water.jpg");
+	cubeMat->SetUseTexture(true);
 	cubeObj->AddComponent(std::move(cubeMat));
-
-	sceneRoot.AddChild(cubeObj.get());
-	sceneEntities.push_back(std::move(cubeObj));
-	LOG("[Scene] Instanciado 'Cube' con geometría procedural de cubo");
 
 	// Create Sphere
 	auto sphereObj = std::make_unique<GameObject>("Sphere");
@@ -78,13 +75,29 @@ bool Scene::Start()
 
 	auto sphereMat = std::make_unique<MaterialComponent>(sphereObj.get());
 	sphereMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
-	sphereMat->SetTexture("../test.jpg");
+	sphereMat->SetTexture("../Assets/lava.jpg");
 	sphereMat->SetUseTexture(true);
 	sphereObj->AddComponent(std::move(sphereMat));
 
-	sceneRoot.AddChild(sphereObj.get());
+	cubeObj->AddChild(sphereObj.get());
 	sceneEntities.push_back(std::move(sphereObj));
+
+
+	sceneRoot.AddChild(cubeObj.get());
+	sceneEntities.push_back(std::move(cubeObj));
+	LOG("[Scene] Instanciado 'Cube' con geometría procedural de cubo");
+
+
 	LOG("[Scene] Instanciado 'Sphere' con geometría procedural de esfera y textura");
+
+
+	GameObject* bakerHouse = ImportModel("../Assets/BakerHouse.fbx", &sceneRoot);
+	MaterialComponent* bakerHouseMat = bakerHouse->GetComponent<MaterialComponent>();
+	bakerHouseMat->SetTexture("../Assets/Baker_house.png");
+	bakerHouseMat->SetUseTexture(true);
+	TransformComponent* bakerHouseTransform = bakerHouse->GetComponent<TransformComponent>();
+	bakerHouseTransform->SetPosition(glm::vec3(0.0f, 0.0f, -3.0f));
+
 
 	LOG("[Scene] Escena inicial cargada con éxito (%zu entidades registradas)", sceneEntities.size());
 
