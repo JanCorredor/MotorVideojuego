@@ -20,6 +20,10 @@ public:
     Primitive(const Primitive&) = delete;
     Primitive& operator=(const Primitive&) = delete;
 
+    // Permitir moovimiento (Transfiere los buffers de OpenGL)
+    Primitive(Primitive&& other) noexcept;
+    Primitive& operator=(Primitive&& other) noexcept;
+
     void Init(const std::vector<Vertex>& verts, const std::vector<unsigned int>& indices);
     void Draw() const;
 

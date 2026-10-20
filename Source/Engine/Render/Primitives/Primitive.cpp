@@ -76,3 +76,47 @@ void Primitive::Draw() const
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
+
+Primitive::Primitive(Primitive&& other) noexcept
+{
+    VAO = other.VAO;
+    VBO = other.VBO;
+    EBO = other.EBO;
+    vertices = std::move(other.vertices);
+    indices = std::move(other.indices);
+    faces = std::move(other.faces);
+    boundsMin = other.boundsMin;
+    boundsMax = other.boundsMax;
+
+    // Anulamos los IDs del objeto origen para que su destructor no los borre de la GPU
+    other.VAO = 0;
+    other.VBO = 0;
+    other.EBO = 0;
+}
+
+Primitive& Primitive::operator=(Primitive&& other) noexcept
+{
+    if (this != &other)
+    {
+        // Liberar buffers actuales
+        if (VBO != 0) glDeleteBuffers(1, &VBO);
+        if (EBO != 0) glDeleteBuffers(1, &EBO);
+        if (VAO != 0) glDeleteVertexArrays(1, &VAO);
+
+        // Robar los recursos del otro objeto
+        VAO = other.VAO;
+        VBO = other.VBO;
+        EBO = other.EBO;
+        vertices = std::move(other.vertices);
+        indices = std::move(other.indices);
+        faces = std::move(other.faces);
+        boundsMin = other.boundsMin;
+        boundsMax = other.boundsMax;
+
+        // Resetear el origen
+        other.VAO = 0;
+        other.VBO = 0;
+        other.EBO = 0;
+    }
+    return *this;
+}
