@@ -192,7 +192,7 @@ bool ModuleUI::Update(float dt)
 			ImGui::DockBuilderDockWindow("Scene", dock_main_id);
 			ImGui::DockBuilderDockWindow("Console", dock_down);
 			ImGui::DockBuilderDockWindow("Inspector", dock_right);
-			ImGui::DockBuilderDockWindow("Configuration", dock_main_id);
+			ImGui::DockBuilderDockWindow("Configuration", dock_right);
 
 			ImGui::DockBuilderFinish(dockspace_id);
 		}
@@ -408,9 +408,13 @@ void ModuleUI::DrawHierarchyPanel()
 			GameObject* root = scene->GetRoot();
 			if (root)
 			{
-				for (GameObject* child : root->GetChildren())
+				const std::vector<GameObject*> rootChildren = root->GetChildren();
+				for (GameObject* child : rootChildren)
 				{
-					DrawHierarchyNode(child, selected);
+					if (child && child->GetParent() == root)
+					{
+						DrawHierarchyNode(child, selected);
+					}
 				}
 			}
 		}
@@ -441,13 +445,15 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 {
 	if (!node) return;
 
+	const bool hasChildren = !node->GetChildren().empty();
+
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 	if (selected == node)
 	{
 		flags |= ImGuiTreeNodeFlags_Selected;
 	}
 
-	if (node->GetChildren().empty())
+	if (!hasChildren)
 	{
 		flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 	}
@@ -508,7 +514,7 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 				scene->SetSelected(child);
 			}
 		}
-
+		// Click Izquierdo en un objeto
 		if (ImGui::BeginMenu("Create Primitive Child"))
 		{
 			const PrimitiveType types[] = {
@@ -545,11 +551,15 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 		ImGui::EndPopup();
 	}
 
-	if (nodeOpen && !node->GetChildren().empty()) // & node != scene root
+	if (nodeOpen && hasChildren)
 	{
-		for (GameObject* child : node->GetChildren())
+		const std::vector<GameObject*> children = node->GetChildren();
+		for (GameObject* child : children)
 		{
-			DrawHierarchyNode(child, selected);
+			if (child && child->GetParent() == node)
+			{
+				DrawHierarchyNode(child, selected);
+			}
 		}
 		ImGui::TreePop();
 	}
@@ -1030,7 +1040,7 @@ void ModuleUI::DrawConfigurationPanel()
 		if (ImGui::BeginTabBar("ConfigurationTabBar", ImGuiTabBarFlags_None))
 		{
 			// =========================================================================
-			// 1. MONITORIZACIÓN DEL RENDIMIENTO (APPLICATION)
+			// MONITORIZACIÓN DEL RENDIMIENTO (APPLICATION)
 			// =========================================================================
 			if (ImGui::BeginTabItem("Application"))
 			{
@@ -1101,7 +1111,7 @@ void ModuleUI::DrawConfigurationPanel()
 			}
 
 			// =========================================================================
-			// 2. CONFIGURACIÓN DEL MÓDULO WINDOW
+			// CONFIGURACIÓN DEL MÓDULO WINDOW
 			// =========================================================================
 			if (ImGui::BeginTabItem("Window"))
 			{
@@ -1166,7 +1176,7 @@ void ModuleUI::DrawConfigurationPanel()
 			}
 
 			// =========================================================================
-			// 3. CONFIGURACIÓN DEL MÓDULO RENDERER (Única fuente de verdad)
+			// CONFIGURACIÓN DEL MÓDULO RENDERER (Única fuente de verdad)
 			// =========================================================================
 			if (ImGui::BeginTabItem("Renderer"))
 			{
@@ -1234,7 +1244,7 @@ void ModuleUI::DrawConfigurationPanel()
 			}
 
 			// =========================================================================
-			// 4. CONFIGURACIÓN DE CÁMARA DE EDITOR (CAMERA)
+			// CONFIGURACIÓN DE CÁMARA DE EDITOR (CAMERA)
 			// =========================================================================
 			if (ImGui::BeginTabItem("Camera"))
 			{
@@ -1298,7 +1308,7 @@ void ModuleUI::DrawConfigurationPanel()
 			}
 
 			// =========================================================================
-			// 5. CONFIGURACIÓN DEL MÓDULO INPUT
+			// CONFIGURACIÓN DEL MÓDULO INPUT
 			// =========================================================================
 			if (ImGui::BeginTabItem("Input"))
 			{
@@ -1348,7 +1358,7 @@ void ModuleUI::DrawConfigurationPanel()
 			}
 
 			// =========================================================================
-			// 6. CONFIGURACIÓN DEL MÓDULO TEXTURES (DEVIL / OPENGL)
+			// CONFIGURACIÓN DEL MÓDULO TEXTURES (DEVIL / OPENGL)
 			// =========================================================================
 			if (ImGui::BeginTabItem("Textures"))
 			{
@@ -1401,7 +1411,7 @@ void ModuleUI::DrawConfigurationPanel()
 			}
 
 			// =========================================================================
-			// 7. CONFIGURACIÓN DEL MÓDULO AUDIO
+			// CONFIGURACIÓN DEL MÓDULO AUDIO
 			// =========================================================================
 			if (ImGui::BeginTabItem("Audio"))
 			{
