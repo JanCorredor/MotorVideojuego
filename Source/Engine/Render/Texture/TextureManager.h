@@ -40,6 +40,8 @@ public:
 
 	// Textura 64x64 con casillas blancas/negras (siempre disponible tras Start)
 	const TextureInfo* GetCheckerboard() const { return checkerboard.get(); }
+	const TextureInfo* GetMissingTexture() const { return missingTexture.get(); }
+
 
 	const TextureSettings& GetSettings() const { return settings; }
 	// Aplica los parámetros a las texturas ya cargadas y a las futuras
@@ -49,10 +51,14 @@ public:
 
 private:
 	void ApplyParameters(unsigned int textureId, bool hasMipmaps) const;
+	
 	void CreateCheckerboard();
+	std::unique_ptr<TextureInfo> checkerboard;
+
+	void CreateMissingTexture();
+	std::unique_ptr<TextureInfo> missingTexture;
 
 	std::unordered_map<std::string, std::unique_ptr<TextureInfo>> cache;
-	std::unique_ptr<TextureInfo> checkerboard;
 	TextureSettings settings;
 	bool devilInitialized = false;
 };

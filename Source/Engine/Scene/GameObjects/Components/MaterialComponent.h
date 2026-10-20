@@ -33,6 +33,9 @@ public:
 	bool GetUseCheckerboard() const { return useCheckerboard; }
 	void SetUseCheckerboard(bool enabled) { useCheckerboard = enabled; }
 
+	bool GetUsingMissingTexture() const { return usingMissingTexture; }
+	void SetUsingMissingTexture(bool enabled) { usingMissingTexture = enabled; } //Debug
+
 	// ID GL que debe usarse al dibujar (0 = sin textura)
 	unsigned int GetActiveTextureID() const;
 	unsigned int GetTextureID() const { return GetActiveTextureID(); }
@@ -42,4 +45,5 @@ private:
 	glm::vec3 color = glm::vec3(1.0f);
 	bool useTexture = false;
 	bool useCheckerboard = false;
+	bool usingMissingTexture = false;
 };
