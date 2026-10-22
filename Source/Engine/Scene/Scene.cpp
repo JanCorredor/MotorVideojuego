@@ -10,6 +10,10 @@
 #include "GameObjects/Components/CameraComponent.h"
 #include "../Render/Primitives/GeometryGenerator.h"
 
+#include "../ResourceManagement/Importers/ImporterManager.h"
+#include "../ResourceManagement/Importers/MeshImporter.h"
+#include "../ResourceManagement/Importers/TextureImporter.h"
+
 #include <unordered_set>
 #include <algorithm>
 #include <filesystem>
@@ -310,37 +314,7 @@ GameObject* Scene::CreatePrimitive(PrimitiveType type, GameObject* parent)
 
 GameObject* Scene::ImportModel(const std::string& filePath, GameObject* parent)
 {
-	LOG("[Scene] Importando modelo 3D desde: %s", filePath.c_str());
-	auto modelPrimitive = ModelLoader::LoadFBX(filePath);
-	if (!modelPrimitive)
-	{
-		LOG_ERROR("[Scene] Falló la importación del modelo: %s", filePath.c_str());
-		return nullptr;
-	}
-
-	std::filesystem::path p(filePath);
-	std::string stemName = p.stem().string();
-	if (stemName.empty()) stemName = "ImportedModel";
-	std::string uniqueName = MakeUniqueName(stemName);
-
-	auto newObj = std::make_unique<GameObject>(uniqueName);
-
-	auto trans = std::make_unique<TransformComponent>(newObj.get());
-	trans->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
-	newObj->AddComponent(std::move(trans));
-
-	auto mesh = std::make_unique<MeshComponent>(newObj.get(), std::move(modelPrimitive));
-	newObj->AddComponent(std::move(mesh));
-
-	auto mat = std::make_unique<MaterialComponent>(newObj.get());
-	mat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
-	mat->SetUseTexture(false);
-	newObj->AddComponent(std::move(mat));
-
-	GameObject* registered = Register(std::move(newObj), parent);
-	SetSelected(registered);
-	LOG("[Scene] Modelo '%s' importado y seleccionado en la escena", uniqueName.c_str());
-	return registered;
+	return MeshImporter::ImportToScene(filePath, parent);
 }
 
 void Scene::DestroyGameObject(GameObject* target)
@@ -435,38 +409,5 @@ void Scene::DuplicateGameObject(GameObject object)
 
 void Scene::HandleDroppedFile(const std::string& filePath)
 {
-	std::filesystem::path p(filePath);
-	std::string ext = p.extension().string();
-	std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-	if (ext == ".fbx" || ext == ".obj" || ext == ".dae")
-	{
-		ImportModel(filePath);
-	}
-	else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
-		ext == ".dds" || ext == ".tga" || ext == ".bmp")
-	{
-		if (selected != nullptr)
-		{
-			MaterialComponent* mat = selected->GetComponent<MaterialComponent>();
-			if (mat != nullptr)
-			{
-				mat->SetTexture(filePath);
-				mat->SetUseTexture(true);
-				LOG("[Scene] Textura '%s' asignada al GameObject seleccionado '%s'", filePath.c_str(), selected->GetName().c_str());
-			}
-			else
-			{
-				LOG_WARNING("[Scene] El GameObject seleccionado '%s' no tiene MaterialComponent", selected->GetName().c_str());
-			}
-		}
-		else
-		{
-			LOG_WARNING("[Scene] Se soltó la textura '%s' pero no hay ningún GameObject seleccionado", filePath.c_str());
-		}
-	}
-	else
-	{
-		LOG_WARNING("[Scene] Formato de archivo no reconocido para Drag & Drop: %s", filePath.c_str());
-	}
+	ImporterManager::ImportFile(filePath, selected);
 }

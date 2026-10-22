@@ -1,9 +1,10 @@
 #include "MaterialComponent.h"
 #include "../../../Engine.h"
+#include "../../../ResourceManagement/Importers/TextureImporter.h"
 
 bool MaterialComponent::SetTexture(const std::string& filePath)
 {
-	const TextureInfo* loaded = Engine::GetInstance().textures->Load(filePath);
+	const TextureInfo* loaded = TextureImporter::ImportTexture(filePath);
 	if (loaded == nullptr)
 	{
 		usingMissingTexture = true;

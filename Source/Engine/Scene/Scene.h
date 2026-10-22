@@ -45,9 +45,10 @@ public:
 	// Comprueba si un puntero a GameObject es propiedad viva de esta escena
 	bool OwnsObject(const GameObject* object) const;
 
-private:
 	std::string MakeUniqueName(const std::string& baseName) const;
 	GameObject* Register(std::unique_ptr<GameObject> newObj, GameObject* parent = nullptr);
+private:
+	
 	void ProcessPendingDestructions();
 
 	GameObject sceneRoot;
