@@ -44,18 +44,23 @@ void CameraComponent::Update(float dt)
     bool activeControl = isFreeLooking || isOrbiting;
     isControllingCamera = activeControl;
 
-    if (activeControl && !wasRelativeMouseMode)
+    // Comprobar si la ventana actual sigue teniendo el foco
+    bool windowHasFocus = !input->GetWindowEvent(WE_HIDE);
+
+    if (activeControl && windowHasFocus && !wasRelativeMouseMode)
     {
         SDL_GetMouseState(&lockedMouseX, &lockedMouseY);
         SDL_CaptureMouse(false);
         SDL_SetWindowRelativeMouseMode(sdlWindow, true);
         wasRelativeMouseMode = true;
     }
-    else if (!activeControl && wasRelativeMouseMode)
+    // Se fuerza la liberación si se pierde el control O la ventana pierde el foco
+    else if ((!activeControl || !windowHasFocus) && wasRelativeMouseMode)
     {
         SDL_SetWindowRelativeMouseMode(sdlWindow, false);
         SDL_WarpMouseInWindow(sdlWindow, lockedMouseX, lockedMouseY);
         wasRelativeMouseMode = false;
+        isControllingCamera = false;
     }
 
     float currentSpeed = movementSpeed;

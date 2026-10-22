@@ -155,6 +155,7 @@ bool Input::PreUpdate()
 		case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 			if (sdlWindow != nullptr && event.window.windowID == SDL_GetWindowID(sdlWindow))
 			{
+				SDL_SetWindowRelativeMouseMode(sdlWindow, false);
 				windowEvents[WE_QUIT] = true;
 			}
 			break;
