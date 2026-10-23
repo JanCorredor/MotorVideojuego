@@ -1,17 +1,14 @@
 #include "GameObject.h"
-
 #include "./Components/Component.h"
 #include "./Components/TransformComponent.h"
-
 #include <algorithm>
-
 #include <tracy/Tracy.hpp>
 
 GameObject::GameObject(const std::string& name, GameUUID id) : uuid(id), name(name), parent(nullptr)
 {
 }
 
-GameObject::~GameObject() 
+GameObject::~GameObject()
 {
 }
 
@@ -23,14 +20,16 @@ void GameObject::Update(float dt)
 
     if (!active) return;
 
-    for (auto& comp : objComponents) 
+    // Iterar directamente sobre el array fijo (cero indirectación dinámicas)
+    for (auto& comp : components)
     {
-        if (comp->IsActive())
+        if (comp && comp->IsActive())
         {
             comp->Update(dt);
         }
     }
-    for (auto child : children) 
+
+    for (auto child : children)
     {
         if (child->IsActive())
         {
@@ -41,14 +40,17 @@ void GameObject::Update(float dt)
 
 void GameObject::AddComponent(std::unique_ptr<Component> component)
 {
-    objComponents.push_back(std::move(component));
+    if (!component) return;
+
+    // Asignar directamente en el índice del enum correspondiente
+    ComponentType type = component->GetType();
+    components[type] = std::move(component);
 }
 
 bool GameObject::SetParent(GameObject* newParent)
 {
     if (newParent == parent) return true;
 
-    // Evitar ciclos: no se puede ser hijo de uno mismo ni de un descendiente propio
     if (newParent == this || (newParent && newParent->IsDescendantOf(this)))
     {
         return false;
@@ -66,7 +68,6 @@ bool GameObject::SetParent(GameObject* newParent)
         parent->children.push_back(this);
     }
 
-    // La matriz global depende del padre: invalidar este nodo y todo su subárbol
     InvalidateWorldTransform();
     return true;
 }
@@ -107,12 +108,10 @@ void GameObject::InvalidateWorldTransform()
 {
     if (TransformComponent* t = GetComponent<TransformComponent>())
     {
-        // El Transform marca su worldDirty y propaga a los hijos
         t->InvalidateWorld();
         return;
     }
 
-    // Nodo sin Transform (p.ej. la raíz): propagar directamente a los hijos
     for (GameObject* child : children)
     {
         child->InvalidateWorldTransform();
