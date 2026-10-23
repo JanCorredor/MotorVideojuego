@@ -1189,7 +1189,15 @@ void ModuleUI::DrawConfigurationPanel()
 				settingsChanged |= ImGui::Checkbox("Face Culling (GL_CULL_FACE)", &rs.cullFace);
 				settingsChanged |= ImGui::Checkbox("Iluminación Direccional (Shader Lighting)", &rs.lighting);
 				settingsChanged |= ImGui::Checkbox("Modo Wireframe (GL_LINE)", &rs.wireframe);
-				settingsChanged |= ImGui::Checkbox("Resaltar Selección (Outline Naranja)", &rs.highlightSelection);
+				settingsChanged |= ImGui::Checkbox("Resaltar Selección", &rs.highlightSelection);
+
+				// ColorEdit para seleccionar el color del outline en tiempo real
+				if (rs.highlightSelection)
+				{
+					ImGui::Indent();
+					settingsChanged |= ImGui::ColorEdit3("Color del Outline", glm::value_ptr(rs.outlineColor), ImGuiColorEditFlags_PickerHueWheel);
+					ImGui::Unindent();
+				}
 
 				// Subapartado para Grid y Central Axis
 				ImGui::Spacing();

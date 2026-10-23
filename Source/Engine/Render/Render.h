@@ -81,6 +81,7 @@ private:
 	// Shaders
 	unsigned int shaderProgram = 0;
 	unsigned int lineShaderProgram = 0;
+	unsigned int singleColorShaderProgram = 0; // Shader para el outline
 
 	struct SceneUniforms
 	{
@@ -92,6 +93,11 @@ private:
 	{
 		int model = -1, view = -1, projection = -1, color = -1;
 	} lu;
+
+	struct SingleColorUniforms
+	{
+		int model = -1, view = -1, projection = -1, color = -1;
+	} scu;
 
 	// Rejilla de referencia (Grid) y Ejes centrales (Axis) en buffers estáticos persistentes
 	unsigned int gridVAO = 0;
@@ -120,5 +126,4 @@ private:
 	void DrawDebug(const glm::mat4& view, const glm::mat4& projection);
 	void CollectNormals(GameObject* go, const glm::mat4& parentMatrix);
 	void AppendNormals(GameObject* go, const glm::mat4& worldMatrix);
-	void DrawSelectionOutline(GameObject* selected);
-};
+	void DrawSelectionOutline(GameObject* selected, const glm::mat4& view, const glm::mat4& projection);};

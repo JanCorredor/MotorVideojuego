@@ -179,6 +179,30 @@ bool Render::Start() {
 
 	lineShaderProgram = BuildProgram(lineVS, lineFS, "Line");
 
+	/////////////////////  Single Color Shader (Stencil Outline) /////////////////////////////
+	const char* singleColorVS = "#version 460 core\n"
+		"layout (location = 0) in vec3 aPos;\n"
+		"layout (location = 1) in vec3 aNormal;\n"
+		"uniform mat4 model;\n"
+		"uniform mat4 view;\n"
+		"uniform mat4 projection;\n"
+		"void main()\n"
+		"{\n"
+		"   // Desplazamiento ligero por normal para evitar deformaciones en mallas complejas\n"
+		"   vec3 scaledPos = aPos + aNormal * 0.03;\n"
+		"   gl_Position = projection * view * model * vec4(scaledPos, 1.0);\n"
+		"}\0";
+
+	const char* singleColorFS = "#version 460 core\n"
+		"out vec4 FragColor;\n"
+		"uniform vec3 uColor;\n"
+		"void main()\n"
+		"{\n"
+		"   FragColor = vec4(uColor, 1.0);\n"
+		"}\0";
+
+	singleColorShaderProgram = BuildProgram(singleColorVS, singleColorFS, "SingleColor");
+
 	// Ubicaciones de uniforms: se consultan una sola vez
 	u.model = glGetUniformLocation(shaderProgram, "model");
 	u.view = glGetUniformLocation(shaderProgram, "view");
@@ -192,6 +216,11 @@ bool Render::Start() {
 	lu.view = glGetUniformLocation(lineShaderProgram, "view");
 	lu.projection = glGetUniformLocation(lineShaderProgram, "projection");
 	lu.color = glGetUniformLocation(lineShaderProgram, "uLineColor");
+
+	scu.model = glGetUniformLocation(singleColorShaderProgram, "model");
+	scu.view = glGetUniformLocation(singleColorShaderProgram, "view");
+	scu.projection = glGetUniformLocation(singleColorShaderProgram, "projection");
+	scu.color = glGetUniformLocation(singleColorShaderProgram, "uColor");
 
 	// Buffers persistentes para el dibujo de depuración
 	glGenVertexArrays(1, &debugVAO);
@@ -455,13 +484,22 @@ void Render::RenderScene()
 	glDepthMask(GL_TRUE);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+
+
+	// Habilitar Stencil Test y limpiar buffers
+	glEnable(GL_STENCIL_TEST);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+
 	glClearColor(
 		background.r / 255.0f,
 		background.g / 255.0f,
 		background.b / 255.0f,
 		background.a / 255.0f
 	);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// Limpiar Color, Depth y Stencil Buffer
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	if (settings.depthTest) glEnable(GL_DEPTH_TEST);
 	else glDisable(GL_DEPTH_TEST);
@@ -494,6 +532,10 @@ void Render::RenderScene()
 	glUniform1i(u.lighting, settings.lighting ? 1 : 0);
 	glUniform1i(u.texture, 0);
 
+	// Configuración por defecto del Stencil Buffer para objetos no seleccionados (no escriben valor 1)
+	glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	glStencilMask(0x00);
+
 	// -------------------------------------------------------------------------
 	// Draw Scene GameObjects
 	// -------------------------------------------------------------------------
@@ -502,6 +544,9 @@ void Render::RenderScene()
 	{
 		DrawGameObject(root, glm::mat4(1.0f));
 	}
+
+	// Restaurar máscara de stencil completa tras la escena
+	glStencilMask(0xFF);
 
 	// -------------------------------------------------------------------------
 	// Draw Grid and Axis inside FBO
@@ -541,6 +586,7 @@ bool Render::CleanUp()
 
 	if (shaderProgram != 0) { glDeleteProgram(shaderProgram); shaderProgram = 0; }
 	if (lineShaderProgram != 0) { glDeleteProgram(lineShaderProgram); lineShaderProgram = 0; }
+	if (singleColorShaderProgram != 0) { glDeleteProgram(singleColorShaderProgram); singleColorShaderProgram = 0; }
 
 	LOG("[Render] Recursos OpenGL liberados (FBO, RBO, textura de color, shaders, buffers de depuración, Grid y Axis)");
 	return true;
@@ -604,6 +650,21 @@ void Render::DrawGameObject(GameObject* go, const glm::mat4& parentMatrix)
 			glUniform1i(u.useTexture, 0);
 		}
 
+
+		// Si el objeto actual es el seleccionado, habilitamos la escritura '1' en el Stencil Buffer
+		Scene* scene = Engine::GetInstance().scene.get();
+		bool isSelected = (scene && scene->GetSelected() == go && settings.highlightSelection);
+
+		if (isSelected) 
+		{
+			glStencilFunc(GL_ALWAYS, 1, 0xFF);
+			glStencilMask(0xFF); // Habilita escritura en Stencil Buffer
+		}
+		else 
+		{
+			glStencilMask(0x00); // Deshabilita escritura
+		}
+
 		mesh->GetPrimitive()->Draw();
 	}
 
@@ -630,7 +691,7 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 
 	if (wantOutline)
 	{
-		DrawSelectionOutline(selected);
+		DrawSelectionOutline(selected, view, projection);
 	}
 
 	if (wantNormals)
@@ -747,21 +808,30 @@ void Render::AppendNormals(GameObject* go, const glm::mat4& worldMatrix)
 	}
 }
 
-void Render::DrawSelectionOutline(GameObject* selected)
+void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, const glm::mat4& projection)
 {
 	MeshComponent* mesh = selected->GetComponent<MeshComponent>();
 	if (!mesh || !mesh->GetPrimitive()) return;
 
-	glUniformMatrix4fv(lu.model, 1, GL_FALSE, glm::value_ptr(selected->GetWorldMatrix()));
-	glUniform3f(lu.color, 1.0f, 0.6f, 0.1f); // naranja
+	// Configuración de Stencil Buffer para la silueta:
+	// Solo dibujar en píxeles donde el valor Stencil sea DIFERENTE de 1
+	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	glStencilMask(0x00); // Desactivar escritura en Stencil para no sobrescribir la máscara
 
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glEnable(GL_POLYGON_OFFSET_LINE);
-	glPolygonOffset(-1.0f, -1.0f);
-	glLineWidth(2.0f);
+	glDisable(GL_DEPTH_TEST); // Evitar que el depth buffer oculte el contorno
 
+	glUseProgram(singleColorShaderProgram);
+	glUniformMatrix4fv(scu.view, 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(scu.projection, 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(scu.model, 1, GL_FALSE, glm::value_ptr(selected->GetWorldMatrix()));
+	
+	glUniform3fv(scu.color, 1, glm::value_ptr(settings.outlineColor));
+	
+	// Renderizar la malla con el Vertex Shader de expansión por normal
 	mesh->GetPrimitive()->Draw();
 
-	glDisable(GL_POLYGON_OFFSET_LINE);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	// Restablecer estado normal de OpenGL
+	glEnable(GL_DEPTH_TEST);
+	glStencilMask(0xFF);
+	glStencilFunc(GL_ALWAYS, 0, 0xFF);
 }
