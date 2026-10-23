@@ -1049,7 +1049,7 @@ void ModuleUI::DrawConfigurationPanel()
 				ImGui::Text("Motor: Motor Videojuego 3D");
 				ImGui::BulletText("Tiempo Activo (Uptime): %.1f s", perf.uptimeSeconds);
 				ImGui::BulletText("Frames Totales: %zu", perf.totalFrames);
-				ImGui::BulletText("Consumo RAM del Proceso: %zu MB (Pico: %zu MB)", perf.memoryUsageMB, perf.peakMemoryUsageMB);
+				ImGui::BulletText("Consumo RAM del Proceso: %zu MB (Pico: %zu MB)", perf.processMemoryMB, perf.processPeakMemoryMB);
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Control de Framerate");
@@ -1492,7 +1492,7 @@ void ModuleUI::DrawConfigurationPanel()
 				// Memoria (RAM y VRAM)
 				ImGui::Spacing();
 				ImGui::SeparatorText("Consumo de Memoria (RAM y VRAM)");
-				ImGui::BulletText("RAM del Proceso (Working Set): %zu MB (Pico: %zu MB)", perf.memoryUsageMB, perf.peakMemoryUsageMB);
+				ImGui::BulletText("RAM del Proceso (Working Set): %zu MB (Pico: %zu MB)", perf.processMemoryMB, perf.processPeakMemoryMB);
 				if (hw.vramTotalMB > 0)
 				{
 					int vramUsed = std::max(0, hw.vramTotalMB - hw.vramAvailableMB);

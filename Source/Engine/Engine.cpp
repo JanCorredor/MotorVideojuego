@@ -10,8 +10,6 @@
 #include "UI/ModuleUI.h"
 #include "System/SystemInfo.h"
 #include "../Utils/Log.h"
-#include "../Utils/Timer.h"
-#include "../Utils/PerfTimer.h"
 
 #include <tracy/Tracy.hpp>
 #include <glad/glad.h>
@@ -388,8 +386,8 @@ void Engine::UpdateMemoryMetrics()
 	PROCESS_MEMORY_COUNTERS_EX pmc;
 	if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)))
 	{
-		performanceData.memoryUsageMB = (size_t)(pmc.WorkingSetSize / (1024 * 1024));
-		performanceData.peakMemoryUsageMB = (size_t)(pmc.PeakWorkingSetSize / (1024 * 1024));
+		performanceData.processMemoryMB = (size_t)(pmc.WorkingSetSize / (1024 * 1024));
+		performanceData.processPeakMemoryMB = (size_t)(pmc.PeakWorkingSetSize / (1024 * 1024));
 	}
 #endif
 
