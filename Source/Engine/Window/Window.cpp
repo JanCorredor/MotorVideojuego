@@ -37,6 +37,9 @@ bool Window::Awake()
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+
 	// Create window
 	Uint32 flags = SDL_WINDOW_OPENGL;
 

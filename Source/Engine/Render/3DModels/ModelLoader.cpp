@@ -74,6 +74,6 @@ std::unique_ptr<Primitive> ModelLoader::LoadFBX(const std::string& path)
     LOG("[Assimp] Geometría cargada con éxito: %s (%zu vértices totales, %zu índices)", path.c_str(), vertices.size(), indices.size());
 
     auto primitive = std::make_unique<Primitive>();
-    primitive->Init(vertices, indices);
+    primitive->Init(std::move(vertices), std::move(indices));
     return primitive;
 }

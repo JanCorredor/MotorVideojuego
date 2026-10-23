@@ -70,7 +70,9 @@ public:
 	void Clear()
 	{
 		std::lock_guard<std::mutex> lock(logMutex);
-		logs.clear();
+
+		std::deque<LogEntry>().swap(logs);
+		
 		infoCount = 0;
 		warningCount = 0;
 		errorCount = 0;
@@ -92,7 +94,7 @@ private:
 	std::atomic<int> warningCount{ 0 };
 	std::atomic<int> errorCount{ 0 };
 	std::atomic<uint64_t> revision{ 0 };
-	const size_t maxLogs = 2000;
+	const size_t maxLogs = 500;
 };
 
 // Macros de logging con captura automática de fichero y línea

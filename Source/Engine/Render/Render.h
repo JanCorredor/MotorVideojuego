@@ -66,6 +66,13 @@ private:
 	SDL_Color background;
 	bool viewportVisible = true;
 
+	// Evita reallocations constantes reservando espacio previo
+	static constexpr size_t INITIAL_DEBUG_BUFFER_CAPACITY = 10000;
+
+	// Guardar último tamaño procesado para evitar recreate continuo
+	int lastRequestedWidth = 0;
+	int lastRequestedHeight = 0;
+
 	// Framebuffer de la escena
 	unsigned int framebuffer = 0;
 	unsigned int textureColorbuffer = 0;

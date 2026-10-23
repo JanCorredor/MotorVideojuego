@@ -143,6 +143,7 @@ const TextureInfo* TextureManager::Load(const std::string& path)
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	ilDeleteImages(1, &imageID);
+	ilBindImage(0);
 
 	auto info = std::make_unique<TextureInfo>();
 	info->id = textureID;

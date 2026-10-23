@@ -429,9 +429,12 @@ bool Render::PreUpdate()
 	ZoneScoped;
 #endif
 	// Con el viewport oculto no se mantiene el FBO
-	if (viewportVisible && viewportWidth > 0 && viewportHeight > 0 && (viewportWidth != fboWidth || viewportHeight != fboHeight))
+	if (viewportVisible && viewportWidth > 0 && viewportHeight > 0)
 	{
-		CreateFramebuffer(viewportWidth, viewportHeight);
+		if (viewportWidth != fboWidth || viewportHeight != fboHeight)
+		{
+			CreateFramebuffer(viewportWidth, viewportHeight);
+		}
 	}
 	return true;
 }
@@ -471,12 +474,7 @@ void Render::BindDefaultFramebuffer()
 
 void Render::RenderScene()
 {
-	// Si el tamaño del viewport de ImGui cambió, recreamos el FBO inmediatamente
-	if (viewportWidth > 0 && viewportHeight > 0 && (viewportWidth != fboWidth || viewportHeight != fboHeight))
-	{
-		CreateFramebuffer(viewportWidth, viewportHeight);
-	}
-	if (framebuffer == 0) return;
+	if (framebuffer == 0 || fboWidth <= 0 || fboHeight <= 0) return;
 
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glViewport(0, 0, fboWidth, fboHeight);
@@ -679,25 +677,30 @@ void Render::DrawGameObject(GameObject* go, const glm::mat4& parentMatrix)
 void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 {
 	Scene* scene = Engine::GetInstance().scene.get();
-	GameObject* selected = scene->GetSelected();
+	GameObject* selected = scene ? scene->GetSelected() : nullptr;
 
 	const bool wantNormals = settings.normals != NormalsMode::None;
 	const bool wantOutline = settings.highlightSelection && selected != nullptr;
 	if (!wantNormals && !wantOutline) return;
 
-	glUseProgram(lineShaderProgram);
-	glUniformMatrix4fv(lu.view, 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(lu.projection, 1, GL_FALSE, glm::value_ptr(projection));
-
-	if (wantOutline)
+	if (wantOutline && selected)
 	{
 		DrawSelectionOutline(selected, view, projection);
 	}
 
 	if (wantNormals)
 	{
+		glUseProgram(lineShaderProgram);
+		glUniformMatrix4fv(lu.view, 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(lu.projection, 1, GL_FALSE, glm::value_ptr(projection));
+
+		// Limpiamos los elementos pero reservamos la memoria previamente para evitar reallocations
 		debugVertexLines.clear();
 		debugFaceLines.clear();
+
+		// Reserva estimada para evitar petar la RAM con push_back() en cada frame
+		debugVertexLines.reserve(10000);
+		debugFaceLines.reserve(10000);
 
 		if (settings.normalsAllObjects)
 		{
@@ -717,28 +720,32 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 			glBindVertexArray(debugVAO);
 			glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
 
-			// El buffer solo se reasigna cuando necesita crecer
+			// Reasignar buffer dinámico de OpenGL solo si la capacidad actual no es suficiente
 			if (totalBytes > debugVBOCapacityBytes)
 			{
 				debugVBOCapacityBytes = totalBytes * 2;
 				glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)debugVBOCapacityBytes, nullptr, GL_DYNAMIC_DRAW);
 			}
-			if (vertexBytes > 0) glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)vertexBytes, debugVertexLines.data());
-			if (faceBytes > 0) glBufferSubData(GL_ARRAY_BUFFER, (GLintptr)vertexBytes, (GLsizeiptr)faceBytes, debugFaceLines.data());
+
+			if (vertexBytes > 0)
+				glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)vertexBytes, debugVertexLines.data());
+			if (faceBytes > 0)
+				glBufferSubData(GL_ARRAY_BUFFER, (GLintptr)vertexBytes, (GLsizeiptr)faceBytes, debugFaceLines.data());
 
 			glUniformMatrix4fv(lu.model, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
-			glLineWidth(2.0f);
+			glLineWidth(1.5f);
 
 			const GLsizei vertexCount = (GLsizei)(debugVertexLines.size() / 3);
 			const GLsizei faceCount = (GLsizei)(debugFaceLines.size() / 3);
+
 			if (vertexCount > 0)
 			{
-				glUniform3f(lu.color, 1.0f, 1.0f, 0.0f); // amarillo: normales por vértice
+				glUniform3f(lu.color, 1.0f, 1.0f, 0.0f); // Amarillo: vértices
 				glDrawArrays(GL_LINES, 0, vertexCount);
 			}
 			if (faceCount > 0)
 			{
-				glUniform3f(lu.color, 0.0f, 1.0f, 1.0f); // cian: normales por cara
+				glUniform3f(lu.color, 0.0f, 1.0f, 1.0f); // Cian: caras
 				glDrawArrays(GL_LINES, vertexCount, faceCount);
 			}
 

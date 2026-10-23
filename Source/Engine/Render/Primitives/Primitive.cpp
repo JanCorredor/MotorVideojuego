@@ -9,10 +9,11 @@ Primitive::~Primitive()
     if (EBO != 0) glDeleteBuffers(1, &EBO);
 }
 
-void Primitive::Init(const std::vector<Vertex>& verts, const std::vector<unsigned int>& inds)
+void Primitive::Init(std::vector<Vertex>&& verts, std::vector<unsigned int>&& inds)
 {
-    this->vertices = verts;
-    this->indices = inds;
+    // Movemos los datos en lugar de copiarlos
+    this->vertices = std::move(verts);
+    this->indices = std::move(inds);
 
     indexCount = static_cast<unsigned int>(indices.size());
 
@@ -27,7 +28,7 @@ void Primitive::Init(const std::vector<Vertex>& verts, const std::vector<unsigne
         }
     }
 
-    // Normal y centroide de cada triángulo (se calcula una sola vez, no por frame)
+    // Normales por cara
     faces.clear();
     faces.reserve(indices.size() / 3);
     for (size_t i = 0; i + 2 < indices.size(); i += 3)
@@ -68,6 +69,11 @@ void Primitive::Init(const std::vector<Vertex>& verts, const std::vector<unsigne
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoords));
 
     glBindVertexArray(0);
+
+    // Ajustar capacidades de los vectores para liberar memoria no utilizada
+    vertices.shrink_to_fit();
+    indices.shrink_to_fit();
+    faces.shrink_to_fit();
 }
 
 void Primitive::Draw() const 
