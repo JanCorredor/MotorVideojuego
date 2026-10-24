@@ -42,7 +42,7 @@ bool Scene::Start()
 	// Instance Editor Camera
 	auto camObj = std::make_unique<GameObject>("EditorCamera");
 	auto camTrans = std::make_unique<TransformComponent>(camObj.get());
-	camTrans->SetPosition(glm::vec3(0.0f, 1.0f, 5.0f));
+	camTrans->SetPosition(glm::vec4(0.0f, 1.0f, 5.0f,1.0f));
 	camObj->AddComponent(std::move(camTrans));
 
 	auto camComp = std::make_unique<CameraComponent>(camObj.get());
@@ -63,7 +63,7 @@ bool Scene::Start()
 	cubeObj->AddComponent(std::move(cubeMesh));
 
 	auto cubeMat = std::make_unique<MaterialComponent>(cubeObj.get());
-	cubeMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	cubeMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	cubeMat->SetTexture("../Assets/water.jpg");
 	cubeMat->SetUseTexture(true);
 	cubeObj->AddComponent(std::move(cubeMat));
@@ -78,7 +78,7 @@ bool Scene::Start()
 	sphereObj->AddComponent(std::move(sphereMesh));
 
 	auto sphereMat = std::make_unique<MaterialComponent>(sphereObj.get());
-	sphereMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	sphereMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	sphereMat->SetTexture("../Assets/lava.jpg");
 	sphereMat->SetUseTexture(true);
 	sphereObj->AddComponent(std::move(sphereMat));
@@ -264,7 +264,7 @@ GameObject* Scene::CreateNewGameObject(std::vector<std::unique_ptr<Component>> o
 	if (presentTypes.find(COMPONENT_MATERIAL) == presentTypes.end())
 	{
 		auto cubeMat = std::make_unique<MaterialComponent>(newObj.get());
-		cubeMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+		cubeMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 		cubeMat->SetUseTexture(false);
 		newObj->AddComponent(std::move(cubeMat));
 	}
@@ -303,7 +303,7 @@ GameObject* Scene::CreatePrimitive(PrimitiveType type, GameObject* parent)
 	newObj->AddComponent(std::move(mesh));
 
 	auto mat = std::make_unique<MaterialComponent>(newObj.get());
-	mat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	mat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	mat->SetUseTexture(false);
 	newObj->AddComponent(std::move(mat));
 

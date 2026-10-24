@@ -100,6 +100,10 @@ bool Render::Awake()
 	glCullFace(GL_BACK);
 	glFrontFace(GL_CCW); // Counter-Clockwise
 
+	// Alpha
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	// V-Sync: Render es el único dueño de este estado
 	SetVSync(settings.vsync);
 
@@ -133,17 +137,22 @@ bool Render::Start() {
 		"in vec3 FragPos;\n"
 		"in vec3 Normal;\n"
 		"in vec2 TexCoords;\n"
-		"uniform vec3 uColor;\n"
+		"uniform vec4 uColor;\n"         
 		"uniform bool uUseTexture;\n"
 		"uniform bool uLighting;\n"
 		"uniform sampler2D uTexture;\n"
 		"void main()\n"
 		"{\n"
-		"   vec3 objectColor = uColor;\n"
+		"   vec4 objectColor = uColor;\n"
 		"   if (uUseTexture) {\n"
-		"       objectColor *= texture(uTexture, TexCoords).rgb;\n"
+		"       objectColor *= texture(uTexture, TexCoords);\n" 
 		"   }\n"
-		"   vec3 result = objectColor;\n"
+		"\n"
+		"   // Alpha Test: Descarte de píxeles transparentes para corte de profundidad correcto\n"
+		"   if (objectColor.a < 0.05)\n"
+		"       discard;\n"
+		"\n"
+		"   vec3 result = objectColor.rgb;\n"
 		"   if (uLighting) {\n"
 		"       vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));\n"
 		"       vec3 norm = normalize(Normal);\n"
@@ -151,9 +160,9 @@ bool Render::Start() {
 		"       vec3 ambient = ambientStrength * vec3(1.0);\n"
 		"       float diff = max(dot(norm, lightDir), 0.0);\n"
 		"       vec3 diffuse = diff * vec3(1.0);\n"
-		"       result = (ambient + diffuse) * objectColor;\n"
+		"       result = (ambient + diffuse) * objectColor.rgb;\n"
 		"   }\n"
-		"   FragColor = vec4(result, 1.0);\n"
+		"   FragColor = vec4(result, objectColor.a);\n"
 		"}\0";
 
 	shaderProgram = BuildProgram(vertexShaderSource, fragmentShaderSource, "Scene");
@@ -202,6 +211,69 @@ bool Render::Start() {
 		"}\0";
 
 	singleColorShaderProgram = BuildProgram(singleColorVS, singleColorFS, "SingleColor");
+
+	///////////////////////////////////// Z Buffer //////////////////////////////////////////////////////////////
+	const char* depthVS = R"(#version 460 core
+	layout (location = 0) in vec2 aPos;
+	layout (location = 1) in vec2 aTexCoords;
+	out vec2 TexCoords;
+	void main() {
+		TexCoords = aTexCoords;
+		gl_Position = vec4(aPos, 0.0, 1.0);
+	})";
+
+	const char* depthFS = R"(#version 460 core
+	out vec4 FragColor;
+	in vec2 TexCoords;
+
+	uniform sampler2D depthMap;
+	uniform float nearPlane;
+	uniform float farPlane;
+
+	float LinearizeDepth(float depth) {
+		float z = depth * 2.0 - 1.0; // De [0, 1] a NDC [-1, 1]
+		return (2.0 * nearPlane * farPlane) / (farPlane + nearPlane - z * (farPlane - nearPlane));
+	}
+
+	void main() {
+		float depthVal = texture(depthMap, TexCoords).r;
+    
+		// Convertir a profundidad lineal en unidades del mundo
+		float linearDepth = LinearizeDepth(depthVal);
+    
+		// Normalizar respecto a una distancia visiva razonable (ej. hasta 50 unidades)
+		// o escalar exponencialmente para resaltar el degradado de grises
+		float c = linearDepth / (farPlane * 0.1); // Multiplicar por un factor para ajustar la sensibilidad
+		c = clamp(c, 0.0, 1.0);
+
+		FragColor = vec4(vec3(c), 1.0);
+	})";
+
+	depthDebugProgram = BuildProgram(depthVS, depthFS, "DepthLinearizer");
+
+	// Cuadrilátero para renderizar en pantalla completa el shader
+	float quadVertices[] = {
+		-1.0f,  1.0f,  0.0f, 1.0f,
+		-1.0f, -1.0f,  0.0f, 0.0f,
+		 1.0f, -1.0f,  1.0f, 0.0f,
+
+		-1.0f,  1.0f,  0.0f, 1.0f,
+		 1.0f, -1.0f,  1.0f, 0.0f,
+		 1.0f,  1.0f,  1.0f, 1.0f
+	};
+
+	glGenVertexArrays(1, &depthDebugVAO);
+	glGenBuffers(1, &depthDebugVBO);
+	glBindVertexArray(depthDebugVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, depthDebugVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glBindVertexArray(0);
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Ubicaciones de uniforms: se consultan una sola vez
 	u.model = glGetUniformLocation(shaderProgram, "model");
@@ -375,7 +447,8 @@ void Render::DestroyFramebuffer()
 {
 	if (framebuffer != 0) { glDeleteFramebuffers(1, &framebuffer); framebuffer = 0; }
 	if (textureColorbuffer != 0) { glDeleteTextures(1, &textureColorbuffer); textureColorbuffer = 0; }
-	if (rbo != 0) { glDeleteRenderbuffers(1, &rbo); rbo = 0; }
+	if (depthTextureBuffer != 0) { glDeleteTextures(1, &depthTextureBuffer); depthTextureBuffer = 0; }
+	if (linearDepthTexture != 0) { glDeleteTextures(1, &linearDepthTexture); linearDepthTexture = 0; } // <- Añadido
 	fboComplete = false;
 }
 
@@ -391,34 +464,31 @@ void Render::CreateFramebuffer(int width, int height)
 	glGenFramebuffers(1, &framebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
+	// 1. Textura de Color principal
 	glGenTextures(1, &textureColorbuffer);
 	glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
 
-	glGenRenderbuffers(1, &rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+	// 2. Textura del Depth Buffer nativo de OpenGL
+	glGenTextures(1, &depthTextureBuffer);
+	glBindTexture(GL_TEXTURE_2D, depthTextureBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthTextureBuffer, 0);
+
+	// 3. Textura de Color procesada (Z-Buffer Lineal para ImGui)
+	glGenTextures(1, &linearDepthTexture);
+	glBindTexture(GL_TEXTURE_2D, linearDepthTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	GLenum fbStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	fboComplete = (fbStatus == GL_FRAMEBUFFER_COMPLETE);
-	if (!fboComplete)
-	{
-		LOG_ERROR("[OpenGL] Framebuffer incompleto! (Código: 0x%X)", fbStatus);
-	}
-	else
-	{
-		static bool firstFboLogged = false;
-		if (!firstFboLogged)
-		{
-			LOG("[OpenGL] Framebuffer inicializado: %dx%d (FBO ID: %u, Textura ID: %u, RBO ID: %u)",
-				width, height, framebuffer, textureColorbuffer, rbo);
-			firstFboLogged = true;
-		}
-	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -479,15 +549,9 @@ void Render::RenderScene()
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glViewport(0, 0, fboWidth, fboHeight);
 
-	glDepthMask(GL_TRUE);
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-
-
-	// Habilitar Stencil Test y limpiar buffers
+	// Configuración de Stencil y Clear
 	glEnable(GL_STENCIL_TEST);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
 
 	glClearColor(
 		background.r / 255.0f,
@@ -495,9 +559,11 @@ void Render::RenderScene()
 		background.b / 255.0f,
 		background.a / 255.0f
 	);
-
-	// Limpiar Color, Depth y Stencil Buffer
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	// Blending para transparencias
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	if (settings.depthTest) glEnable(GL_DEPTH_TEST);
 	else glDisable(GL_DEPTH_TEST);
@@ -511,51 +577,153 @@ void Render::RenderScene()
 	glUseProgram(shaderProgram);
 
 	Scene* scene = Engine::GetInstance().scene.get();
-	GameObject* cameraObj = scene->GetMainCameraObject();
+	GameObject* cameraObj = scene ? scene->GetMainCameraObject() : nullptr;
 	CameraComponent* camera = cameraObj ? cameraObj->GetComponent<CameraComponent>() : nullptr;
 
 	glm::mat4 view = glm::mat4(1.0f);
 	glm::mat4 projection = glm::mat4(1.0f);
+	glm::vec3 cameraPos = glm::vec3(0.0f);
 
 	if (camera) {
 		float aspectRatio = (fboHeight > 0) ? (float)fboWidth / (float)fboHeight : 1.0f;
-
 		view = camera->GetViewMatrix();
 		projection = camera->GetProjectionMatrix(aspectRatio);
+		if (auto camTrans = cameraObj->GetComponent<TransformComponent>()) {
+			cameraPos = camTrans->GetPosition();
+		}
 	}
 
-	// Send to GPU
 	glUniformMatrix4fv(u.view, 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(u.projection, 1, GL_FALSE, glm::value_ptr(projection));
 	glUniform1i(u.lighting, settings.lighting ? 1 : 0);
 	glUniform1i(u.texture, 0);
 
-	// Configuración por defecto del Stencil Buffer para objetos no seleccionados (no escriben valor 1)
-	glStencilFunc(GL_ALWAYS, 1, 0xFF);
-	glStencilMask(0x00);
+	// -------------------------------------------------------------------------
+	// Recolección y Clasificación (Opacos vs Transparentes)
+	// -------------------------------------------------------------------------
+	struct RenderItem {
+		GameObject* go;
+		glm::mat4 modelMatrix;
+		float distanceToCamera;
+	};
 
-	// -------------------------------------------------------------------------
-	// Draw Scene GameObjects
-	// -------------------------------------------------------------------------
-	GameObject* root = scene->GetRoot();
-	if (root)
+	std::vector<RenderItem> opaqueItems;
+	std::vector<RenderItem> transparentItems;
+
+	std::function<void(GameObject*, const glm::mat4&)> collectItems = [&](GameObject* go, const glm::mat4& parentMatrix) 
 	{
-		DrawGameObject(root, glm::mat4(1.0f));
+		if (!go || !go->IsActive()) return;
+
+		glm::mat4 globalMatrix = parentMatrix;
+		if (auto t = go->GetComponent<TransformComponent>()) 
+		{
+			globalMatrix = parentMatrix * t->GetLocalModelMatrix();
+		}
+
+		if (go->GetComponent<MeshComponent>()) 
+		{
+			MaterialComponent* mat = go->GetComponent<MaterialComponent>();
+
+			// Usamos el nuevo método que revisa tanto el color como la textura cargada
+			bool isTransparent = mat ? mat->HasTransparentAlpha() : false;
+
+			glm::vec3 objPos = glm::vec3(globalMatrix[3]);
+			float dist = glm::length(cameraPos - objPos);
+
+			if (isTransparent) {
+				transparentItems.push_back({ go, globalMatrix, dist });
+			}
+			else {
+				opaqueItems.push_back({ go, globalMatrix, dist });
+			}
+		}
+
+		for (GameObject* child : go->GetChildren()) 
+		{
+			collectItems(child, globalMatrix);
+		}
+	};
+
+	if (scene->GetRoot()) {
+		collectItems(scene->GetRoot(), glm::mat4(1.0f));
 	}
 
-	// Restaurar máscara de stencil completa tras la escena
-	glStencilMask(0xFF);
+	// Ordenar transparentes de más lejano a más cercano (Back-to-Front)
+	std::sort(transparentItems.begin(), transparentItems.end(), [](const RenderItem& a, const RenderItem& b) {
+		return a.distanceToCamera > b.distanceToCamera;
+		});
 
 	// -------------------------------------------------------------------------
-	// Draw Grid and Axis inside FBO
+		// PASE 1: Objetos Opacos (Escriben en Depth Buffer)
+		// -------------------------------------------------------------------------
+	glDepthMask(GL_TRUE);
+	for (const auto& item : opaqueItems) {
+		DrawSingleGameObject(item.go, item.modelMatrix);
+	}
+
 	// -------------------------------------------------------------------------
+	// PASE 2: Objetos Transparentes
+	// -------------------------------------------------------------------------
+	// Mantenemos glDepthMask(GL_TRUE) si queremos que escriban su profundidad
+	// para que queden registrados en el Z-Buffer Visualizer y el Stencil del Outline
+	glDepthMask(GL_FALSE);
+	for (const auto& item : transparentItems) {
+		DrawSingleGameObject(item.go, item.modelMatrix);
+	}
+	glDepthMask(GL_TRUE); // Restaurar la máscara por defecto
+
+	// -------------------------------------------------------------------------
+	// PASE DE LINEARIZACIÓN DEL Z-BUFFER (Para ImGui)
+	// -------------------------------------------------------------------------
+	if (settings.showDepthBuffer && linearDepthTexture != 0 && depthTextureBuffer != 0)
+	{
+		// 1. Guardar estados actuales para no contaminar el pipeline
+		GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+
+		// 2. Apuntar temporalmente el FBO a la textura del Z-Buffer
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, linearDepthTexture, 0);
+
+		glDisable(GL_DEPTH_TEST);
+		glUseProgram(depthDebugProgram);
+
+		float nearP = camera ? camera->nearPlane : 0.1f;
+		float farP = camera ? camera->farPlane : 100.0f;
+
+		glUniform1f(glGetUniformLocation(depthDebugProgram, "nearPlane"), nearP);
+		glUniform1f(glGetUniformLocation(depthDebugProgram, "farPlane"), farP);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthTextureBuffer);
+		glUniform1i(glGetUniformLocation(depthDebugProgram, "depthMap"), 0);
+
+		glBindVertexArray(depthDebugVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+
+		// 3. RESTAURACIÓN STRICTA: Volver a conectar la textura de color principal a la escena
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+
+		// 4. Restaurar el estado previo de Depth Test
+		if (depthTestWasEnabled) {
+			glEnable(GL_DEPTH_TEST);
+		}
+	}
+	else if (linearDepthTexture != 0)
+	{
+		// Aseguramos que el FBO siempre vuelva a la textura de color original aunque showDepthBuffer se apague
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+	}
+
+	// -------------------------------------------------------------------------
+	// Grid, Axis y Debug
+	// -------------------------------------------------------------------------
+
 	DrawGridAndAxis(view, projection);
-
-	// Normales y contorno de selección (no se ven afectados por el modo wireframe global)
 	DrawDebug(view, projection);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
 
 bool Render::PostUpdate()
 {
@@ -616,61 +784,50 @@ void Render::SetVSync(bool enabled)
 	LOG("[OpenGL] V-Sync %s", enabled ? "Habilitado (1)" : "Deshabilitado (0)");
 }
 
-void Render::DrawGameObject(GameObject* go, const glm::mat4& parentMatrix)
+void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 {
-	if (!go->IsActive()) return;
-
-	glm::mat4 globalMatrix = parentMatrix;
-	TransformComponent* transform = go->GetComponent<TransformComponent>();
-	if (transform) {
-		globalMatrix = parentMatrix * transform->GetLocalModelMatrix();
-	}
+	if (!go || !go->IsActive()) return;
 
 	MeshComponent* mesh = go->GetComponent<MeshComponent>();
 	MaterialComponent* material = go->GetComponent<MaterialComponent>();
 
 	if (mesh && mesh->GetPrimitive()) {
-		glUniformMatrix4fv(u.model, 1, GL_FALSE, glm::value_ptr(globalMatrix));
+		glUniformMatrix4fv(u.model, 1, GL_FALSE, glm::value_ptr(worldMatrix));
 
+		glActiveTexture(GL_TEXTURE0);
 		if (material) {
 			unsigned int texId = material->GetActiveTextureID();
-			glUniform3fv(u.color, 1, glm::value_ptr(material->GetColor()));
+			glUniform4fv(u.color, 1, glm::value_ptr(material->GetColor()));
 			if (texId != 0) {
-				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, texId);
 				glUniform1i(u.useTexture, 1);
-			} else {
-				glUniform1i(u.useTexture, 0);
 			}
-		} else {
-			// Default visual if no material
-			glUniform3f(u.color, 0.8f, 0.8f, 0.8f);
+			else {
+				glUniform1i(u.useTexture, 0);
+				glBindTexture(GL_TEXTURE_2D, 0);
+			}
+		}
+		else {
+			glUniform4f(u.color, 0.8f, 0.8f, 0.8f, 1.0f);
 			glUniform1i(u.useTexture, 0);
+			glBindTexture(GL_TEXTURE_2D, 0);
 		}
 
-
-		// Si el objeto actual es el seleccionado, habilitamos la escritura '1' en el Stencil Buffer
 		Scene* scene = Engine::GetInstance().scene.get();
 		bool isSelected = (scene && scene->GetSelected() == go && settings.highlightSelection);
 
-		if (isSelected) 
-		{
+		// Configurar Stencil para la selección (Aplica tanto a opacos como a transparentes)
+		if (isSelected) {
 			glStencilFunc(GL_ALWAYS, 1, 0xFF);
-			glStencilMask(0xFF); // Habilita escritura en Stencil Buffer
+			glStencilMask(0xFF);
 		}
-		else 
-		{
-			glStencilMask(0x00); // Deshabilita escritura
+		else {
+			glStencilMask(0x00);
 		}
 
 		mesh->GetPrimitive()->Draw();
 	}
-
-	for (GameObject* child : go->GetChildren()) {
-		DrawGameObject(child, globalMatrix);
-	}
 }
-
 // -----------------------------------------------------------------------------
 // Dibujo de depuración
 // -----------------------------------------------------------------------------
@@ -820,25 +977,32 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	MeshComponent* mesh = selected->GetComponent<MeshComponent>();
 	if (!mesh || !mesh->GetPrimitive()) return;
 
-	// Configuración de Stencil Buffer para la silueta:
-	// Solo dibujar en píxeles donde el valor Stencil sea DIFERENTE de 1
+	// 1. Configurar Stencil: solo dibujar en los píxeles donde el objeto NO ha marcado con 1
 	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-	glStencilMask(0x00); // Desactivar escritura en Stencil para no sobrescribir la máscara
+	glStencilMask(0x00); // Bloquear escritura en stencil
 
-	glDisable(GL_DEPTH_TEST); // Evitar que el depth buffer oculte el contorno
+	// 2. Desactivar prueba de profundidad o usar GL_ALWAYS para que las transparencias frontales no tapen la silueta
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
 
 	glUseProgram(singleColorShaderProgram);
 	glUniformMatrix4fv(scu.view, 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(scu.projection, 1, GL_FALSE, glm::value_ptr(projection));
 	glUniformMatrix4fv(scu.model, 1, GL_FALSE, glm::value_ptr(selected->GetWorldMatrix()));
-	
+
 	glUniform3fv(scu.color, 1, glm::value_ptr(settings.outlineColor));
-	
-	// Renderizar la malla con el Vertex Shader de expansión por normal
+
+	// Dibuja la malla con el shader de color único (ligeramente escalada)
 	mesh->GetPrimitive()->Draw();
 
-	// Restablecer estado normal de OpenGL
+	// 3. Restaurar estados por defecto de OpenGL
 	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+
+	if (settings.cullFace) {
+		glEnable(GL_CULL_FACE);
+	}
+
 	glStencilMask(0xFF);
 	glStencilFunc(GL_ALWAYS, 0, 0xFF);
 }

@@ -207,7 +207,9 @@ bool ModuleUI::Update(float dt)
 	DrawInspectorPanel();
 	DrawConfigurationPanel();
 	DrawConsolePanel();
+	DrawDepthBufferPanel();
 	DrawAboutPanel();
+
 
 	// Atajo de teclado: Supr (Delete) para eliminar el GameObject seleccionado si Scene o Hierarchy tienen el foco
 	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Delete))
@@ -245,6 +247,21 @@ bool ModuleUI::DrawMainMenuBar()
 			ImGui::MenuItem("Inspector", nullptr, &showInspector);
 			ImGui::MenuItem("Console", nullptr, &showConsole);
 			ImGui::MenuItem("Configuration", nullptr, &showConfiguration);
+			ImGui::Separator();
+
+			Render* render = Engine::GetInstance().render.get();
+			if (render)
+			{
+				RenderSettings rs = render->GetSettings();
+				// Use a local bool for ImGui to manipulate directly
+				bool showDepth = rs.showDepthBuffer;
+				if (ImGui::MenuItem("Z-Buffer (Depth)", nullptr, &showDepth))
+				{
+					rs.showDepthBuffer = showDepth;
+					render->SetSettings(rs); // Force immediate update back to Engine
+				}
+			}
+
 			ImGui::Separator();
 			if (ImGui::MenuItem("Reset Layout"))
 			{
@@ -693,8 +710,8 @@ void ModuleUI::DrawInspectorPanel()
 			MaterialComponent* mat = selected->GetComponent<MaterialComponent>();
 			if (mat && ImGui::CollapsingHeader("Texture & Material", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				glm::vec3 color = mat->GetColor();
-				if (ImGui::ColorEdit3("Color Base", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
+				glm::vec4 color = mat->GetColor();
+				if (ImGui::ColorEdit4("Color Base (Alpha)", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
 				{
 					mat->SetColor(color);
 				}
@@ -1199,6 +1216,13 @@ void ModuleUI::DrawConfigurationPanel()
 					ImGui::Unindent();
 				}
 
+				bool showDepth = rs.showDepthBuffer;
+				if (ImGui::Checkbox("Show Z-Buffer Window", &showDepth))
+				{
+					rs.showDepthBuffer = showDepth;
+					rnd->SetSettings(rs);
+				}
+
 				// Subapartado para Grid y Central Axis
 				ImGui::Spacing();
 				ImGui::SeparatorText("Grid & Origin Axis");
@@ -1578,4 +1602,41 @@ void ModuleUI::DrawAboutPanel()
 		ImGui::EndChild();
 	}
 	ImGui::End();
+}
+
+void ModuleUI::DrawDepthBufferPanel()
+{
+	Render* render = Engine::GetInstance().render.get();
+	if (!render) return;
+
+	RenderSettings rs = render->GetSettings();
+	if (!rs.showDepthBuffer) return; // Window stays hidden if setting is false
+
+	bool open = rs.showDepthBuffer;
+	if (ImGui::Begin("Z-Buffer Visualizer", &open))
+	{
+		unsigned int depthTexture = render->GetDepthTexture();
+
+		if (depthTexture != 0)
+		{
+			ImVec2 availSize = ImGui::GetContentRegionAvail();
+			if (availSize.x > 0 && availSize.y > 0)
+			{
+				// Draw the depth buffer texture (Invert UVs on Y axis for OpenGL)
+				ImGui::Image((ImTextureID)(intptr_t)depthTexture, availSize, ImVec2(0, 1), ImVec2(1, 0));
+			}
+		}
+		else
+		{
+			ImGui::TextDisabled("Depth texture ID is 0 (Not initialized).");
+		}
+	}
+	ImGui::End();
+
+	// Sync state if closed via the 'X' button
+	if (!open)
+	{
+		rs.showDepthBuffer = false;
+		render->SetSettings(rs);
+	}
 }

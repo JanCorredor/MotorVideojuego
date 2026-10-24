@@ -61,6 +61,9 @@ public:
 	void SetViewportVisible(bool visible) { viewportVisible = visible; }
 	bool IsViewportVisible() const { return viewportVisible; }
 
+	//Z Buffer
+	unsigned int GetDepthTexture() const { return linearDepthTexture; }
+
 private:
 	RenderSettings settings;
 	SDL_Color background;
@@ -85,10 +88,18 @@ private:
 	void CreateFramebuffer(int width, int height);
 	void DestroyFramebuffer();
 
+
 	// Shaders
 	unsigned int shaderProgram = 0;
 	unsigned int lineShaderProgram = 0;
 	unsigned int singleColorShaderProgram = 0; // Shader para el outline
+
+	//ZBuffer
+	unsigned int depthTextureBuffer = 0; // Texture handle for the Z-Buffer
+
+	unsigned int depthDebugProgram = 0;
+	unsigned int depthDebugVAO = 0, depthDebugVBO = 0;
+	unsigned int linearDepthTexture = 0;
 
 	struct SceneUniforms
 	{
@@ -129,7 +140,7 @@ private:
 	void RenderScene();
 	void BindDefaultFramebuffer();
 
-	void DrawGameObject(GameObject* go, const glm::mat4& parentMatrix);
+	void DrawSingleGameObject(GameObject* go, const glm::mat4& parentMatrix);
 	void DrawDebug(const glm::mat4& view, const glm::mat4& projection);
 	void CollectNormals(GameObject* go, const glm::mat4& parentMatrix);
 	void AppendNormals(GameObject* go, const glm::mat4& worldMatrix);

@@ -61,7 +61,7 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
     newObj->AddComponent(std::move(mesh));
 
     auto mat = std::make_unique<MaterialComponent>(newObj.get());
-    mat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+    mat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
     mat->SetUseTexture(false);
     newObj->AddComponent(std::move(mat));
 

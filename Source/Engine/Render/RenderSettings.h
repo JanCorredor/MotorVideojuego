@@ -21,6 +21,8 @@ struct RenderSettings
 	bool wireframe = false;
 	bool vsync = true;
 
+	bool showDepthBuffer = false;
+
 	NormalsMode normals = NormalsMode::None;
 	bool normalsAllObjects = false;   // false: solo el GameObject seleccionado
 	bool highlightSelection = true;   // contorno del GameObject seleccionado

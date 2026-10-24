@@ -32,6 +32,7 @@ private:
 	void DrawConsolePanel();
 	void DrawConfigurationPanel();
 	void DrawAboutPanel();
+	void DrawDepthBufferPanel();
 
 	bool resetLayout = false;
 
