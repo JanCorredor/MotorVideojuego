@@ -115,6 +115,7 @@ private:
 	struct SingleColorUniforms
 	{
 		int model = -1, view = -1, projection = -1, color = -1;
+		int scaleFactor = -1;
 	} scu;
 
 	// Rejilla de referencia (Grid) y Ejes centrales (Axis) en buffers estáticos persistentes

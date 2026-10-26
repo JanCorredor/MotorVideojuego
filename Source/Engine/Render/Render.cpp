@@ -189,20 +189,23 @@ bool Render::Start() {
 	lineShaderProgram = BuildProgram(lineVS, lineFS, "Line");
 
 	/////////////////////  Single Color Shader (Stencil Outline) /////////////////////////////
-	const char* singleColorVS = "#version 460 core\n"
+	const char* singleColorVS = 
+		"#version 460 core\n"
 		"layout (location = 0) in vec3 aPos;\n"
-		"layout (location = 1) in vec3 aNormal;\n"
+		"\n"
 		"uniform mat4 model;\n"
 		"uniform mat4 view;\n"
 		"uniform mat4 projection;\n"
+		"uniform float scaleFactor;\n" // Scale
+		"\n"
 		"void main()\n"
 		"{\n"
-		"   // Desplazamiento ligero por normal para evitar deformaciones en mallas complejas\n"
-		"   vec3 scaledPos = aPos + aNormal * 0.1;\n"
+		"   vec3 scaledPos = aPos * scaleFactor;\n"
 		"   gl_Position = projection * view * model * vec4(scaledPos, 1.0);\n"
 		"}\0";
 
-	const char* singleColorFS = "#version 460 core\n"
+	const char* singleColorFS = 
+		"#version 460 core\n"
 		"out vec4 FragColor;\n"
 		"uniform vec3 uColor;\n"
 		"void main()\n"
@@ -293,6 +296,7 @@ bool Render::Start() {
 	scu.view = glGetUniformLocation(singleColorShaderProgram, "view");
 	scu.projection = glGetUniformLocation(singleColorShaderProgram, "projection");
 	scu.color = glGetUniformLocation(singleColorShaderProgram, "uColor");
+	scu.scaleFactor = glGetUniformLocation(singleColorShaderProgram, "scaleFactor");
 
 	// Buffers persistentes para el dibujo de depuración
 	glGenVertexArrays(1, &debugVAO);
@@ -658,15 +662,16 @@ void Render::RenderScene()
 		});
 
 	// -------------------------------------------------------------------------
-	// PASE 1: Objetos Opacos (Escriben en Depth Buffer)
+	// Objetos Opacos (Escriben en Depth Buffer)
 	// -------------------------------------------------------------------------
 	glDepthMask(GL_TRUE);
-	for (const auto& item : opaqueItems) {
+	for (const auto& item : opaqueItems) 
+	{
 		DrawSingleGameObject(item.go, item.modelMatrix);
 	}
 
 	// -------------------------------------------------------------------------
-	// PASE 2: Objetos Transparentes
+	// Objetos Transparentes
 	// -------------------------------------------------------------------------
 	// Mantenemos glDepthMask(GL_TRUE) si queremos que escriban su profundidad
 	// para que queden registrados en el Z-Buffer Visualizer y el Stencil del Outline
@@ -808,19 +813,23 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 		glUniformMatrix4fv(u.model, 1, GL_FALSE, glm::value_ptr(worldMatrix));
 
 		glActiveTexture(GL_TEXTURE0);
-		if (material) {
+		if (material) 
+		{
 			unsigned int texId = material->GetActiveTextureID();
-			glUniform4fv(u.color, 1.2, glm::value_ptr(material->GetColor()));
-			if (texId != 0) {
+			glUniform4fv(u.color, 1, glm::value_ptr(material->GetColor()));
+			if (texId != 0) 
+			{
 				glBindTexture(GL_TEXTURE_2D, texId);
 				glUniform1i(u.useTexture, 1);
 			}
-			else {
+			else 
+			{
 				glUniform1i(u.useTexture, 0);
 				glBindTexture(GL_TEXTURE_2D, 0);
 			}
 		}
-		else {
+		else 
+		{
 			glUniform4f(u.color, 0.8f, 0.8f, 0.8f, 1.0f);
 			glUniform1i(u.useTexture, 0);
 			glBindTexture(GL_TEXTURE_2D, 0);
@@ -830,10 +839,11 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 		bool isSelected = (scene && scene->GetSelected() == go && settings.highlightSelection);
 
 		// Configurar Stencil para la selección (Aplica tanto a opacos como a transparentes)
-		glStencilFunc(GL_ALWAYS, 1, 0xFF);
-		if (isSelected) 
+		if (isSelected)
 		{
-			glStencilMask(0xFF);
+			glEnable(GL_STENCIL_TEST);
+			glStencilFunc(GL_ALWAYS, 1, 0xFF); // Siempre pasa y escribe 1
+			glStencilMask(0xFF);                // Habilita escritura en el stencil buffer
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		}
 
@@ -843,8 +853,6 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 		{
 			glStencilMask(0x00);
 			glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
-
 		}
 	}
 }
@@ -998,18 +1006,19 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	if (!mesh || !mesh->GetPrimitive()) return;
 
 	// Configurar Stencil: solo dibujar en los píxeles donde el objeto NO ha marcado con 1
+	glEnable(GL_STENCIL_TEST);
 	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	glStencilMask(0x00);
 
 	// Desactivar prueba de profundidad o usar GL_ALWAYS para que las transparencias frontales no tapen la silueta
 	glDisable(GL_DEPTH_TEST);
-	//glm::vec3 scale = glm::vec3(1.2, 1.2, 1.2);
-	//glm::scale(scu.model, &scale);
 
 	glUseProgram(singleColorShaderProgram);
 	glUniformMatrix4fv(scu.view, 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(scu.projection, 1, GL_FALSE, glm::value_ptr(projection));
 	glUniformMatrix4fv(scu.model, 1, GL_FALSE, glm::value_ptr(selected->GetWorldMatrix()));
 
+	glUniform1f(scu.scaleFactor, 1.03f);
 	glUniform3fv(scu.color, 1, glm::value_ptr(settings.outlineColor));
 
 	// Dibuja la malla con el shader de color único (ligeramente escalada)
@@ -1019,5 +1028,7 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
-	glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	glStencilMask(0xFF);
+	glStencilFunc(GL_ALWAYS, 0, 0xFF);
+	glDisable(GL_STENCIL_TEST);
 }
