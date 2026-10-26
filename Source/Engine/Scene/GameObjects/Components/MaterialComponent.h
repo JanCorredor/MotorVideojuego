@@ -1,29 +1,49 @@
 #pragma once
-#include "../Render/Render.h"
-#include "Component.h"
-#include <glm/glm.hpp>
 
+#include "Component.h"
+
+#include "../../../Render/Texture/TextureManager.h"
+#include <glm/glm.hpp>
+#include <string>
+
+class GameObject;
+
+// El material NO es dueño de las texturas GL (las gestiona el TextureManager, con caché y
+// liberación garantizada). Guarda un puntero a la textura difusa original y un flag para
+// mostrar la checkerboard sin perder esa textura.
 class MaterialComponent : public Component
 {
 public:
 	MaterialComponent(GameObject* owner) : Component(COMPONENT_MATERIAL, owner) {}
 	
-	virtual ~MaterialComponent() 
-	{
+	virtual ~MaterialComponent() {}
 
-	}
-
-	glm::vec3 GetColor() { return color; }
+	glm::vec3 GetColor() const { return color; }
 	void SetColor(glm::vec3 newColor) { color = newColor; }
 
-	bool GetUseTexture() { return useTexture; }
+	bool GetUseTexture() const { return useTexture; }
 	void SetUseTexture(bool _useTexture) { useTexture = _useTexture; }
 
-	unsigned int GetTextureID() { return textureID; }
-	void SetTexture(std::string filePath) { textureID = LoadTexture(filePath.c_str()); }
+	// Textura difusa original (nullptr si no hay). Incluye path y tamaño.
+	const TextureInfo* GetTexture() const { return diffuse; }
+	// Devuelve false si la carga falla (la textura anterior se conserva)
+	bool SetTexture(const std::string& filePath);
+
+	// Alterna la checkerboard encima de la textura original, sin descartarla
+	bool GetUseCheckerboard() const { return useCheckerboard; }
+	void SetUseCheckerboard(bool enabled) { useCheckerboard = enabled; }
+
+	bool GetUsingMissingTexture() const { return usingMissingTexture; }
+	void SetUsingMissingTexture(bool enabled) { usingMissingTexture = enabled; } //Debug
+
+	// ID GL que debe usarse al dibujar (0 = sin textura)
+	unsigned int GetActiveTextureID() const;
+	unsigned int GetTextureID() const { return GetActiveTextureID(); }
 
 private:
-	unsigned int textureID = 0;
+	const TextureInfo* diffuse = nullptr;
 	glm::vec3 color = glm::vec3(1.0f);
 	bool useTexture = false;
+	bool useCheckerboard = false;
+	bool usingMissingTexture = false;
 };

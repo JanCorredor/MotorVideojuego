@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cfloat>
 
+#include <tracy/Tracy.hpp>
+
 #define MAX_KEYS 300
 #define GAMEPAD_DEADZONE 0.25f
 
@@ -90,6 +92,9 @@ bool Input::Start()
 
 bool Input::PreUpdate()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
 	static SDL_Event event;
 
 	mouseMotionX = 0;
@@ -126,9 +131,20 @@ bool Input::PreUpdate()
 			mouseButtons[i] = KEY_IDLE;
 	}
 
+	SDL_Window* sdlWindow = Engine::GetInstance().window->GetWindow();
+	bool relativeMouse = (sdlWindow != nullptr) && SDL_GetWindowRelativeMouseMode(sdlWindow);
+
 	while (SDL_PollEvent(&event))
 	{
-		ImGui_ImplSDL3_ProcessEvent(&event);
+		bool isMouseEvent = (event.type == SDL_EVENT_MOUSE_MOTION ||
+		                     event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+		                     event.type == SDL_EVENT_MOUSE_BUTTON_UP ||
+		                     event.type == SDL_EVENT_MOUSE_WHEEL);
+
+		if (!relativeMouse || !isMouseEvent)
+		{
+			ImGui_ImplSDL3_ProcessEvent(&event);
+		}
 
 		switch (event.type)
 		{
@@ -136,10 +152,19 @@ bool Input::PreUpdate()
 			windowEvents[WE_QUIT] = true;
 			break;
 
+		case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+			if (sdlWindow != nullptr && event.window.windowID == SDL_GetWindowID(sdlWindow))
+			{
+				SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+				windowEvents[WE_QUIT] = true;
+			}
+			break;
+
 		case SDL_EVENT_WINDOW_HIDDEN:
 		case SDL_EVENT_WINDOW_MINIMIZED:
 		case SDL_EVENT_WINDOW_FOCUS_LOST:
 			windowEvents[WE_HIDE] = true;
+			ClearMouseInput();
 			break;
 
 		case SDL_EVENT_WINDOW_SHOWN:
@@ -150,9 +175,12 @@ bool Input::PreUpdate()
 			break;
 
 		case SDL_EVENT_WINDOW_RESIZED:
-			//Engine::GetInstance().window-> //TODO
-			break;
 		case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+			
+			if (sdlWindow != nullptr && event.window.windowID == SDL_GetWindowID(sdlWindow))
+			{
+				Engine::GetInstance().window->RefreshSize();
+			}
 			break;
 
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -168,15 +196,18 @@ bool Input::PreUpdate()
 		case SDL_EVENT_MOUSE_MOTION:
 		{
 			int scale = Engine::GetInstance().window->GetScale();
-			mouseMotionX = (int)(event.motion.xrel / scale);
-			mouseMotionY = (int)(event.motion.yrel / scale);
-			mouseX = (int)(event.motion.x / scale);
-			mouseY = (int)(event.motion.y / scale);
+			mouseMotionX += (int)(event.motion.xrel / scale);
+			mouseMotionY += (int)(event.motion.yrel / scale);
+			if (!relativeMouse)
+			{
+				mouseX = (int)(event.motion.x / scale);
+				mouseY = (int)(event.motion.y / scale);
+			}
 		}
 		break;
 
 		case SDL_EVENT_MOUSE_WHEEL:
-			mouseScrollDelta = event.wheel.y;
+			mouseScrollDelta += event.wheel.y;
 			break;
 
 		case SDL_EVENT_GAMEPAD_ADDED:
@@ -292,8 +323,8 @@ void Input::UpdateUINavigation()
 
 	if (fabs(stickX) > stickThresholdX || fabs(stickY) > stickThresholdY)
 	{
-		int screenW = 0, screenH = 0;
-		SDL_GetWindowSize(Engine::GetInstance().window->GetWindow(), &screenW, &screenH);
+		const int screenW = Engine::GetInstance().window->GetWidth();
+		const int screenH = Engine::GetInstance().window->GetHeight();
 
 		float currentMouseX = 0.0f, currentMouseY = 0.0f;
 		SDL_GetMouseState(&currentMouseX, &currentMouseY);

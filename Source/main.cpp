@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
 				state = Engine::EngineState::START;
 			else
 			{
-				LOG("ERROR: Awake failed");
+				LOG_ERROR("[Engine] Fallo en la fase AWAKE de los módulos");
 				state = Engine::EngineState::FAIL;
 			}
 
@@ -44,8 +44,8 @@ int main(int argc, char* argv[]) {
 			}
 			else
 			{
+				LOG_ERROR("[Engine] Fallo en la fase START de los módulos");
 				state = Engine::EngineState::FAIL;
-				LOG("ERROR: Start failed");
 			}
 			break;
 
@@ -64,13 +64,16 @@ int main(int argc, char* argv[]) {
 				state = Engine::EngineState::EXIT;
 			}
 			else
+			{
+				LOG_ERROR("[Engine] Fallo en la fase CLEANUP de los módulos");
 				state = Engine::EngineState::FAIL;
+			}
 
 			break;
 
 			// Exit with errors and shame ---------------------------------------
 		case Engine::EngineState::FAIL:
-			LOG("Exiting with errors");
+			LOG_ERROR("[Engine] El motor ha finalizado con errores críticos.");
 			result = EXIT_FAILURE;
 			state = Engine::EngineState::EXIT;
 			break;

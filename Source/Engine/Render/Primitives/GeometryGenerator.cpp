@@ -95,8 +95,8 @@ std::unique_ptr<Primitive> GeometryGenerator::CreatePyramid(float baseSize, floa
         6, 7, 8,
         9, 10, 11,
         // Base
-        12, 14, 13,
-        12, 15, 14
+        12, 13, 14,
+        12, 14, 15
     };
 
     auto pyramid = std::make_unique<Primitive>();
@@ -112,32 +112,45 @@ std::unique_ptr<Primitive> GeometryGenerator::CreateSphere(float radius, unsigne
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    float const R = 1.0f / (float)(rings - 1);
-    float const S = 1.0f / (float)(sectors - 1);
+    float const R = 1.0f / (float)(rings);
+    float const S = 1.0f / (float)(sectors);
 
-    for (unsigned int r = 0; r < rings; ++r) {
-        for (unsigned int s = 0; s < sectors; ++s) {
-            float y = sin(-glm::half_pi<float>() + glm::pi<float>() * r * R);
-            float x = cos(2 * glm::pi<float>() * s * S) * sin(glm::pi<float>() * r * R);
-            float z = sin(2 * glm::pi<float>() * s * S) * sin(glm::pi<float>() * r * R);
+    for (unsigned int r = 0; r <= rings; ++r) {
+        float const phi = -glm::half_pi<float>() + glm::pi<float>() * r * R; // -PI/2 to PI/2
+        float const y = std::sin(phi);
+        float const ringRadius = std::cos(phi); 
+
+        for (unsigned int s = 0; s <= sectors; ++s) {
+            float const theta = 2.0f * glm::pi<float>() * s * S; // 0 to 2*PI
+            float const x = ringRadius * std::cos(theta);
+            float const z = ringRadius * std::sin(theta);
 
             Vertex v;
             v.position = glm::vec3(x, y, z) * radius;
-            v.normal = glm::vec3(x, y, z);
+            v.normal = glm::vec3(x, y, z); // Outward pointing normal
             v.texCoords = glm::vec2(s * S, r * R);
             vertices.push_back(v);
         }
     }
 
-    for (unsigned int r = 0; r < rings - 1; ++r) {
-        for (unsigned int s = 0; s < sectors - 1; ++s) {
-            indices.push_back(r * sectors + s);
-            indices.push_back(r * sectors + (s + 1));
-            indices.push_back((r + 1) * sectors + (s + 1));
+    // Generate Indices with Counter-Clockwise (CCW) winding
+    unsigned int const stride = sectors + 1;
+    for (unsigned int r = 0; r < rings; ++r) {
+        for (unsigned int s = 0; s < sectors; ++s) {
+            unsigned int current = r * stride + s;
+            unsigned int next = r * stride + (s + 1);
+            unsigned int bottom = (r + 1) * stride + s;
+            unsigned int bottomNext = (r + 1) * stride + (s + 1);
 
-            indices.push_back(r * sectors + s);
-            indices.push_back((r + 1) * sectors + (s + 1));
-            indices.push_back((r + 1) * sectors + s);
+            // First triangle (CCW)
+            indices.push_back(current);
+            indices.push_back(bottomNext);
+            indices.push_back(next);
+
+            // Second triangle (CCW)
+            indices.push_back(current);
+            indices.push_back(bottom);
+            indices.push_back(bottomNext);
         }
     }
 
@@ -170,18 +183,91 @@ std::unique_ptr<Primitive> GeometryGenerator::CreateCylinder(float radius, float
         vertices.push_back({{x * radius,  h2, z * radius}, {x, 0.0f, z}, {(float)i / sectors, 1.0f}});
     }
 
-    // Side indices
+    // Side indices (CCW visto desde fuera)
     for (unsigned int i = 0; i < sectors; ++i) {
         unsigned int k1 = i * 2;
         unsigned int k2 = k1 + 1;
         unsigned int k3 = (i + 1) * 2;
         unsigned int k4 = k3 + 1;
 
-        indices.push_back(k1); indices.push_back(k3); indices.push_back(k2);
-        indices.push_back(k2); indices.push_back(k3); indices.push_back(k4);
+        indices.push_back(k1); indices.push_back(k2); indices.push_back(k3);
+        indices.push_back(k2); indices.push_back(k4); indices.push_back(k3);
+    }
+
+    // Tapas: vértices propios para tener normales (0,±1,0)
+    for (int cap = 0; cap < 2; ++cap) {
+        const bool top = (cap == 1);
+        const float y = top ? h2 : -h2;
+        const glm::vec3 n(0.0f, top ? 1.0f : -1.0f, 0.0f);
+
+        unsigned int centerIndex = static_cast<unsigned int>(vertices.size());
+        vertices.push_back({{0.0f, y, 0.0f}, n, {0.5f, 0.5f}});
+
+        unsigned int ringStart = static_cast<unsigned int>(vertices.size());
+        for (unsigned int i = 0; i <= sectors; ++i) {
+            float a = i * sectorStep;
+            vertices.push_back({{cos(a) * radius, y, sin(a) * radius}, n, {0.5f + 0.5f * cos(a), 0.5f + 0.5f * sin(a)}});
+        }
+
+        for (unsigned int i = 0; i < sectors; ++i) {
+            if (top) {
+                indices.push_back(centerIndex); indices.push_back(ringStart + i + 1); indices.push_back(ringStart + i);
+            } else {
+                indices.push_back(centerIndex); indices.push_back(ringStart + i); indices.push_back(ringStart + i + 1);
+            }
+        }
     }
 
     auto cylinder = std::make_unique<Primitive>();
     cylinder->Init(vertices, indices);
     return cylinder;
+}
+
+// -------------------------------------------------------------
+// 5. Plane (en XZ, normal +Y)
+// -------------------------------------------------------------
+std::unique_ptr<Primitive> GeometryGenerator::CreatePlane(float size)
+{
+    float h = size * 0.5f;
+
+    std::vector<Vertex> vertices = {
+        {{-h, 0.0f,  h}, {0, 1, 0}, {0, 0}},
+        {{ h, 0.0f,  h}, {0, 1, 0}, {1, 0}},
+        {{ h, 0.0f, -h}, {0, 1, 0}, {1, 1}},
+        {{-h, 0.0f, -h}, {0, 1, 0}, {0, 1}}
+    };
+    std::vector<unsigned int> indices = { 0, 1, 2, 0, 2, 3 };
+
+    auto plane = std::make_unique<Primitive>();
+    plane->Init(vertices, indices);
+    return plane;
+}
+
+// -------------------------------------------------------------
+// Factoría
+// -------------------------------------------------------------
+std::unique_ptr<Primitive> GeometryGenerator::Create(PrimitiveType type)
+{
+    switch (type)
+    {
+    case PrimitiveType::Cube:     return CreateCube(1.0f);
+    case PrimitiveType::Sphere:   return CreateSphere(0.5f, 20, 20);
+    case PrimitiveType::Plane:    return CreatePlane(1.0f);
+    case PrimitiveType::Cylinder: return CreateCylinder(0.5f, 1.0f, 32);
+    case PrimitiveType::Pyramid:  return CreatePyramid(1.0f, 1.0f);
+    }
+    return nullptr;
+}
+
+const char* GeometryGenerator::GetName(PrimitiveType type)
+{
+    switch (type)
+    {
+    case PrimitiveType::Cube:     return "Cube";
+    case PrimitiveType::Sphere:   return "Sphere";
+    case PrimitiveType::Plane:    return "Plane";
+    case PrimitiveType::Cylinder: return "Cylinder";
+    case PrimitiveType::Pyramid:  return "Pyramid";
+    }
+    return "GameObject";
 }

@@ -17,13 +17,13 @@ public:
 	virtual ~Component() {}
 
 	virtual void Update(float dt) {}
-
-	virtual void Enable() { active = true; }
-	virtual void Disable() { active = false; }
     
     ComponentType GetType() const { return type; }
     GameObject* GetOwner() const { return owner; }
-    bool IsActive() const { return active; }
+    
+	bool IsActive() const { return active; }
+	virtual void Enable() { this->active = true; }
+	virtual void Disable() { this->active = false; }
 
 protected:
 	ComponentType type;
