@@ -23,6 +23,19 @@ void CameraComponent::Update(float dt)
     GameObject* selectedObject = scene ? scene->GetSelected() : nullptr;
 
     SDL_Window* sdlWindow = Engine::GetInstance().window->GetWindow();
+    bool windowHasFocus = !input->GetWindowEvent(WE_HIDE);
+
+    if (!windowHasFocus)
+    {
+        if (wasRelativeMouseMode)
+        {
+            SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+            wasRelativeMouseMode = false;
+        }
+        isControllingCamera = false;
+        return; // Salimos en este frame si no hay foco
+    }
+
     bool rmbDown = (input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_DOWN);
     bool rmbHeld = (rmbDown || input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_REPEAT);
     bool altHeld = (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT);
@@ -34,6 +47,8 @@ void CameraComponent::Update(float dt)
     {
         isControllingCamera = true;
     }
+
+
     if (!rmbHeld && !(altHeld && lmbHeld))
     {
         isControllingCamera = false;
@@ -45,9 +60,7 @@ void CameraComponent::Update(float dt)
     isControllingCamera = activeControl;
 
     // Comprobar si la ventana actual sigue teniendo el foco
-    bool windowHasFocus = !input->GetWindowEvent(WE_HIDE);
-
-    if (activeControl && windowHasFocus && !wasRelativeMouseMode)
+    if (activeControl && !wasRelativeMouseMode)
     {
         SDL_GetMouseState(&lockedMouseX, &lockedMouseY);
         SDL_CaptureMouse(false);
@@ -55,7 +68,7 @@ void CameraComponent::Update(float dt)
         wasRelativeMouseMode = true;
     }
     // Se fuerza la liberación si se pierde el control O la ventana pierde el foco
-    else if ((!activeControl || !windowHasFocus) && wasRelativeMouseMode)
+    else if ((!activeControl) && wasRelativeMouseMode)
     {
         SDL_SetWindowRelativeMouseMode(sdlWindow, false);
         SDL_WarpMouseInWindow(sdlWindow, lockedMouseX, lockedMouseY);

@@ -63,6 +63,7 @@ bool Window::Awake()
 	SDL_SetWindowMinimumSize(window, MIN_WIDTH, MIN_HEIGHT);
 	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	SDL_ShowWindow(window);
+	SDL_RaiseWindow(window);
 	RefreshSize();
 
 	// Open GL context
