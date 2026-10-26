@@ -198,7 +198,7 @@ bool Render::Start() {
 		"void main()\n"
 		"{\n"
 		"   // Desplazamiento ligero por normal para evitar deformaciones en mallas complejas\n"
-		"   vec3 scaledPos = aPos + aNormal * 0.03;\n"
+		"   vec3 scaledPos = aPos + aNormal * 0.1;\n"
 		"   gl_Position = projection * view * model * vec4(scaledPos, 1.0);\n"
 		"}\0";
 
@@ -445,6 +445,10 @@ void Render::SetViewportSize(int width, int height)
 
 void Render::DestroyFramebuffer()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (framebuffer != 0) { glDeleteFramebuffers(1, &framebuffer); framebuffer = 0; }
 	if (textureColorbuffer != 0) { glDeleteTextures(1, &textureColorbuffer); textureColorbuffer = 0; }
 	if (depthTextureBuffer != 0) { glDeleteTextures(1, &depthTextureBuffer); depthTextureBuffer = 0; }
@@ -454,6 +458,10 @@ void Render::DestroyFramebuffer()
 
 void Render::CreateFramebuffer(int width, int height)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (width <= 0 || height <= 0) return;
 
 	fboWidth = width;
@@ -539,7 +547,7 @@ void Render::BindDefaultFramebuffer()
 	glDisable(GL_POLYGON_OFFSET_LINE);
 
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
 void Render::RenderScene()
@@ -560,10 +568,6 @@ void Render::RenderScene()
 		background.a / 255.0f
 	);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-	// Blending para transparencias
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	if (settings.depthTest) glEnable(GL_DEPTH_TEST);
 	else glDisable(GL_DEPTH_TEST);
@@ -654,8 +658,8 @@ void Render::RenderScene()
 		});
 
 	// -------------------------------------------------------------------------
-		// PASE 1: Objetos Opacos (Escriben en Depth Buffer)
-		// -------------------------------------------------------------------------
+	// PASE 1: Objetos Opacos (Escriben en Depth Buffer)
+	// -------------------------------------------------------------------------
 	glDepthMask(GL_TRUE);
 	for (const auto& item : opaqueItems) {
 		DrawSingleGameObject(item.go, item.modelMatrix);
@@ -666,11 +670,19 @@ void Render::RenderScene()
 	// -------------------------------------------------------------------------
 	// Mantenemos glDepthMask(GL_TRUE) si queremos que escriban su profundidad
 	// para que queden registrados en el Z-Buffer Visualizer y el Stencil del Outline
+	
+	// Blending para transparencias
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	glDepthMask(GL_FALSE);
 	for (const auto& item : transparentItems) {
 		DrawSingleGameObject(item.go, item.modelMatrix);
 	}
 	glDepthMask(GL_TRUE); // Restaurar la máscara por defecto
+
+	// Blending para transparencias
+	glDisable(GL_BLEND);
 
 	// -------------------------------------------------------------------------
 	// PASE DE LINEARIZACIÓN DEL Z-BUFFER (Para ImGui)
@@ -791,13 +803,14 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 	MeshComponent* mesh = go->GetComponent<MeshComponent>();
 	MaterialComponent* material = go->GetComponent<MaterialComponent>();
 
-	if (mesh && mesh->GetPrimitive()) {
+	if (mesh && mesh->GetPrimitive()) 
+	{
 		glUniformMatrix4fv(u.model, 1, GL_FALSE, glm::value_ptr(worldMatrix));
 
 		glActiveTexture(GL_TEXTURE0);
 		if (material) {
 			unsigned int texId = material->GetActiveTextureID();
-			glUniform4fv(u.color, 1, glm::value_ptr(material->GetColor()));
+			glUniform4fv(u.color, 1.2, glm::value_ptr(material->GetColor()));
 			if (texId != 0) {
 				glBindTexture(GL_TEXTURE_2D, texId);
 				glUniform1i(u.useTexture, 1);
@@ -817,15 +830,22 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 		bool isSelected = (scene && scene->GetSelected() == go && settings.highlightSelection);
 
 		// Configurar Stencil para la selección (Aplica tanto a opacos como a transparentes)
-		if (isSelected) {
-			glStencilFunc(GL_ALWAYS, 1, 0xFF);
+		glStencilFunc(GL_ALWAYS, 1, 0xFF);
+		if (isSelected) 
+		{
 			glStencilMask(0xFF);
-		}
-		else {
-			glStencilMask(0x00);
+			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		}
 
 		mesh->GetPrimitive()->Draw();
+
+		if (isSelected)
+		{
+			glStencilMask(0x00);
+			glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+
+		}
 	}
 }
 // -----------------------------------------------------------------------------
@@ -977,13 +997,13 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	MeshComponent* mesh = selected->GetComponent<MeshComponent>();
 	if (!mesh || !mesh->GetPrimitive()) return;
 
-	// 1. Configurar Stencil: solo dibujar en los píxeles donde el objeto NO ha marcado con 1
+	// Configurar Stencil: solo dibujar en los píxeles donde el objeto NO ha marcado con 1
 	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-	glStencilMask(0x00); // Bloquear escritura en stencil
 
-	// 2. Desactivar prueba de profundidad o usar GL_ALWAYS para que las transparencias frontales no tapen la silueta
+	// Desactivar prueba de profundidad o usar GL_ALWAYS para que las transparencias frontales no tapen la silueta
 	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
+	//glm::vec3 scale = glm::vec3(1.2, 1.2, 1.2);
+	//glm::scale(scu.model, &scale);
 
 	glUseProgram(singleColorShaderProgram);
 	glUniformMatrix4fv(scu.view, 1, GL_FALSE, glm::value_ptr(view));
@@ -995,14 +1015,9 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	// Dibuja la malla con el shader de color único (ligeramente escalada)
 	mesh->GetPrimitive()->Draw();
 
-	// 3. Restaurar estados por defecto de OpenGL
+	// Restaurar estados por defecto de OpenGL
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
-	if (settings.cullFace) {
-		glEnable(GL_CULL_FACE);
-	}
-
-	glStencilMask(0xFF);
-	glStencilFunc(GL_ALWAYS, 0, 0xFF);
+	glStencilFunc(GL_ALWAYS, 1, 0xFF);
 }
