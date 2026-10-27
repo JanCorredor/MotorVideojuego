@@ -134,22 +134,15 @@ bool ModuleUI::PreUpdate()
 	bool relativeMouse = (sdlWindow != nullptr) && SDL_GetWindowRelativeMouseMode(sdlWindow);
 
 	ImGuiIO& io = ImGui::GetIO();
+
 	if (relativeMouse)
 	{
-		ImGui_ImplSDL3_SetMouseCaptureMode(ImGui_ImplSDL3_MouseCaptureMode_Disabled);
-		io.ConfigFlags |= (ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
-		io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
-		io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
-		io.AddMouseButtonEvent(ImGuiMouseButton_Middle, false);
-		for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); ++i)
-		{
-			io.MouseDown[i] = false;
-		}
+		io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+
 	}
 	else
 	{
-		ImGui_ImplSDL3_SetMouseCaptureMode(ImGui_ImplSDL3_MouseCaptureMode_Enabled);
-		io.ConfigFlags &= ~(ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
+		io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
 	}
 
 	ImGui_ImplOpenGL3_NewFrame();

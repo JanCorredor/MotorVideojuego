@@ -136,15 +136,7 @@ bool Input::PreUpdate()
 
 	while (SDL_PollEvent(&event))
 	{
-		bool isMouseEvent = (event.type == SDL_EVENT_MOUSE_MOTION ||
-		                     event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
-		                     event.type == SDL_EVENT_MOUSE_BUTTON_UP ||
-		                     event.type == SDL_EVENT_MOUSE_WHEEL);
-
-		if (!relativeMouse || !isMouseEvent)
-		{
-			ImGui_ImplSDL3_ProcessEvent(&event);
-		}
+		ImGui_ImplSDL3_ProcessEvent(&event);
 
 		switch (event.type)
 		{
