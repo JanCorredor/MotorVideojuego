@@ -113,6 +113,7 @@ bool Scene::PreUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+
 	ProcessPendingDestructions();
 	return true;
 }
@@ -122,6 +123,7 @@ bool Scene::Update(float dt)
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+
 	// Centralización del drag & drop de archivos
 	if (Engine::GetInstance().input && Engine::GetInstance().input->HasDroppedFile())
 	{

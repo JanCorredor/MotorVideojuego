@@ -226,6 +226,10 @@ bool ModuleUI::Update(float dt)
 
 bool ModuleUI::DrawMainMenuBar()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	bool continueRunning = true;
 
 	if (ImGui::BeginMainMenuBar())
@@ -330,6 +334,10 @@ bool ModuleUI::DrawMainMenuBar()
 
 void ModuleUI::DrawScenePanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	Render* render = Engine::GetInstance().render.get();
 	Scene* scene = Engine::GetInstance().scene.get();
 	GameObject* mainCamera = scene ? scene->GetMainCameraObject() : nullptr;
@@ -408,6 +416,10 @@ void ModuleUI::DrawScenePanel()
 
 void ModuleUI::DrawHierarchyPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showHierarchy) return;
 
 	if (ImGui::Begin("Hierarchy", &showHierarchy))
@@ -460,6 +472,10 @@ void ModuleUI::DrawHierarchyPanel()
 
 void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!node) return;
 
 	const bool hasChildren = !node->GetChildren().empty();
@@ -584,6 +600,10 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 
 void ModuleUI::DrawInspectorPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showInspector) return;
 
 	if (ImGui::Begin("Inspector", &showInspector))
@@ -783,9 +803,6 @@ bool ModuleUI::PostUpdate()
 	ZoneScoped;
 #endif
 
-
-
-
 	RenderUI();
 	return true;
 }
@@ -805,6 +822,10 @@ bool ModuleUI::CleanUp()
 
 void ModuleUI::RenderUI()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	ImGui::Render();
 
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -822,6 +843,10 @@ void ModuleUI::RenderUI()
 
 void ModuleUI::DrawConsolePanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showConsole) return;
 
 	if (!ImGui::Begin("Console", &showConsole))
@@ -1050,6 +1075,10 @@ void ModuleUI::DrawConsolePanel()
 
 void ModuleUI::DrawConfigurationPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showConfiguration) return;
 
 	if (ImGui::Begin("Configuration", &showConfiguration))
@@ -1549,6 +1578,10 @@ void ModuleUI::DrawConfigurationPanel()
 
 void ModuleUI::DrawAboutPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showAbout) return;
 
 	ImGui::SetNextWindowSize(ImVec2(520, 440), ImGuiCond_FirstUseEver);
@@ -1606,6 +1639,10 @@ void ModuleUI::DrawAboutPanel()
 
 void ModuleUI::DrawDepthBufferPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	Render* render = Engine::GetInstance().render.get();
 	if (!render) return;
 

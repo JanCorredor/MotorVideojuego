@@ -395,6 +395,10 @@ void Render::DestroyGridAndAxisBuffers()
 
 void Render::DrawGridAndAxis(const glm::mat4& view, const glm::mat4& projection)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!settings.showGrid && !settings.showAxis) return;
 
 	glUseProgram(lineShaderProgram);
@@ -556,6 +560,10 @@ void Render::BindDefaultFramebuffer()
 
 void Render::RenderScene()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (framebuffer == 0 || fboWidth <= 0 || fboHeight <= 0) return;
 
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -747,6 +755,7 @@ bool Render::PostUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+
 	SDL_Window* window = Engine::GetInstance().window->GetWindow();
 	SDL_GL_SwapWindow(window);
 
@@ -803,6 +812,10 @@ void Render::SetVSync(bool enabled)
 
 void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!go || !go->IsActive()) return;
 
 	MeshComponent* mesh = go->GetComponent<MeshComponent>();
@@ -861,6 +874,10 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 // -----------------------------------------------------------------------------
 void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	Scene* scene = Engine::GetInstance().scene.get();
 	GameObject* selected = scene ? scene->GetSelected() : nullptr;
 
@@ -1002,6 +1019,10 @@ void Render::AppendNormals(GameObject* go, const glm::mat4& worldMatrix)
 
 void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, const glm::mat4& projection)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	MeshComponent* mesh = selected->GetComponent<MeshComponent>();
 	if (!mesh || !mesh->GetPrimitive()) return;
 
