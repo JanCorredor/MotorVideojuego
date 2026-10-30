@@ -184,20 +184,57 @@ void CameraComponent::ResetCamera()
     }
 }
 
-bool CameraComponent::RaySphereIntersection(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 sphereCenter, float sphereRadius, float& intersectionDistance)
+bool CameraComponent::RayAABBIntersection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec3& boxMin, const glm::vec3& boxMax, float& tMinOut)
 {
-    glm::vec3 oc = rayOrigin - sphereCenter;
-    float a = glm::dot(rayDir, rayDir);
-    float b = 2.0f * glm::dot(oc, rayDir);
-    float c = glm::dot(oc, oc) - sphereRadius * sphereRadius;
-    float discriminant = b * b - 4 * a * c;
+    glm::vec3 invDir = 1.0f / rayDir;
+    glm::vec3 t0s = (boxMin - rayOrigin) * invDir;
+    glm::vec3 t1s = (boxMax - rayOrigin) * invDir;
 
-    if (discriminant < 0) return false;
+    glm::vec3 tsmaller = glm::min(t0s, t1s);
+    glm::vec3 tbigger = glm::max(t0s, t1s);
 
-    intersectionDistance = (-b - sqrt(discriminant)) / (2.0f * a);
-    return intersectionDistance > 0.0f;
+    float tmin = std::max({ tsmaller.x, tsmaller.y, tsmaller.z });
+    float tmax = std::min({ tbigger.x, tbigger.y, tbigger.z });
+
+    if (tmax >= tmin && tmax >= 0.0f)
+    {
+        tMinOut = (tmin >= 0.0f) ? tmin : tmax;
+        return true;
+    }
+    return false;
 }
 
+bool CameraComponent::RayTriangleIntersection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, float& tOut)
+{
+    const float EPSILON = 1e-6f;
+    glm::vec3 edge1 = v1 - v0;
+    glm::vec3 edge2 = v2 - v0;
+    glm::vec3 h = glm::cross(rayDir, edge2);
+    float a = glm::dot(edge1, h);
+
+    // Si 'a' es cercano a 0, el rayo es paralelo al triángulo
+    if (a > -EPSILON && a < EPSILON) return false;
+
+    float f = 1.0f / a;
+    glm::vec3 s = rayOrigin - v0;
+    float u = f * glm::dot(s, h);
+    if (u < 0.0f || u > 1.0f) return false;
+
+    glm::vec3 q = glm::cross(s, edge1);
+    float v = f * glm::dot(rayDir, q);
+    if (v < 0.0f || u + v > 1.0f) return false;
+
+    // Calculamos 't' para saber a qué distancia en el rayo está el punto de impacto
+    float t = f * glm::dot(edge2, q);
+    if (t > EPSILON)
+    {
+        tOut = t;
+        return true;
+    }
+    return false;
+}
+
+// Recorrido recursivo: Transforma el rayo a Local Space -> Prueba AABB -> Prueba Triángulos
 void CameraComponent::CheckRaycastRecursive(GameObject* go, glm::vec3 rayOrigin, glm::vec3 rayDir, GameObject*& closestObject, float& minDistance, const glm::mat4& parentMatrix)
 {
     if (!go->IsActive()) return;
@@ -213,24 +250,67 @@ void CameraComponent::CheckRaycastRecursive(GameObject* go, glm::vec3 rayOrigin,
         if (mesh && mesh->GetPrimitive() && go != owner)
         {
             Primitive* prim = mesh->GetPrimitive();
-            glm::vec3 localCenter = 0.5f * (prim->GetBoundsMin() + prim->GetBoundsMax());
-            float localRadius = 0.5f * glm::length(prim->GetBoundsMax() - prim->GetBoundsMin());
-            if (localRadius <= 0.001f) localRadius = 0.75f;
 
-            glm::vec3 objPos = glm::vec3(globalMatrix * glm::vec4(localCenter, 1.0f));
+            // Transformamos el rayo una sola vez al espacio local del GameObject
+            glm::mat4 invModel = glm::inverse(globalMatrix);
+            glm::vec3 localOrigin = glm::vec3(invModel * glm::vec4(rayOrigin, 1.0f));
+            glm::vec3 localDir = glm::normalize(glm::vec3(invModel * glm::vec4(rayDir, 0.0f)));
 
-            float scaleX = glm::length(glm::vec3(globalMatrix[0]));
-            float scaleY = glm::length(glm::vec3(globalMatrix[1]));
-            float scaleZ = glm::length(glm::vec3(globalMatrix[2]));
-            float radius = localRadius * std::max({ scaleX, scaleY, scaleZ });
+            // Damos un pequeño margen (padding) por si es un Plane con grosor 0 en el eje Y
+            glm::vec3 boxMin = prim->GetBoundsMin() - glm::vec3(0.001f);
+            glm::vec3 boxMax = prim->GetBoundsMax() + glm::vec3(0.001f);
 
-            float hitDistance = 0.0f;
-            if (RaySphereIntersection(rayOrigin, rayDir, objPos, radius, hitDistance))
+            float aabbDist = 0.0f;
+            if (RayAABBIntersection(localOrigin, localDir, boxMin, boxMax, aabbDist))
             {
-                if (hitDistance < minDistance)
+                const auto& vertices = prim->GetVertices();
+                const auto& indices = prim->GetIndices();
+
+                if (!indices.empty())
                 {
-                    minDistance = hitDistance;
-                    closestObject = go;
+                    for (size_t i = 0; i + 2 < indices.size(); i += 3)
+                    {
+                        const glm::vec3& v0 = vertices[indices[i]].position;
+                        const glm::vec3& v1 = vertices[indices[i + 1]].position;
+                        const glm::vec3& v2 = vertices[indices[i + 2]].position;
+
+                        float localHitDist = 0.0f;
+                        if (RayTriangleIntersection(localOrigin, localDir, v0, v1, v2, localHitDist))
+                        {
+                            glm::vec3 localHitPoint = localOrigin + localDir * localHitDist;
+                            glm::vec3 worldHitPoint = glm::vec3(globalMatrix * glm::vec4(localHitPoint, 1.0f));
+                            float worldDist = glm::length(worldHitPoint - rayOrigin);
+
+                            if (worldDist < minDistance)
+                            {
+                                minDistance = worldDist;
+                                closestObject = go;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for (size_t i = 0; i + 2 < vertices.size(); i += 3)
+                    {
+                        const glm::vec3& v0 = vertices[i].position;
+                        const glm::vec3& v1 = vertices[i + 1].position;
+                        const glm::vec3& v2 = vertices[i + 2].position;
+
+                        float localHitDist = 0.0f;
+                        if (RayTriangleIntersection(localOrigin, localDir, v0, v1, v2, localHitDist))
+                        {
+                            glm::vec3 localHitPoint = localOrigin + localDir * localHitDist;
+                            glm::vec3 worldHitPoint = glm::vec3(globalMatrix * glm::vec4(localHitPoint, 1.0f));
+                            float worldDist = glm::length(worldHitPoint - rayOrigin);
+
+                            if (worldDist < minDistance)
+                            {
+                                minDistance = worldDist;
+                                closestObject = go;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -245,6 +325,9 @@ void CameraComponent::CheckRaycastRecursive(GameObject* go, glm::vec3 rayOrigin,
 void CameraComponent::PerformRaycast(float mX, float mY, float width, float height)
 {
     if (width <= 0.0f || height <= 0.0f || !transform) return;
+
+    Input* input = Engine::GetInstance().input.get();
+    if (input && (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT)) return;
 
     float x = (2.0f * mX) / width - 1.0f;
     float y = 1.0f - (2.0f * mY) / height;
