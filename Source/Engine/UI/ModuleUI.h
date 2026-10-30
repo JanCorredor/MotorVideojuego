@@ -26,6 +26,7 @@ private:
 	void RenderUI();
 	bool DrawMainMenuBar();
 	void DrawScenePanel();
+	void DrawGamePanel();
 	void DrawHierarchyPanel();
 	void DrawHierarchyNode(GameObject* node, GameObject* selected);
 	void DrawInspectorPanel();
@@ -38,6 +39,7 @@ private:
 
 	// Visibilidad de ventanas del Editor
 	bool showScene = true;
+	bool showGame = true;
 	bool showHierarchy = true;
 	bool showInspector = true;
 	bool showConsole = true;

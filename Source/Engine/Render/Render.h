@@ -61,6 +61,14 @@ public:
 	void SetViewportVisible(bool visible) { viewportVisible = visible; }
 	bool IsViewportVisible() const { return viewportVisible; }
 
+	// Framebuffer de la vista Game
+	unsigned int GetGameTexture() const { return gameTextureColorbuffer; }
+	void SetGameViewportSize(int width, int height);
+	int GetGameViewportWidth() const { return gameViewportWidth; }
+	int GetGameViewportHeight() const { return gameViewportHeight; }
+	void SetGameViewportVisible(bool visible) { gameViewportVisible = visible; }
+	bool IsGameViewportVisible() const { return gameViewportVisible; }
+
 	//Z Buffer
 	unsigned int GetDepthTexture() const { return linearDepthTexture; }
 
@@ -87,6 +95,19 @@ private:
 	int viewportHeight = 600;
 	void CreateFramebuffer(int width, int height);
 	void DestroyFramebuffer();
+
+	// Framebuffer de la vista Game
+	bool gameViewportVisible = true;
+	unsigned int gameFramebuffer = 0;
+	unsigned int gameTextureColorbuffer = 0;
+	unsigned int gameDepthTextureBuffer = 0;
+	bool gameFboComplete = false;
+	int gameFboWidth = 0;
+	int gameFboHeight = 0;
+	int gameViewportWidth = 800;
+	int gameViewportHeight = 600;
+	void CreateGameFramebuffer(int width, int height);
+	void DestroyGameFramebuffer();
 
 
 	// Shaders
@@ -139,6 +160,7 @@ private:
 	std::vector<float> debugFaceLines;
 
 	void RenderScene();
+	void RenderGame();
 	void BindDefaultFramebuffer();
 
 	void DrawSingleGameObject(GameObject* go, const glm::mat4& parentMatrix);

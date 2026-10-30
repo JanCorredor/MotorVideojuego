@@ -20,6 +20,7 @@ void CameraComponent::Update(float dt)
 
     Input* input = Engine::GetInstance().input.get();
     Scene* scene = Engine::GetInstance().scene.get();
+    if (scene && owner != scene->GetMainCameraObject()) return;
     GameObject* selectedObject = scene ? scene->GetSelected() : nullptr;
 
     SDL_Window* sdlWindow = Engine::GetInstance().window->GetWindow();
@@ -152,7 +153,21 @@ void CameraComponent::UpdateCameraVectors()
 
 glm::mat4 CameraComponent::GetViewMatrix()
 {
-    glm::vec3 pos = transform ? transform->GetPosition() : glm::vec3(0.0f);
+    if (!transform) return glm::mat4(1.0f);
+
+    Scene* scene = Engine::GetInstance().scene.get();
+    // Si es la cámara de escena (Main Camera), usamos la matriz de su TransformComponent (posición + rotación del Inspector)
+    if (scene && owner != scene->GetMainCameraObject())
+    {
+        glm::mat4 worldMat = owner->GetWorldMatrix();
+        glm::vec3 camPos = glm::vec3(worldMat[3]);
+        glm::vec3 camForward = glm::normalize(-glm::vec3(worldMat[2])); // -Z local es hacia adelante en OpenGL
+        glm::vec3 camUp = glm::normalize(glm::vec3(worldMat[1]));      // +Y local es hacia arriba
+        return glm::lookAt(camPos, camPos + camForward, camUp);
+    }
+
+    // Si es la EditorCamera, usamos los vectores controlados por el ratón (yaw/pitch)
+    glm::vec3 pos = transform->GetPosition();
     return glm::lookAt(pos, pos + front, up);
 }
 

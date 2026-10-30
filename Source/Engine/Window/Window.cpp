@@ -46,9 +46,8 @@ bool Window::Awake()
 #ifdef WINDOW_FULLSCREEN
 	flags |= SDL_WINDOW_FULLSCREEN;
 #endif
-#ifdef WINDOW_RESIZEABLE
+
 	flags |= SDL_WINDOW_RESIZABLE;
-#endif
 
 	window = SDL_CreateWindow(title.c_str(), windowWidth, windowHeight, flags);
 

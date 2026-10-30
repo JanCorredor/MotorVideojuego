@@ -53,6 +53,21 @@ bool Scene::Start()
 	sceneEntities.push_back(std::move(camObj));
 	LOG("[Scene] Instanciada 'EditorCamera' en posición (0.0, 1.0, 5.0)");
 
+	// Instance Game Camera (Main Camera para la ventana Game)
+	auto gameCamObj = std::make_unique<GameObject>("Main Camera");
+	auto gameCamTrans = std::make_unique<TransformComponent>(gameCamObj.get());
+	gameCamTrans->SetPosition(glm::vec3(0.0f, 2.0f, 7.0f));
+	gameCamTrans->SetRotation(glm::vec3(-10.0f, 0.0f, 0.0f));
+	gameCamObj->AddComponent(std::move(gameCamTrans));
+
+	auto gameCamComp = std::make_unique<CameraComponent>(gameCamObj.get());
+	gameCamObj->AddComponent(std::move(gameCamComp));
+
+	gameCameraPtr = gameCamObj.get();
+	sceneRoot.AddChild(gameCamObj.get());
+	sceneEntities.push_back(std::move(gameCamObj));
+	LOG("[Scene] Instanciada 'Main Camera' para la vista Game");
+
 	// Create Cube
 	auto cubeObj = std::make_unique<GameObject>("Cube");
 	auto cubeTrans = std::make_unique<TransformComponent>(cubeObj.get());
@@ -151,6 +166,7 @@ bool Scene::CleanUp()
 	pendingDestruction.clear();
 	selected = nullptr;
 	mainCameraPtr = nullptr;
+	gameCameraPtr = nullptr;
 	sceneEntities.clear();
 	return true;
 }
@@ -350,11 +366,8 @@ void Scene::DestroyGameObject(GameObject* target)
 	// Si la cámara principal estuviera en el subárbol, desvincularla para no dejar puntero colgante
 	for (GameObject* obj : toDestroy)
 	{
-		if (mainCameraPtr == obj)
-		{
-			mainCameraPtr = nullptr;
-			break;
-		}
+		if (mainCameraPtr == obj) mainCameraPtr = nullptr;
+		if (gameCameraPtr == obj) gameCameraPtr = nullptr;
 	}
 
 	// Desvinculación inmediata del padre superior

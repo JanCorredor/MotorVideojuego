@@ -317,6 +317,10 @@ bool Render::Start() {
 	viewportHeight = height > 0 ? height : 600;
 	CreateFramebuffer(viewportWidth, viewportHeight);
 
+	gameViewportWidth = viewportWidth;
+	gameViewportHeight = viewportHeight;
+	CreateGameFramebuffer(gameViewportWidth, gameViewportHeight);
+
 	return true;
 }
 
@@ -451,6 +455,53 @@ void Render::SetViewportSize(int width, int height)
 	}
 }
 
+void Render::SetGameViewportSize(int width, int height)
+{
+	if (width > 0 && height > 0)
+	{
+		gameViewportWidth = width;
+		gameViewportHeight = height;
+	}
+}
+
+void Render::DestroyGameFramebuffer()
+{
+	if (gameFramebuffer != 0) { glDeleteFramebuffers(1, &gameFramebuffer); gameFramebuffer = 0; }
+	if (gameTextureColorbuffer != 0) { glDeleteTextures(1, &gameTextureColorbuffer); gameTextureColorbuffer = 0; }
+	if (gameDepthTextureBuffer != 0) { glDeleteTextures(1, &gameDepthTextureBuffer); gameDepthTextureBuffer = 0; }
+	gameFboComplete = false;
+}
+
+void Render::CreateGameFramebuffer(int width, int height)
+{
+	if (width <= 0 || height <= 0) return;
+
+	gameFboWidth = width;
+	gameFboHeight = height;
+
+	DestroyGameFramebuffer();
+
+	glGenFramebuffers(1, &gameFramebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, gameFramebuffer);
+
+	glGenTextures(1, &gameTextureColorbuffer);
+	glBindTexture(GL_TEXTURE_2D, gameTextureColorbuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gameTextureColorbuffer, 0);
+
+	glGenTextures(1, &gameDepthTextureBuffer);
+	glBindTexture(GL_TEXTURE_2D, gameDepthTextureBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, gameDepthTextureBuffer, 0);
+
+	gameFboComplete = (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void Render::DestroyFramebuffer()
 {
 #ifdef _DEBUG
@@ -514,12 +565,18 @@ bool Render::PreUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
-	// Con el viewport oculto no se mantiene el FBO
 	if (viewportVisible && viewportWidth > 0 && viewportHeight > 0)
 	{
 		if (viewportWidth != fboWidth || viewportHeight != fboHeight)
 		{
 			CreateFramebuffer(viewportWidth, viewportHeight);
+		}
+	}
+	if (gameViewportVisible && gameViewportWidth > 0 && gameViewportHeight > 0)
+	{
+		if (gameViewportWidth != gameFboWidth || gameViewportHeight != gameFboHeight)
+		{
+			CreateGameFramebuffer(gameViewportWidth, gameViewportHeight);
 		}
 	}
 	return true;
@@ -533,6 +590,10 @@ bool Render::Update(float dt)
 	if (viewportVisible)
 	{
 		RenderScene();
+	}
+	if (gameViewportVisible)
+	{
+		RenderGame();
 	}
 
 	BindDefaultFramebuffer();
@@ -766,6 +827,7 @@ bool Render::PostUpdate()
 bool Render::CleanUp() 
 {
 	DestroyFramebuffer();
+	DestroyGameFramebuffer();
 	DestroyGridAndAxisBuffers();
 
 	if (debugVBO != 0) { glDeleteBuffers(1, &debugVBO); debugVBO = 0; }
@@ -1052,4 +1114,124 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	glStencilMask(0xFF);
 	glStencilFunc(GL_ALWAYS, 0, 0xFF);
 	glDisable(GL_STENCIL_TEST);
+}
+
+void Render::RenderGame()
+{
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
+	if (gameFramebuffer == 0 || gameFboWidth <= 0 || gameFboHeight <= 0) return;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, gameFramebuffer);
+	glViewport(0, 0, gameFboWidth, gameFboHeight);
+
+	glClearColor(
+		background.r / 255.0f,
+		background.g / 255.0f,
+		background.b / 255.0f,
+		background.a / 255.0f
+	);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	Scene* scene = Engine::GetInstance().scene.get();
+	GameObject* gameCameraObj = scene ? scene->GetGameCameraObject() : nullptr;
+	CameraComponent* camera = (gameCameraObj && gameCameraObj->IsActive()) ? gameCameraObj->GetComponent<CameraComponent>() : nullptr;
+
+	// Si no hay Main Camera activa en la escena, dejamos el fondo limpio y salimos
+	if (!camera)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		return;
+	}
+
+	if (settings.depthTest) glEnable(GL_DEPTH_TEST);
+	else glDisable(GL_DEPTH_TEST);
+
+	if (settings.cullFace) glEnable(GL_CULL_FACE);
+	else glDisable(GL_CULL_FACE);
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // La vista Game siempre se ve sólida
+
+	glUseProgram(shaderProgram);
+
+	float aspectRatio = (gameFboHeight > 0) ? (float)gameFboWidth / (float)gameFboHeight : 1.0f;
+	glm::mat4 view = camera->GetViewMatrix();
+	glm::mat4 projection = camera->GetProjectionMatrix(aspectRatio);
+	glm::vec3 cameraPos = glm::vec3(gameCameraObj->GetWorldMatrix()[3]);
+
+	glUniformMatrix4fv(u.view, 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(u.projection, 1, GL_FALSE, glm::value_ptr(projection));
+	glUniform1i(u.lighting, settings.lighting ? 1 : 0);
+	glUniform1i(u.texture, 0);
+
+	struct RenderItem {
+		GameObject* go;
+		glm::mat4 modelMatrix;
+		float distanceToCamera;
+	};
+
+	std::vector<RenderItem> opaqueItems;
+	std::vector<RenderItem> transparentItems;
+
+	std::function<void(GameObject*, const glm::mat4&)> collectItems = [&](GameObject* go, const glm::mat4& parentMatrix)
+		{
+			if (!go || !go->IsActive()) return;
+
+			glm::mat4 globalMatrix = parentMatrix;
+			if (auto t = go->GetComponent<TransformComponent>())
+			{
+				globalMatrix = parentMatrix * t->GetLocalModelMatrix();
+			}
+
+			if (go->GetComponent<MeshComponent>())
+			{
+				MaterialComponent* mat = go->GetComponent<MaterialComponent>();
+				bool isTransparent = mat ? mat->HasTransparentAlpha() : false;
+				glm::vec3 objPos = glm::vec3(globalMatrix[3]);
+				float dist = glm::length(cameraPos - objPos);
+
+				if (isTransparent) transparentItems.push_back({ go, globalMatrix, dist });
+				else opaqueItems.push_back({ go, globalMatrix, dist });
+			}
+
+			for (GameObject* child : go->GetChildren())
+			{
+				collectItems(child, globalMatrix);
+			}
+		};
+
+	if (scene->GetRoot())
+	{
+		collectItems(scene->GetRoot(), glm::mat4(1.0f));
+	}
+
+	std::sort(transparentItems.begin(), transparentItems.end(), [](const RenderItem& a, const RenderItem& b) {
+		return a.distanceToCamera > b.distanceToCamera;
+		});
+
+	// Desactivamos temporalmente el highlight de selección para no ensuciar el stencil en la vista Game
+	bool prevHighlight = settings.highlightSelection;
+	settings.highlightSelection = false;
+
+	glDepthMask(GL_TRUE);
+	for (const auto& item : opaqueItems)
+	{
+		DrawSingleGameObject(item.go, item.modelMatrix);
+	}
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDepthMask(GL_FALSE);
+	for (const auto& item : transparentItems)
+	{
+		DrawSingleGameObject(item.go, item.modelMatrix);
+	}
+	glDepthMask(GL_TRUE);
+	glDisable(GL_BLEND);
+
+	settings.highlightSelection = prevHighlight;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

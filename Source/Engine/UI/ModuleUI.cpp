@@ -180,9 +180,11 @@ bool ModuleUI::Update(float dt)
 			ImGuiID dock_right = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.30f, nullptr, &dock_main_id);
 			//ImGuiID dock_right_down = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.45f, nullptr, &dock_right);
 			ImGuiID dock_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.30f, nullptr, &dock_main_id);
+			ImGuiID dock_game = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.50f, nullptr, &dock_main_id);
 
 			ImGui::DockBuilderDockWindow("Hierarchy", dock_left);
 			ImGui::DockBuilderDockWindow("Scene", dock_main_id);
+			ImGui::DockBuilderDockWindow("Game", dock_game);
 			ImGui::DockBuilderDockWindow("Console", dock_down);
 			ImGui::DockBuilderDockWindow("Inspector", dock_right);
 			ImGui::DockBuilderDockWindow("Configuration", dock_right);
@@ -196,6 +198,7 @@ bool ModuleUI::Update(float dt)
 	sceneOrHierarchyFocused = false;
 
 	DrawScenePanel();
+	DrawGamePanel();
 	DrawHierarchyPanel();
 	DrawInspectorPanel();
 	DrawConfigurationPanel();
@@ -240,6 +243,7 @@ bool ModuleUI::DrawMainMenuBar()
 		if (ImGui::BeginMenu("View"))
 		{
 			ImGui::MenuItem("Scene", nullptr, &showScene);
+			ImGui::MenuItem("Game", nullptr, &showGame);
 			ImGui::MenuItem("Hierarchy", nullptr, &showHierarchy);
 			ImGui::MenuItem("Inspector", nullptr, &showInspector);
 			ImGui::MenuItem("Console", nullptr, &showConsole);
@@ -402,6 +406,55 @@ void ModuleUI::DrawScenePanel()
 		{
 			camComp->SetViewportHovered(imageHovered || ImGui::IsWindowHovered());
 		}
+	}
+
+	ImGui::End();
+}
+
+void ModuleUI::DrawGamePanel()
+{
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
+	Render* render = Engine::GetInstance().render.get();
+
+	if (!showGame)
+	{
+		if (render) render->SetGameViewportVisible(false);
+		return;
+	}
+
+	bool visible = ImGui::Begin("Game", &showGame);
+	if (!visible)
+	{
+		if (render) render->SetGameViewportVisible(false);
+		ImGui::End();
+		return;
+	}
+
+	if (render) render->SetGameViewportVisible(true);
+
+	Scene* scene = Engine::GetInstance().scene.get();
+	GameObject* gameCam = scene ? scene->GetGameCameraObject() : nullptr;
+
+	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+	if (render && viewportSize.x > 0 && viewportSize.y > 0)
+	{
+		render->SetGameViewportSize((int)viewportSize.x, (int)viewportSize.y);
+	}
+
+	if (!gameCam || !gameCam->IsActive() || !gameCam->GetComponent<CameraComponent>())
+	{
+		ImGui::TextDisabled("Display 1: No cameras rendering.");
+		ImGui::End();
+		return;
+	}
+
+	unsigned int gameTexture = render ? render->GetGameTexture() : 0;
+	if (gameTexture != 0 && viewportSize.x > 0 && viewportSize.y > 0)
+	{
+		ImGui::Image((ImTextureID)(intptr_t)gameTexture, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
 	}
 
 	ImGui::End();
