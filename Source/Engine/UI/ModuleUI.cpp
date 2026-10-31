@@ -1703,11 +1703,11 @@ void ModuleUI::DrawDepthBufferPanel()
 		if (depthTexture != 0)
 		{
 			ImVec2 availSize = ImGui::GetContentRegionAvail();
-			if (availSize.x > 0 && availSize.y > 0)
-			{
-				// Draw the depth buffer texture (Invert UVs on Y axis for OpenGL)
-				ImGui::Image((ImTextureID)(intptr_t)depthTexture, availSize, ImVec2(0, 1), ImVec2(1, 0));
-			}
+			if (availSize.x < 50.0f) availSize.x = 200.0f; // Fallback width
+			if (availSize.y < 50.0f) availSize.y = 100.0f; // Fallback height
+			
+			// Draw the depth buffer texture (Invert UVs on Y axis for OpenGL)
+			ImGui::Image((ImTextureID)(intptr_t)depthTexture, availSize, ImVec2(0, 1), ImVec2(1, 0));			
 		}
 		else
 		{
