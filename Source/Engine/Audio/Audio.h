@@ -19,13 +19,13 @@ public:
     virtual ~Audio();
 
     // Called before render is available
-    bool Awake();
+    bool Awake() override;
 
     // Update the estate every frame
-    bool Update(float dt);
+    bool Update(float dt) override;
 
     // Called before quitting
-    bool CleanUp();
+    bool CleanUp() override;
 
     // Play a music file
     bool PlayMusic(const char* path, float fadeTime = DEFAULT_MUSIC_FADE_TIME);
@@ -61,7 +61,6 @@ private:
 
     // Streams
     SDL_AudioStream* music_stream_{ nullptr }; // for background music (single)
-    SDL_AudioStream* sfx_stream_{ nullptr };   // simple shared SFX stream
 
     // Loaded sounds
     SoundData music_data_{};
@@ -69,6 +68,8 @@ private:
     static const int MAX_SFX_STREAMS = 16; // Maximos sonidos simultaneos
     SDL_AudioStream* sfx_pool_[MAX_SFX_STREAMS];
     int sfx_playing_[MAX_SFX_STREAMS];
+
+
     // Volume control
     float music_volume_ = 1.0f; // 0.0 = mute, 1.0 = full
     float sfx_volume_ = 1.0f;

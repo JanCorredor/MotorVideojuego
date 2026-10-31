@@ -75,6 +75,8 @@ void LogSystem::AddLogVA(LogType type, const char* file, int line, const char* f
 			case LogType::Error:   errorCount--; break;
 			}
 			logs.pop_front();
+
+			logs.shrink_to_fit();
 		}
 
 		logs.push_back(std::move(entry));

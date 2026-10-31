@@ -61,10 +61,28 @@ public:
 	void SetViewportVisible(bool visible) { viewportVisible = visible; }
 	bool IsViewportVisible() const { return viewportVisible; }
 
+	// Framebuffer de la vista Game
+	unsigned int GetGameTexture() const { return gameTextureColorbuffer; }
+	void SetGameViewportSize(int width, int height);
+	int GetGameViewportWidth() const { return gameViewportWidth; }
+	int GetGameViewportHeight() const { return gameViewportHeight; }
+	void SetGameViewportVisible(bool visible) { gameViewportVisible = visible; }
+	bool IsGameViewportVisible() const { return gameViewportVisible; }
+
+	//Z Buffer
+	unsigned int GetDepthTexture() const { return linearDepthTexture; }
+
 private:
 	RenderSettings settings;
 	SDL_Color background;
 	bool viewportVisible = true;
+
+	// Evita reallocations constantes reservando espacio previo
+	static constexpr size_t INITIAL_DEBUG_BUFFER_CAPACITY = 10000;
+
+	// Guardar último tamaño procesado para evitar recreate continuo
+	int lastRequestedWidth = 0;
+	int lastRequestedHeight = 0;
 
 	// Framebuffer de la escena
 	unsigned int framebuffer = 0;
@@ -78,9 +96,31 @@ private:
 	void CreateFramebuffer(int width, int height);
 	void DestroyFramebuffer();
 
+	// Framebuffer de la vista Game
+	bool gameViewportVisible = true;
+	unsigned int gameFramebuffer = 0;
+	unsigned int gameTextureColorbuffer = 0;
+	unsigned int gameDepthTextureBuffer = 0;
+	bool gameFboComplete = false;
+	int gameFboWidth = 0;
+	int gameFboHeight = 0;
+	int gameViewportWidth = 800;
+	int gameViewportHeight = 600;
+	void CreateGameFramebuffer(int width, int height);
+	void DestroyGameFramebuffer();
+
+
 	// Shaders
 	unsigned int shaderProgram = 0;
 	unsigned int lineShaderProgram = 0;
+	unsigned int singleColorShaderProgram = 0; // Shader para el outline
+
+	//ZBuffer
+	unsigned int depthTextureBuffer = 0; // Texture handle for the Z-Buffer
+
+	unsigned int depthDebugProgram = 0;
+	unsigned int depthDebugVAO = 0, depthDebugVBO = 0;
+	unsigned int linearDepthTexture = 0;
 
 	struct SceneUniforms
 	{
@@ -92,6 +132,12 @@ private:
 	{
 		int model = -1, view = -1, projection = -1, color = -1;
 	} lu;
+
+	struct SingleColorUniforms
+	{
+		int model = -1, view = -1, projection = -1, color = -1;
+		int scaleFactor = -1;
+	} scu;
 
 	// Rejilla de referencia (Grid) y Ejes centrales (Axis) en buffers estáticos persistentes
 	unsigned int gridVAO = 0;
@@ -114,11 +160,11 @@ private:
 	std::vector<float> debugFaceLines;
 
 	void RenderScene();
+	void RenderGame();
 	void BindDefaultFramebuffer();
 
-	void DrawGameObject(GameObject* go, const glm::mat4& parentMatrix);
+	void DrawSingleGameObject(GameObject* go, const glm::mat4& parentMatrix);
 	void DrawDebug(const glm::mat4& view, const glm::mat4& projection);
 	void CollectNormals(GameObject* go, const glm::mat4& parentMatrix);
 	void AppendNormals(GameObject* go, const glm::mat4& worldMatrix);
-	void DrawSelectionOutline(GameObject* selected);
-};
+	void DrawSelectionOutline(GameObject* selected, const glm::mat4& view, const glm::mat4& projection);};

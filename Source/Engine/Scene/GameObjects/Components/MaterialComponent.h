@@ -18,8 +18,8 @@ public:
 	
 	virtual ~MaterialComponent() {}
 
-	glm::vec3 GetColor() const { return color; }
-	void SetColor(glm::vec3 newColor) { color = newColor; }
+	glm::vec4 GetColor() const { return color; }
+	void SetColor(glm::vec4 newColor) { color = newColor; }
 
 	bool GetUseTexture() const { return useTexture; }
 	void SetUseTexture(bool _useTexture) { useTexture = _useTexture; }
@@ -28,6 +28,13 @@ public:
 	const TextureInfo* GetTexture() const { return diffuse; }
 	// Devuelve false si la carga falla (la textura anterior se conserva)
 	bool SetTexture(const std::string& filePath);
+
+	bool HasTransparentAlpha() const
+	{
+		if (color.a < 0.99f) return true;
+		return false;
+	}
+
 
 	// Alterna la checkerboard encima de la textura original, sin descartarla
 	bool GetUseCheckerboard() const { return useCheckerboard; }
@@ -42,7 +49,7 @@ public:
 
 private:
 	const TextureInfo* diffuse = nullptr;
-	glm::vec3 color = glm::vec3(1.0f);
+	glm::vec4 color = glm::vec4(1.0f);
 	bool useTexture = false;
 	bool useCheckerboard = false;
 	bool usingMissingTexture = false;

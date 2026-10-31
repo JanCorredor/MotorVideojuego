@@ -136,15 +136,7 @@ bool Input::PreUpdate()
 
 	while (SDL_PollEvent(&event))
 	{
-		bool isMouseEvent = (event.type == SDL_EVENT_MOUSE_MOTION ||
-		                     event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
-		                     event.type == SDL_EVENT_MOUSE_BUTTON_UP ||
-		                     event.type == SDL_EVENT_MOUSE_WHEEL);
-
-		if (!relativeMouse || !isMouseEvent)
-		{
-			ImGui_ImplSDL3_ProcessEvent(&event);
-		}
+		ImGui_ImplSDL3_ProcessEvent(&event);
 
 		switch (event.type)
 		{
@@ -164,7 +156,14 @@ bool Input::PreUpdate()
 		case SDL_EVENT_WINDOW_MINIMIZED:
 		case SDL_EVENT_WINDOW_FOCUS_LOST:
 			windowEvents[WE_HIDE] = true;
+			windowEvents[WE_SHOW] = false;
 			ClearMouseInput();
+
+			if (sdlWindow != nullptr)
+			{
+				SDL_SetWindowRelativeMouseMode(sdlWindow, false);
+			}
+
 			break;
 
 		case SDL_EVENT_WINDOW_SHOWN:
@@ -172,6 +171,11 @@ bool Input::PreUpdate()
 		case SDL_EVENT_WINDOW_MAXIMIZED:
 		case SDL_EVENT_WINDOW_RESTORED:
 			windowEvents[WE_SHOW] = true;
+			windowEvents[WE_HIDE] = false;
+			if (sdlWindow != nullptr)
+			{
+				Engine::GetInstance().window->RefreshSize();
+			}
 			break;
 
 		case SDL_EVENT_WINDOW_RESIZED:

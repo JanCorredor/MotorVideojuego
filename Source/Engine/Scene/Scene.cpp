@@ -42,7 +42,7 @@ bool Scene::Start()
 	// Instance Editor Camera
 	auto camObj = std::make_unique<GameObject>("EditorCamera");
 	auto camTrans = std::make_unique<TransformComponent>(camObj.get());
-	camTrans->SetPosition(glm::vec3(0.0f, 1.0f, 5.0f));
+	camTrans->SetPosition(glm::vec4(0.0f, 1.0f, 5.0f,1.0f));
 	camObj->AddComponent(std::move(camTrans));
 
 	auto camComp = std::make_unique<CameraComponent>(camObj.get());
@@ -52,6 +52,21 @@ bool Scene::Start()
 	sceneRoot.AddChild(camObj.get());
 	sceneEntities.push_back(std::move(camObj));
 	LOG("[Scene] Instanciada 'EditorCamera' en posición (0.0, 1.0, 5.0)");
+
+	// Instance Game Camera (Main Camera para la ventana Game)
+	auto gameCamObj = std::make_unique<GameObject>("Main Camera");
+	auto gameCamTrans = std::make_unique<TransformComponent>(gameCamObj.get());
+	gameCamTrans->SetPosition(glm::vec3(0.0f, 2.0f, 7.0f));
+	gameCamTrans->SetRotation(glm::vec3(-10.0f, 0.0f, 0.0f));
+	gameCamObj->AddComponent(std::move(gameCamTrans));
+
+	auto gameCamComp = std::make_unique<CameraComponent>(gameCamObj.get());
+	gameCamObj->AddComponent(std::move(gameCamComp));
+
+	gameCameraPtr = gameCamObj.get();
+	sceneRoot.AddChild(gameCamObj.get());
+	sceneEntities.push_back(std::move(gameCamObj));
+	LOG("[Scene] Instanciada 'Main Camera' para la vista Game");
 
 	// Create Cube
 	auto cubeObj = std::make_unique<GameObject>("Cube");
@@ -63,7 +78,7 @@ bool Scene::Start()
 	cubeObj->AddComponent(std::move(cubeMesh));
 
 	auto cubeMat = std::make_unique<MaterialComponent>(cubeObj.get());
-	cubeMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	cubeMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	cubeMat->SetTexture("../Assets/water.jpg");
 	cubeMat->SetUseTexture(true);
 	cubeObj->AddComponent(std::move(cubeMat));
@@ -78,7 +93,7 @@ bool Scene::Start()
 	sphereObj->AddComponent(std::move(sphereMesh));
 
 	auto sphereMat = std::make_unique<MaterialComponent>(sphereObj.get());
-	sphereMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	sphereMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	sphereMat->SetTexture("../Assets/lava.jpg");
 	sphereMat->SetUseTexture(true);
 	sphereObj->AddComponent(std::move(sphereMat));
@@ -113,6 +128,7 @@ bool Scene::PreUpdate()
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+
 	ProcessPendingDestructions();
 	return true;
 }
@@ -122,6 +138,7 @@ bool Scene::Update(float dt)
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
+
 	// Centralización del drag & drop de archivos
 	if (Engine::GetInstance().input && Engine::GetInstance().input->HasDroppedFile())
 	{
@@ -149,6 +166,7 @@ bool Scene::CleanUp()
 	pendingDestruction.clear();
 	selected = nullptr;
 	mainCameraPtr = nullptr;
+	gameCameraPtr = nullptr;
 	sceneEntities.clear();
 	return true;
 }
@@ -264,7 +282,7 @@ GameObject* Scene::CreateNewGameObject(std::vector<std::unique_ptr<Component>> o
 	if (presentTypes.find(COMPONENT_MATERIAL) == presentTypes.end())
 	{
 		auto cubeMat = std::make_unique<MaterialComponent>(newObj.get());
-		cubeMat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+		cubeMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 		cubeMat->SetUseTexture(false);
 		newObj->AddComponent(std::move(cubeMat));
 	}
@@ -303,7 +321,7 @@ GameObject* Scene::CreatePrimitive(PrimitiveType type, GameObject* parent)
 	newObj->AddComponent(std::move(mesh));
 
 	auto mat = std::make_unique<MaterialComponent>(newObj.get());
-	mat->SetColor(glm::vec3(1.0f, 1.0f, 1.0f));
+	mat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	mat->SetUseTexture(false);
 	newObj->AddComponent(std::move(mat));
 
@@ -348,11 +366,8 @@ void Scene::DestroyGameObject(GameObject* target)
 	// Si la cámara principal estuviera en el subárbol, desvincularla para no dejar puntero colgante
 	for (GameObject* obj : toDestroy)
 	{
-		if (mainCameraPtr == obj)
-		{
-			mainCameraPtr = nullptr;
-			break;
-		}
+		if (mainCameraPtr == obj) mainCameraPtr = nullptr;
+		if (gameCameraPtr == obj) gameCameraPtr = nullptr;
 	}
 
 	// Desvinculación inmediata del padre superior

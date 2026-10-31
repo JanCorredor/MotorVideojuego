@@ -1,13 +1,17 @@
 #pragma once
 
 #include "../../../Utils/UUID.h"
-
+#include "./Components/Component.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <string>
 #include <memory>
+#include <array>
 
-class Component;
+class TransformComponent;
+class MeshComponent;
+class MaterialComponent;
+class CameraComponent;
 
 class GameObject
 {
@@ -19,62 +23,64 @@ public:
 
 	void Update(float dt);
 
-    void AddComponent(std::unique_ptr<Component> component);
+	// Añadir componente (transferencia directa)
+	void AddComponent(std::unique_ptr<Component> component);
 
+	// Acceso rápido en O(1) directo sin dynamic_cast
 	template <typename T>
 	T* GetComponent()
 	{
-		for (auto& comp : objComponents)
-		{
-			T* casted = dynamic_cast<T*>(comp.get());
-			if (casted) return casted;
-		}
-		return nullptr;
+		// Obtenemos el ID de tipo en tiempo de compilación mediante especialización implícita
+		constexpr ComponentType typeId = GetComponentTypeID<T>();
+		return static_cast<T*>(components[typeId].get());
 	}
 
 	template <typename T>
 	const T* GetComponent() const
 	{
-		for (const auto& comp : objComponents)
-		{
-			const T* casted = dynamic_cast<const T*>(comp.get());
-			if (casted) return casted;
-		}
-		return nullptr;
+		constexpr ComponentType typeId = GetComponentTypeID<T>();
+		return static_cast<const T*>(components[typeId].get());
 	}
 
-    bool SetParent(GameObject* newParent);
+	bool SetParent(GameObject* newParent);
+	bool AddChild(GameObject* child);
+	void RemoveChild(GameObject* child);
 
-    // Atajos sobre SetParent (única ruta de modificación de la jerarquía)
-    bool AddChild(GameObject* child);
-    void RemoveChild(GameObject* child);
+	bool IsDescendantOf(const GameObject* ancestor) const;
 
-    // true si 'ancestor' aparece en la cadena de padres de este nodo
-    bool IsDescendantOf(const GameObject* ancestor) const;
+	GameObject* GetParent() const { return parent; }
+	const std::vector<GameObject*>& GetChildren() const { return children; }
 
-    GameObject* GetParent() const { return parent; }
-    const std::vector<GameObject*>& GetChildren() const { return children; }
-    
-    void SetName(const std::string& n) { name = n; }
-    const std::string& GetName() const { return name; }
+	void SetName(const std::string& n) { name = n; }
+	const std::string& GetName() const { return name; }
 
-    bool IsActive() const { return active; }
+	bool IsActive() const { return active; }
 	void Enable() { this->active = true; }
 	void Disable() { this->active = false; }
 
-	// Matriz de transformación global (ParentWorld * Local), cacheada en el TransformComponent.
 	glm::mat4 GetWorldMatrix() const;
-
-	// Marca como sucia la matriz global de este nodo y de todos sus descendientes
 	void InvalidateWorldTransform();
 
 private:
-	GameUUID uuid; //Unique Identifier
+	// Helper en tiempo de compilación para mapear Tipos C++ a índices del Array
+	template<typename T>
+	static constexpr ComponentType GetComponentTypeID();
+
+	GameUUID uuid;
 
 	bool active = true;
 	std::string name;
-	std::vector<std::unique_ptr<Component>> objComponents;
-    
-    GameObject* parent = nullptr;
-    std::vector<GameObject*> children;
+
+	// Array fijo indexado por enum ComponentType (COMPONENT_TRANSFORM=0, COMPONENT_MESH=1, etc.)
+	// Acceso en O(1) directo sin bucles ni asignaciones dinámicas extra
+	std::array<std::unique_ptr<Component>, COMPONENT_COUNT> components;
+
+	GameObject* parent = nullptr;
+	std::vector<GameObject*> children;
 };
+
+// Especializaciones del Helper para resolver tipos en tiempo de compilación
+template<> constexpr ComponentType GameObject::GetComponentTypeID<TransformComponent>() { return COMPONENT_TRANSFORM; }
+template<> constexpr ComponentType GameObject::GetComponentTypeID<MeshComponent>() { return COMPONENT_MESH; }
+template<> constexpr ComponentType GameObject::GetComponentTypeID<MaterialComponent>() { return COMPONENT_MATERIAL; }
+template<> constexpr ComponentType GameObject::GetComponentTypeID<CameraComponent>() { return COMPONENT_CAMERA; }

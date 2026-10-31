@@ -24,7 +24,7 @@ public:
     Primitive(Primitive&& other) noexcept;
     Primitive& operator=(Primitive&& other) noexcept;
 
-    void Init(const std::vector<Vertex>& verts, const std::vector<unsigned int>& indices);
+    void Init(std::vector<Vertex>&& verts, std::vector<unsigned int>&& inds);
     void Draw() const;
 
     const std::vector<Vertex>& GetVertices() const { return vertices; }

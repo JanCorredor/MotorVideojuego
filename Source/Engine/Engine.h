@@ -2,12 +2,14 @@
 
 #include <memory>
 #include <list>
+#include <string>
+
 #include "Module.h"
+#include "../Engine/System/PerformanceMonitor.h" // Se incluye para que conozca el tamaño exacto de PerformanceData al devolverlo por referencia
 #include "../Utils/Timer.h"
 #include "../Utils/PerfTimer.h"
-//#include "pugixml.hpp"
 
-// Modules
+// Forward Declarations
 class Window;
 class Input;
 class Render;
@@ -16,30 +18,6 @@ class Scene;
 class ModuleUI;
 class TextureManager;
 
-struct PerformanceData
-{
-	static constexpr size_t HISTORY_CAPACITY = 100;
-	float fpsHistory[HISTORY_CAPACITY] = { 0.0f };
-	float msHistory[HISTORY_CAPACITY] = { 0.0f };
-	size_t historyIndex = 0;
-
-	float currentFps = 0.0f;
-	float currentMs = 0.0f;
-
-	float minFps = 0.0f;
-	float maxFps = 0.0f;
-	float avgFps = 0.0f;
-
-	float minMs = 0.0f;
-	float maxMs = 0.0f;
-	float avgMs = 0.0f;
-
-	size_t totalFrames = 0;
-	float uptimeSeconds = 0.0f;
-
-	size_t memoryUsageMB = 0;
-	size_t peakMemoryUsageMB = 0;
-};
 
 struct HardwareMetrics
 {

@@ -2,14 +2,8 @@
 
 #include "../Module.h"
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_rect.h>
-#include <glm/glm.hpp>
-//#include "Vector2D.h"
-#include <memory>
-#include <vector>
-#include <algorithm>
-#include <cmath>
-#include <cfloat>
+#include <glm/vec2.hpp> // Incluir solo vec2.hpp en lugar de <glm/glm.hpp> acelera la compilación
+#include <string>
 
 #define MAX_KEYS 300
 #define NUM_MOUSE_BUTTONS 5

@@ -134,22 +134,15 @@ bool ModuleUI::PreUpdate()
 	bool relativeMouse = (sdlWindow != nullptr) && SDL_GetWindowRelativeMouseMode(sdlWindow);
 
 	ImGuiIO& io = ImGui::GetIO();
+
 	if (relativeMouse)
 	{
-		ImGui_ImplSDL3_SetMouseCaptureMode(ImGui_ImplSDL3_MouseCaptureMode_Disabled);
-		io.ConfigFlags |= (ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
-		io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
-		io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
-		io.AddMouseButtonEvent(ImGuiMouseButton_Middle, false);
-		for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); ++i)
-		{
-			io.MouseDown[i] = false;
-		}
+		io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+
 	}
 	else
 	{
-		ImGui_ImplSDL3_SetMouseCaptureMode(ImGui_ImplSDL3_MouseCaptureMode_Enabled);
-		io.ConfigFlags &= ~(ImGuiConfigFlags_NoMouse | ImGuiConfigFlags_NoMouseCursorChange);
+		io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
 	}
 
 	ImGui_ImplOpenGL3_NewFrame();
@@ -187,9 +180,11 @@ bool ModuleUI::Update(float dt)
 			ImGuiID dock_right = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.30f, nullptr, &dock_main_id);
 			//ImGuiID dock_right_down = ImGui::DockBuilderSplitNode(dock_right, ImGuiDir_Down, 0.45f, nullptr, &dock_right);
 			ImGuiID dock_down = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.30f, nullptr, &dock_main_id);
+			ImGuiID dock_game = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.50f, nullptr, &dock_main_id);
 
 			ImGui::DockBuilderDockWindow("Hierarchy", dock_left);
 			ImGui::DockBuilderDockWindow("Scene", dock_main_id);
+			ImGui::DockBuilderDockWindow("Game", dock_game);
 			ImGui::DockBuilderDockWindow("Console", dock_down);
 			ImGui::DockBuilderDockWindow("Inspector", dock_right);
 			ImGui::DockBuilderDockWindow("Configuration", dock_right);
@@ -203,11 +198,14 @@ bool ModuleUI::Update(float dt)
 	sceneOrHierarchyFocused = false;
 
 	DrawScenePanel();
+	DrawGamePanel();
 	DrawHierarchyPanel();
 	DrawInspectorPanel();
 	DrawConfigurationPanel();
 	DrawConsolePanel();
+	DrawDepthBufferPanel();
 	DrawAboutPanel();
+
 
 	// Atajo de teclado: Supr (Delete) para eliminar el GameObject seleccionado si Scene o Hierarchy tienen el foco
 	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Delete))
@@ -224,6 +222,10 @@ bool ModuleUI::Update(float dt)
 
 bool ModuleUI::DrawMainMenuBar()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	bool continueRunning = true;
 
 	if (ImGui::BeginMainMenuBar())
@@ -241,10 +243,26 @@ bool ModuleUI::DrawMainMenuBar()
 		if (ImGui::BeginMenu("View"))
 		{
 			ImGui::MenuItem("Scene", nullptr, &showScene);
+			ImGui::MenuItem("Game", nullptr, &showGame);
 			ImGui::MenuItem("Hierarchy", nullptr, &showHierarchy);
 			ImGui::MenuItem("Inspector", nullptr, &showInspector);
 			ImGui::MenuItem("Console", nullptr, &showConsole);
 			ImGui::MenuItem("Configuration", nullptr, &showConfiguration);
+			ImGui::Separator();
+
+			Render* render = Engine::GetInstance().render.get();
+			if (render)
+			{
+				RenderSettings rs = render->GetSettings();
+				// Use a local bool for ImGui to manipulate directly
+				bool showDepth = rs.showDepthBuffer;
+				if (ImGui::MenuItem("Z-Buffer (Depth)", nullptr, &showDepth))
+				{
+					rs.showDepthBuffer = showDepth;
+					render->SetSettings(rs); // Force immediate update back to Engine
+				}
+			}
+
 			ImGui::Separator();
 			if (ImGui::MenuItem("Reset Layout"))
 			{
@@ -313,6 +331,10 @@ bool ModuleUI::DrawMainMenuBar()
 
 void ModuleUI::DrawScenePanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	Render* render = Engine::GetInstance().render.get();
 	Scene* scene = Engine::GetInstance().scene.get();
 	GameObject* mainCamera = scene ? scene->GetMainCameraObject() : nullptr;
@@ -389,8 +411,61 @@ void ModuleUI::DrawScenePanel()
 	ImGui::End();
 }
 
+void ModuleUI::DrawGamePanel()
+{
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
+	Render* render = Engine::GetInstance().render.get();
+
+	if (!showGame)
+	{
+		if (render) render->SetGameViewportVisible(false);
+		return;
+	}
+
+	bool visible = ImGui::Begin("Game", &showGame);
+	if (!visible)
+	{
+		if (render) render->SetGameViewportVisible(false);
+		ImGui::End();
+		return;
+	}
+
+	if (render) render->SetGameViewportVisible(true);
+
+	Scene* scene = Engine::GetInstance().scene.get();
+	GameObject* gameCam = scene ? scene->GetGameCameraObject() : nullptr;
+
+	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+	if (render && viewportSize.x > 0 && viewportSize.y > 0)
+	{
+		render->SetGameViewportSize((int)viewportSize.x, (int)viewportSize.y);
+	}
+
+	if (!gameCam || !gameCam->IsActive() || !gameCam->GetComponent<CameraComponent>())
+	{
+		ImGui::TextDisabled("Display 1: No cameras rendering.");
+		ImGui::End();
+		return;
+	}
+
+	unsigned int gameTexture = render ? render->GetGameTexture() : 0;
+	if (gameTexture != 0 && viewportSize.x > 0 && viewportSize.y > 0)
+	{
+		ImGui::Image((ImTextureID)(intptr_t)gameTexture, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+	}
+
+	ImGui::End();
+}
+
 void ModuleUI::DrawHierarchyPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showHierarchy) return;
 
 	if (ImGui::Begin("Hierarchy", &showHierarchy))
@@ -443,6 +518,10 @@ void ModuleUI::DrawHierarchyPanel()
 
 void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!node) return;
 
 	const bool hasChildren = !node->GetChildren().empty();
@@ -567,6 +646,10 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 
 void ModuleUI::DrawInspectorPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showInspector) return;
 
 	if (ImGui::Begin("Inspector", &showInspector))
@@ -693,8 +776,8 @@ void ModuleUI::DrawInspectorPanel()
 			MaterialComponent* mat = selected->GetComponent<MaterialComponent>();
 			if (mat && ImGui::CollapsingHeader("Texture & Material", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				glm::vec3 color = mat->GetColor();
-				if (ImGui::ColorEdit3("Color Base", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
+				glm::vec4 color = mat->GetColor();
+				if (ImGui::ColorEdit4("Color Base (Alpha)", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
 				{
 					mat->SetColor(color);
 				}
@@ -766,9 +849,6 @@ bool ModuleUI::PostUpdate()
 	ZoneScoped;
 #endif
 
-
-
-
 	RenderUI();
 	return true;
 }
@@ -788,6 +868,10 @@ bool ModuleUI::CleanUp()
 
 void ModuleUI::RenderUI()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	ImGui::Render();
 
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -805,6 +889,10 @@ void ModuleUI::RenderUI()
 
 void ModuleUI::DrawConsolePanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showConsole) return;
 
 	if (!ImGui::Begin("Console", &showConsole))
@@ -1033,6 +1121,10 @@ void ModuleUI::DrawConsolePanel()
 
 void ModuleUI::DrawConfigurationPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showConfiguration) return;
 
 	if (ImGui::Begin("Configuration", &showConfiguration))
@@ -1049,7 +1141,7 @@ void ModuleUI::DrawConfigurationPanel()
 				ImGui::Text("Motor: Motor Videojuego 3D");
 				ImGui::BulletText("Tiempo Activo (Uptime): %.1f s", perf.uptimeSeconds);
 				ImGui::BulletText("Frames Totales: %zu", perf.totalFrames);
-				ImGui::BulletText("Consumo RAM del Proceso: %zu MB (Pico: %zu MB)", perf.memoryUsageMB, perf.peakMemoryUsageMB);
+				ImGui::BulletText("Consumo RAM del Proceso: %zu MB (Pico: %zu MB)", perf.processMemoryMB, perf.processPeakMemoryMB);
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Control de Framerate");
@@ -1189,7 +1281,22 @@ void ModuleUI::DrawConfigurationPanel()
 				settingsChanged |= ImGui::Checkbox("Face Culling (GL_CULL_FACE)", &rs.cullFace);
 				settingsChanged |= ImGui::Checkbox("Iluminación Direccional (Shader Lighting)", &rs.lighting);
 				settingsChanged |= ImGui::Checkbox("Modo Wireframe (GL_LINE)", &rs.wireframe);
-				settingsChanged |= ImGui::Checkbox("Resaltar Selección (Outline Naranja)", &rs.highlightSelection);
+				settingsChanged |= ImGui::Checkbox("Resaltar Selección", &rs.highlightSelection);
+
+				// ColorEdit para seleccionar el color del outline en tiempo real
+				if (rs.highlightSelection)
+				{
+					ImGui::Indent();
+					settingsChanged |= ImGui::ColorEdit3("Color del Outline", glm::value_ptr(rs.outlineColor), ImGuiColorEditFlags_PickerHueWheel);
+					ImGui::Unindent();
+				}
+
+				bool showDepth = rs.showDepthBuffer;
+				if (ImGui::Checkbox("Show Z-Buffer Window", &showDepth))
+				{
+					rs.showDepthBuffer = showDepth;
+					rnd->SetSettings(rs);
+				}
 
 				// Subapartado para Grid y Central Axis
 				ImGui::Spacing();
@@ -1484,7 +1591,7 @@ void ModuleUI::DrawConfigurationPanel()
 				// Memoria (RAM y VRAM)
 				ImGui::Spacing();
 				ImGui::SeparatorText("Consumo de Memoria (RAM y VRAM)");
-				ImGui::BulletText("RAM del Proceso (Working Set): %zu MB (Pico: %zu MB)", perf.memoryUsageMB, perf.peakMemoryUsageMB);
+				ImGui::BulletText("RAM del Proceso (Working Set): %zu MB (Pico: %zu MB)", perf.processMemoryMB, perf.processPeakMemoryMB);
 				if (hw.vramTotalMB > 0)
 				{
 					int vramUsed = std::max(0, hw.vramTotalMB - hw.vramAvailableMB);
@@ -1517,6 +1624,10 @@ void ModuleUI::DrawConfigurationPanel()
 
 void ModuleUI::DrawAboutPanel()
 {
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
 	if (!showAbout) return;
 
 	ImGui::SetNextWindowSize(ImVec2(520, 440), ImGuiCond_FirstUseEver);
@@ -1570,4 +1681,45 @@ void ModuleUI::DrawAboutPanel()
 		ImGui::EndChild();
 	}
 	ImGui::End();
+}
+
+void ModuleUI::DrawDepthBufferPanel()
+{
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
+	Render* render = Engine::GetInstance().render.get();
+	if (!render) return;
+
+	RenderSettings rs = render->GetSettings();
+	if (!rs.showDepthBuffer) return; // Window stays hidden if setting is false
+
+	bool open = rs.showDepthBuffer;
+	if (ImGui::Begin("Z-Buffer Visualizer", &open))
+	{
+		unsigned int depthTexture = render->GetDepthTexture();
+
+		if (depthTexture != 0)
+		{
+			ImVec2 availSize = ImGui::GetContentRegionAvail();
+			if (availSize.x < 50.0f) availSize.x = 200.0f; // Fallback width
+			if (availSize.y < 50.0f) availSize.y = 100.0f; // Fallback height
+			
+			// Draw the depth buffer texture (Invert UVs on Y axis for OpenGL)
+			ImGui::Image((ImTextureID)(intptr_t)depthTexture, availSize, ImVec2(0, 1), ImVec2(1, 0));			
+		}
+		else
+		{
+			ImGui::TextDisabled("Depth texture ID is 0 (Not initialized).");
+		}
+	}
+	ImGui::End();
+
+	// Sync state if closed via the 'X' button
+	if (!open)
+	{
+		rs.showDepthBuffer = false;
+		render->SetSettings(rs);
+	}
 }

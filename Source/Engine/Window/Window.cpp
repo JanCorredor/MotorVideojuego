@@ -37,15 +37,17 @@ bool Window::Awake()
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+
 	// Create window
 	Uint32 flags = SDL_WINDOW_OPENGL;
 
 #ifdef WINDOW_FULLSCREEN
 	flags |= SDL_WINDOW_FULLSCREEN;
 #endif
-#ifdef WINDOW_RESIZEABLE
+
 	flags |= SDL_WINDOW_RESIZABLE;
-#endif
 
 	window = SDL_CreateWindow(title.c_str(), windowWidth, windowHeight, flags);
 
@@ -60,6 +62,7 @@ bool Window::Awake()
 	SDL_SetWindowMinimumSize(window, MIN_WIDTH, MIN_HEIGHT);
 	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	SDL_ShowWindow(window);
+	SDL_RaiseWindow(window);
 	RefreshSize();
 
 	// Open GL context

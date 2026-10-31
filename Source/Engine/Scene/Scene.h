@@ -36,6 +36,7 @@ public:
 	GameObject* GetRoot() { return &sceneRoot; }
 	const GameObject* GetRoot() const { return &sceneRoot; }
 	GameObject* GetMainCameraObject() const { return mainCameraPtr; }
+	GameObject* GetGameCameraObject() const { return gameCameraPtr; }
 
 	// Selección única de la escena (la consumen Editor y cámara). nullptr = sin selección.
 	// El root y objetos que no pertenezcan a la escena se rechazan.
@@ -56,5 +57,6 @@ private:
 	std::vector<GameObject*> pendingDestruction;
 
 	GameObject* mainCameraPtr = nullptr;
+	GameObject* gameCameraPtr = nullptr;
 	GameObject* selected = nullptr;
 };
