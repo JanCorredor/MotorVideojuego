@@ -355,19 +355,36 @@ void Render::CreateGridAndAxisBuffers()
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	// Ejes centrados en (0,0,0)
+	// Ejes divididos en Negativo y Positivo (Escalados a 5.0)
 	std::vector<float> axisVerts = {
-		// Eje X (Rojo): de -50 a +50 a lo largo del centro
-		-50.0f, 0.0005f, 0.0f,
-		 50.0f, 0.0005f, 0.0f,
+		// --- EJE X ---
+		-5.0f, 0.0005f, 0.0f,   // 0: X Negativo (Inicio)
+		 0.0f, 0.0005f, 0.0f,   // 1: X Centro
+		 0.0f, 0.0005f, 0.0f,   // 2: X Centro
+		 5.0f, 0.0005f, 0.0f,   // 3: X Positivo (Fin)
 
-		// Eje Y (Verde): vertical de 0 a 25
-		 0.0f,  0.0f,    0.0f,
-		 0.0f, 25.0f,    0.0f,
+		 // --- EJE Y ---
+		  0.0f,  0.0f,   0.0f,   // 4: Y Centro (Origen)
+		  0.0f,  5.0f,   0.0f,   // 5: Y Positivo (Fin)
 
-		// Eje Z (Azul): de -50 a +50 a lo largo del centro
-		 0.0f, 0.0005f, -50.0f,
-		 0.0f, 0.0005f,  50.0f
+		  // --- EJE Z ---
+		   0.0f, 0.0005f, -5.0f,  // 6: Z Negativo (Inicio)
+		   0.0f, 0.0005f,  0.0f,  // 7: Z Centro
+		   0.0f, 0.0005f,  0.0f,  // 8: Z Centro
+		   0.0f, 0.0005f,  5.0f,  // 9: Z Positivo (Fin)
+
+		   // --- MARCAS / FLECHAS EN LOS EXTREMOS POSITIVOS (Proporcionales) ---
+		   // Flecha X+ (punta en 5.0, base en 4.5)
+			5.0f, 0.0005f,  0.0f,    4.5f, 0.0005f,  0.25f,
+			5.0f, 0.0005f,  0.0f,    4.5f, 0.0005f, -0.25f,
+
+			// Flecha Y+ (punta en 5.0, base en 4.5)
+			 0.0f,  5.0f,    0.0f,    0.25f,  4.5f,   0.0f,
+			 0.0f,  5.0f,    0.0f,   -0.25f,  4.5f,   0.0f,
+
+			 // Flecha Z+ (punta en 5.0, base en 4.5)
+			  0.0f, 0.0005f,  5.0f,    0.25f, 0.0005f,  4.5f,
+			  0.0f, 0.0005f,  5.0f,   -0.25f, 0.0005f,  4.5f
 	};
 
 	axisVertexCount = static_cast<int>(axisVerts.size() / 3);
@@ -416,30 +433,37 @@ void Render::DrawGridAndAxis(const glm::mat4& view, const glm::mat4& projection)
 	if (settings.showGrid && gridVAO != 0)
 	{
 		glLineWidth(1.0f);
-		// Color gris tenue
 		glUniform3f(lu.color, 0.32f, 0.32f, 0.35f);
 		glBindVertexArray(gridVAO);
 		glDrawArrays(GL_LINES, 0, gridVertexCount);
 		glBindVertexArray(0);
 	}
 
-	// Dibujar Axis con mayor grosor para destacar sobre la cuadrícula
 	if (settings.showAxis && axisVAO != 0)
 	{
-		glLineWidth(2.5f);
 		glBindVertexArray(axisVAO);
 
-		// Eje X: Rojo
+		// --- EJE X ---
+		glLineWidth(2.5f);
+		// X Positivo (Rojo brillante)
 		glUniform3f(lu.color, 0.95f, 0.22f, 0.22f);
-		glDrawArrays(GL_LINES, 0, 2);
-
-		// Eje Y: Verde
-		glUniform3f(lu.color, 0.22f, 0.95f, 0.22f);
 		glDrawArrays(GL_LINES, 2, 2);
 
-		// Eje Z: Azul
-		glUniform3f(lu.color, 0.25f, 0.55f, 1.0f);
+		// --- EJE Y (Ya es solo positivo) ---
+		// Y Positivo (Verde brillante)
+		glUniform3f(lu.color, 0.22f, 0.95f, 0.22f);
 		glDrawArrays(GL_LINES, 4, 2);
+
+		// --- EJE Z ---
+		glLineWidth(2.5f);
+		// Z Positivo (Azul brillante)
+		glUniform3f(lu.color, 0.25f, 0.55f, 1.0f);
+		glDrawArrays(GL_LINES, 8, 2);
+
+		// --- FLECHAS DE LOS EXTREMOS POSITIVOS ---
+		glLineWidth(2.0f);
+		glUniform3f(lu.color, 1.0f, 1.0f, 1.0f);
+		glDrawArrays(GL_LINES, 10, 12);
 
 		glBindVertexArray(0);
 		glLineWidth(1.0f);
