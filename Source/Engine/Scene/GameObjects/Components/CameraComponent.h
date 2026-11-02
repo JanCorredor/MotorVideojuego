@@ -3,6 +3,7 @@
 #include "TransformComponent.h"
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
+#include <memory>
 
 class GameObject;
 
@@ -11,6 +12,8 @@ class CameraComponent : public Component
 public:
     CameraComponent(GameObject* owner);
     ~CameraComponent() override = default;
+
+    std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
     void Update(float dt) override;
 

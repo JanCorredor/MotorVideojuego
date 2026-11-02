@@ -10,8 +10,24 @@
 
 CameraComponent::CameraComponent(GameObject* owner) : Component(COMPONENT_CAMERA, owner)
 {
-    transform = owner->GetComponent<TransformComponent>();
+    transform = owner ? owner->GetComponent<TransformComponent>() : nullptr;
     UpdateCameraVectors();
+}
+
+std::unique_ptr<Component> CameraComponent::Clone(GameObject* newOwner) const
+{
+    auto clone = std::make_unique<CameraComponent>(newOwner);
+    clone->fov = this->fov;
+    clone->nearPlane = this->nearPlane;
+    clone->farPlane = this->farPlane;
+    clone->movementSpeed = this->movementSpeed;
+    clone->mouseSensitivity = this->mouseSensitivity;
+    clone->orbitDistance = this->orbitDistance;
+    clone->yaw = this->yaw;
+    clone->pitch = this->pitch;
+    clone->UpdateCameraVectors();
+    if (!active) clone->Disable();
+    return clone;
 }
 
 void CameraComponent::Update(float dt)

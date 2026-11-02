@@ -17,7 +17,16 @@ class GameObject
 {
 public:
 	GameObject(const std::string& name = "GameObject", GameUUID uuid = GameUUID());
+	// Constructor de copia para clonado profundo de componentes con un nuevo UUID
+	GameObject(const GameObject& other);
 	~GameObject();
+
+	// Operador de asignación por copia (clonado profundo)
+	GameObject& operator=(const GameObject& other);
+
+	// Duplicar el GameObject (clonado profundo de todos sus componentes y nuevo UUID generado)
+	std::unique_ptr<GameObject> Duplicate(const std::string& newName = "") const;
+	std::unique_ptr<GameObject> Clone(const std::string& newName = "") const;
 
 	GameUUID GetUUID() const { return uuid; }
 

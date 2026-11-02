@@ -14,6 +14,14 @@ public:
 	Primitive* GetPrimitive() const { return primitive.get(); }
 	void SetPrimitive(std::unique_ptr<Primitive> prim) { primitive = std::move(prim); }
 
+	std::unique_ptr<Component> Clone(GameObject* newOwner) const override
+	{
+		std::unique_ptr<Primitive> primClone = primitive ? primitive->Clone() : nullptr;
+		auto clone = std::make_unique<MeshComponent>(newOwner, std::move(primClone));
+		if (!active) clone->Disable();
+		return clone;
+	}
+
 private:
 	std::unique_ptr<Primitive> primitive;
 };

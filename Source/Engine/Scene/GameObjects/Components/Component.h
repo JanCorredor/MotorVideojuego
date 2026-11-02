@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 class GameObject;
 
 enum ComponentType
@@ -25,6 +27,8 @@ public:
 	bool IsActive() const { return active; }
 	virtual void Enable() { this->active = true; }
 	virtual void Disable() { this->active = false; }
+
+	virtual std::unique_ptr<Component> Clone(GameObject* newOwner) const = 0;
 
 protected:
 	ComponentType type;

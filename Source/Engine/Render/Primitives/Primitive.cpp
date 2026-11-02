@@ -126,3 +126,11 @@ Primitive& Primitive::operator=(Primitive&& other) noexcept
     }
     return *this;
 }
+std::unique_ptr<Primitive> Primitive::Clone() const
+{
+    auto clone = std::make_unique<Primitive>();
+    std::vector<Vertex> vCopy = vertices;
+    std::vector<unsigned int> iCopy = indices;
+    clone->Init(std::move(vCopy), std::move(iCopy));
+    return clone;
+}

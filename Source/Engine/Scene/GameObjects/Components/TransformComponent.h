@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
+#include <memory>
 
 class TransformComponent : public Component
 {
@@ -13,6 +13,8 @@ public:
 		position(0.0f), rotation(0.0f), scale(1.0f) {}
 
 	virtual ~TransformComponent() {}
+
+	std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
 	// Los setters solo invalidan la matriz si el valor cambia realmente
 	void SetPosition(const glm::vec3& pos) { if (pos != position) { position = pos; MarkDirty(); } }

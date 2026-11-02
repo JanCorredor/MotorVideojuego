@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <memory>
 #include <glm/glm.hpp>
 #include "Vertex.h"
 
@@ -23,6 +24,8 @@ public:
     // Permitir moovimiento (Transfiere los buffers de OpenGL)
     Primitive(Primitive&& other) noexcept;
     Primitive& operator=(Primitive&& other) noexcept;
+
+    std::unique_ptr<Primitive> Clone() const;
 
     void Init(std::vector<Vertex>&& verts, std::vector<unsigned int>&& inds);
     void Draw() const;

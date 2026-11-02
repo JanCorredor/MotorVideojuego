@@ -25,7 +25,7 @@ public:
 	GameObject* CreateEmptyGameObject(GameObject* parent = nullptr);
 	GameObject* CreatePrimitive(PrimitiveType type, GameObject* parent = nullptr);
 	GameObject* ImportModel(const std::string& filePath, GameObject* parent = nullptr);
-	void DuplicateGameObject(GameObject object);
+	GameObject* DuplicateGameObject(GameObject* target, GameObject* parent = nullptr);
 
 	// Destrucción recursiva en cascada y segura de GameObjects
 	void DestroyGameObject(GameObject* target);

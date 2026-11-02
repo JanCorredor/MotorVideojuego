@@ -441,9 +441,53 @@ void Scene::ProcessPendingDestructions()
 		initialCount - sceneEntities.size(), sceneEntities.size());
 }
 
-void Scene::DuplicateGameObject(GameObject object)
+GameObject* Scene::DuplicateGameObject(GameObject* target, GameObject* parent)
 {
-	// TODO: Clonado profundo de componentes
+	if (target == nullptr || !OwnsObject(target))
+	{
+		LOG_WARNING("[Scene] No se puede duplicar: GameObject nulo o no pertenece a la escena.");
+		return nullptr;
+	}
+
+	GameObject* targetParent = (parent != nullptr) ? parent : target->GetParent();
+	if (targetParent == nullptr)
+	{
+		targetParent = &sceneRoot;
+	}
+
+	std::function<GameObject*(GameObject*, GameObject*)> duplicateRecursive =
+		[&](GameObject* src, GameObject* parentNode) -> GameObject*
+	{
+		TransformComponent* srcTrans = src->GetComponent<TransformComponent>();
+		glm::vec3 localPos = srcTrans ? srcTrans->GetPosition() : glm::vec3(0.0f);
+		glm::vec3 localRot = srcTrans ? srcTrans->GetRotation() : glm::vec3(0.0f);
+		glm::vec3 localScale = srcTrans ? srcTrans->GetScale() : glm::vec3(1.0f);
+
+		std::unique_ptr<GameObject> clone = src->Duplicate();
+		clone->SetName(MakeUniqueName(src->GetName()));
+		GameObject* registeredClone = Register(std::move(clone), parentNode);
+
+		if (TransformComponent* cloneTrans = registeredClone->GetComponent<TransformComponent>())
+		{
+			cloneTrans->SetPosition(localPos);
+			cloneTrans->SetRotation(localRot);
+			cloneTrans->SetScale(localScale);
+		}
+
+		for (GameObject* child : src->GetChildren())
+		{
+			duplicateRecursive(child, registeredClone);
+		}
+
+		return registeredClone;
+	};
+
+	GameObject* duplicatedRoot = duplicateRecursive(target, targetParent);
+	SetSelected(duplicatedRoot);
+	LOG("[Scene] GameObject '%s' duplicado como '%s' (Total entidades: %zu)",
+		target->GetName().c_str(), duplicatedRoot->GetName().c_str(), sceneEntities.size());
+
+	return duplicatedRoot;
 }
 
 void Scene::HandleDroppedFile(const std::string& filePath)

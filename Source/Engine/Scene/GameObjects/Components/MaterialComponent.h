@@ -5,6 +5,7 @@
 #include "../../../Render/Texture/TextureManager.h"
 #include <glm/glm.hpp>
 #include <string>
+#include <memory>
 
 class GameObject;
 
@@ -17,6 +18,8 @@ public:
 	MaterialComponent(GameObject* owner) : Component(COMPONENT_MATERIAL, owner) {}
 	
 	virtual ~MaterialComponent() {}
+
+	std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
 	glm::vec4 GetColor() const { return color; }
 	void SetColor(glm::vec4 newColor) { color = newColor; }

@@ -210,6 +210,16 @@ bool ModuleUI::Update(float dt)
 	DrawAboutPanel();
 
 
+	// Atajo de teclado: Ctrl+D para duplicar el GameObject seleccionado si Scene o Hierarchy tienen el foco
+	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false))
+	{
+		Scene* scene = Engine::GetInstance().scene.get();
+		if (scene && scene->GetSelected())
+		{
+			scene->DuplicateGameObject(scene->GetSelected());
+		}
+	}
+
 	// Atajo de teclado: Supr (Delete) para eliminar el GameObject seleccionado si Scene o Hierarchy tienen el foco
 	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Delete))
 	{
@@ -277,6 +287,15 @@ bool ModuleUI::DrawMainMenuBar()
 		if (ImGui::BeginMenu("GameObject"))
 		{
 			Scene* scene = Engine::GetInstance().scene.get();
+			GameObject* selectedObj = scene ? scene->GetSelected() : nullptr;
+			if (ImGui::MenuItem("Duplicate Selected", "Ctrl+D", false, selectedObj != nullptr))
+			{
+				if (scene && selectedObj)
+				{
+					scene->DuplicateGameObject(selectedObj);
+				}
+			}
+			ImGui::Separator();
 			if (ImGui::MenuItem("Create Empty"))
 			{
 				if (scene)
@@ -618,6 +637,14 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 				}
 			}
 			ImGui::EndMenu();
+		}
+
+		if (ImGui::MenuItem("Duplicate", "Ctrl+D"))
+		{
+			if (scene)
+			{
+				scene->DuplicateGameObject(node);
+			}
 		}
 
 		ImGui::Separator();

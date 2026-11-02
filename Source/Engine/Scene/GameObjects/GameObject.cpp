@@ -12,8 +12,55 @@ GameObject::GameObject(const std::string& name, GameUUID id) : uuid(id), name(na
 {
 }
 
+GameObject::GameObject(const GameObject& other)
+    : uuid(GameUUID()), name(other.name), active(other.active), parent(nullptr)
+{
+    for (const auto& comp : other.components)
+    {
+        if (comp)
+        {
+            AddComponent(comp->Clone(this));
+        }
+    }
+}
+
 GameObject::~GameObject()
 {
+}
+
+GameObject& GameObject::operator=(const GameObject& other)
+{
+    if (this == &other) return *this;
+
+    name = other.name;
+    active = other.active;
+    for (size_t i = 0; i < COMPONENT_COUNT; ++i)
+    {
+        if (other.components[i])
+        {
+            components[i] = other.components[i]->Clone(this);
+        }
+        else
+        {
+            components[i].reset();
+        }
+    }
+    return *this;
+}
+
+std::unique_ptr<GameObject> GameObject::Duplicate(const std::string& newName) const
+{
+    auto clone = std::make_unique<GameObject>(*this);
+    if (!newName.empty())
+    {
+        clone->SetName(newName);
+    }
+    return clone;
+}
+
+std::unique_ptr<GameObject> GameObject::Clone(const std::string& newName) const
+{
+    return Duplicate(newName);
 }
 
 void GameObject::Update(float dt)
