@@ -11,11 +11,14 @@
 #include "System/SystemInfo.h"
 #include "../Utils/Log.h"
 
-#include <tracy/Tracy.hpp>
 #include <glad/glad.h>
 #include <IL/il.h>
 #include <assimp/version.h>
 #include <imgui.h>
+
+#ifdef _DEBUG
+#include <tracy/Tracy.hpp>
+#endif
 
 #ifdef _WIN32
 #define NOMINMAX

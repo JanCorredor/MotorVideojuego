@@ -30,7 +30,9 @@
 #include <functional>
 #include <cfloat>
 
-#include <tracy/Tracy.hpp>
+#ifdef _DEBUG
+	#include <tracy/Tracy.hpp>
+#endif
 
 namespace
 {

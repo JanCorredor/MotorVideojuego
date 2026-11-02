@@ -21,7 +21,11 @@
 #include "../Scene/GameObjects/Components/CameraComponent.h"
 
 #include <algorithm>
+
+#ifdef _DEBUG
 #include <tracy/Tracy.hpp>
+#endif
+
 
 // -----------------------------------------------------------------------------
 // Helper: compila y enlaza un programa de shaders registrando cualquier error

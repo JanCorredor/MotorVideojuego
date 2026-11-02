@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cfloat>
 
+#ifdef _DEBUG
 #include <tracy/Tracy.hpp>
+#endif
 
 #define MAX_KEYS 300
 #define GAMEPAD_DEADZONE 0.25f

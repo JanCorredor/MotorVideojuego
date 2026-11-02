@@ -18,7 +18,11 @@
 #include <algorithm>
 #include <filesystem>
 #include <functional>
+
+#ifdef _DEBUG
 #include <tracy/Tracy.hpp>
+#endif
+
 
 Scene::Scene() : Module()
 {
