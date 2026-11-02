@@ -107,23 +107,29 @@ bool Scene::Start()
 
 	LOG("[Scene] Instanciado 'Sphere' con geometría procedural de esfera y textura");
 
-	// MODELO CASA CON TEXTURA PNG
+	// MODELO CASA CON TEXTURA PNG (Soporta múltiples partes)
 	GameObject* bakerHouse = ImportModel("../Assets/BakerHouse.fbx", &sceneRoot);
-	MaterialComponent* bakerHouseMat = bakerHouse->GetComponent<MaterialComponent>();
-	bakerHouseMat->SetTexture("../Assets/Baker_house.png");
-	bakerHouseMat->SetUseTexture(true);
-	TransformComponent* bakerHouseTransform = bakerHouse->GetComponent<TransformComponent>();
-	bakerHouseTransform->SetPosition(glm::vec3(0.0f, 0.0f, -3.0f));
+	if (bakerHouse)
+	{
+		TextureImporter::ImportAndAssignToGameObject("../Assets/Baker_house.png", bakerHouse);
+		if (TransformComponent* bakerHouseTransform = bakerHouse->GetComponent<TransformComponent>())
+		{
+			bakerHouseTransform->SetPosition(glm::vec3(0.0f, 0.0f, -3.0f));
+		}
+	}
 
 	// MODELO CON TEXTURA TGA 
 	GameObject* candle = ImportModel("../Assets/SM_Candle_Fundida.fbx", &sceneRoot);
-	MaterialComponent* candleMat = candle->GetComponent<MaterialComponent>();
-	candleMat->SetTexture("../Assets/T_Candle_D.tga");
-	candleMat->SetUseTexture(true);
-	TransformComponent* candleTransform = candle->GetComponent<TransformComponent>();
-	candleTransform->SetPosition(glm::vec3(3.0f, 0.0f, 0.0f));
-	candleTransform->SetRotation(glm::vec3(-90.0f, 0.0f, 0.0f));
-	candleTransform->SetScale(glm::vec3(0.05f, 0.05f, 0.05f));
+	if (candle)
+	{
+		TextureImporter::ImportAndAssignToGameObject("../Assets/T_Candle_D.tga", candle);
+		if (TransformComponent* candleTransform = candle->GetComponent<TransformComponent>())
+		{
+			candleTransform->SetPosition(glm::vec3(3.0f, 0.0f, 0.0f));
+			candleTransform->SetRotation(glm::vec3(-90.0f, 0.0f, 0.0f));
+			candleTransform->SetScale(glm::vec3(0.05f, 0.05f, 0.05f));
+		}
+	}
 
 	// MODELO SIN TEXTURA
 	GameObject* character = ImportModel("../Assets/HeavyTF2_2018.fbx", &sceneRoot);

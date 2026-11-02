@@ -935,7 +935,9 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 		}
 
 		Scene* scene = Engine::GetInstance().scene.get();
-		bool isSelected = (scene && scene->GetSelected() == go && settings.highlightSelection);
+		GameObject* selectedObj = scene ? scene->GetSelected() : nullptr;
+		bool isSelected = (selectedObj != nullptr && settings.highlightSelection &&
+			(selectedObj == go || go->IsDescendantOf(selectedObj)));
 
 		// Configurar Stencil para la selección (Aplica tanto a opacos como a transparentes)
 		if (isSelected)
@@ -996,7 +998,8 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 		}
 		else if (selected)
 		{
-			AppendNormals(selected, selected->GetWorldMatrix());
+			glm::mat4 parentWorld = selected->GetParent() ? selected->GetParent()->GetWorldMatrix() : glm::mat4(1.0f);
+			CollectNormals(selected, parentWorld);
 		}
 
 		const size_t vertexBytes = debugVertexLines.size() * sizeof(float);
@@ -1109,29 +1112,39 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	ZoneScoped;
 #endif
 
-	MeshComponent* mesh = selected->GetComponent<MeshComponent>();
-	if (!mesh || !mesh->GetPrimitive()) return;
+	if (!selected || !selected->IsActive()) return;
 
-	// Configurar Stencil: solo dibujar en los píxeles donde el objeto NO ha marcado con 1
 	glEnable(GL_STENCIL_TEST);
 	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 	glStencilMask(0x00);
 
-	// Desactivar prueba de profundidad o usar GL_ALWAYS para que las transparencias frontales no tapen la silueta
 	glDisable(GL_DEPTH_TEST);
 
 	glUseProgram(singleColorShaderProgram);
 	glUniformMatrix4fv(scu.view, 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(scu.projection, 1, GL_FALSE, glm::value_ptr(projection));
-	glUniformMatrix4fv(scu.model, 1, GL_FALSE, glm::value_ptr(selected->GetWorldMatrix()));
-
 	glUniform1f(scu.scaleFactor, 1.03f);
 	glUniform3fv(scu.color, 1, glm::value_ptr(settings.outlineColor));
 
-	// Dibuja la malla con el shader de color único (ligeramente escalada)
-	mesh->GetPrimitive()->Draw();
+	std::function<void(GameObject*)> drawOutlineRecursive = [&](GameObject* node)
+		{
+			if (!node || !node->IsActive()) return;
 
-	// Restaurar estados por defecto de OpenGL
+			MeshComponent* mesh = node->GetComponent<MeshComponent>();
+			if (mesh && mesh->GetPrimitive())
+			{
+				glUniformMatrix4fv(scu.model, 1, GL_FALSE, glm::value_ptr(node->GetWorldMatrix()));
+				mesh->GetPrimitive()->Draw();
+			}
+
+			for (GameObject* child : node->GetChildren())
+			{
+				drawOutlineRecursive(child);
+			}
+		};
+
+	drawOutlineRecursive(selected);
+
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 

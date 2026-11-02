@@ -39,19 +39,35 @@ bool TextureImporter::ImportAndAssignToGameObject(const std::string& filePath, G
         return false;
     }
 
-    MaterialComponent* mat = target->GetComponent<MaterialComponent>();
-    if (mat == nullptr)
+    bool assigned = false;
+
+    // Si el objeto seleccionado tiene MaterialComponent directo, se la asignamos
+    if (MaterialComponent* mat = target->GetComponent<MaterialComponent>())
     {
-        LOG_WARNING("[TextureImporter] El GameObject seleccionado '%s' no tiene MaterialComponent", target->GetName().c_str());
-        return false;
+        if (mat->SetTexture(filePath))
+        {
+            mat->SetUseTexture(true);
+            assigned = true;
+        }
     }
 
-    if (mat->SetTexture(filePath))
+    // Si es un contenedor padre (ej. FBX con varias partes), aplicamos también a sus hijos
+    for (GameObject* child : target->GetChildren())
     {
-        mat->SetUseTexture(true);
-        LOG("[TextureImporter] Textura '%s' importada y asignada a '%s'", filePath.c_str(), target->GetName().c_str());
-        return true;
+        if (ImportAndAssignToGameObject(filePath, child))
+        {
+            assigned = true;
+        }
     }
 
-    return false;
+    if (assigned)
+    {
+        LOG("[TextureImporter] Textura '%s' asignada a '%s' (y sus partes)", filePath.c_str(), target->GetName().c_str());
+    }
+    else
+    {
+        LOG_WARNING("[TextureImporter] El GameObject '%s' ni sus hijos tienen MaterialComponent", target->GetName().c_str());
+    }
+
+    return assigned;
 }

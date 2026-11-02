@@ -27,6 +27,9 @@
 #include <cctype>
 #include <string>
 
+#include <functional>
+#include <cfloat>
+
 #include <tracy/Tracy.hpp>
 
 namespace
@@ -723,81 +726,132 @@ void ModuleUI::DrawInspectorPanel()
 			// =====================================================================
 			// 2. MESH COMPONENT
 			// =====================================================================
-			MeshComponent* mesh = selected->GetComponent<MeshComponent>();
-			if (mesh && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				const Primitive* prim = mesh->GetPrimitive();
-				if (prim)
+			std::vector<MeshComponent*> meshesToInspect;
+			std::function<void(GameObject*)> collectMeshes = [&](GameObject* node)
 				{
-					ImGui::BulletText("Vértices: %zu", prim->GetVertexCount());
-					ImGui::BulletText("Triángulos (Caras): %zu", prim->GetTriangleCount());
-					ImGui::BulletText("Índices: %zu", prim->GetIndices().size());
-
-					const glm::vec3 bMin = prim->GetBoundsMin();
-					const glm::vec3 bMax = prim->GetBoundsMax();
-					ImGui::BulletText("AABB Min: (%.2f, %.2f, %.2f)", bMin.x, bMin.y, bMin.z);
-					ImGui::BulletText("AABB Max: (%.2f, %.2f, %.2f)", bMax.x, bMax.y, bMax.z);
-
-					ImGui::Spacing();
-					ImGui::SeparatorText("Visualización de Normales");
-
-					Render* render = Engine::GetInstance().render.get();
-					if (render)
+					if (!node) return;
+					if (MeshComponent* m = node->GetComponent<MeshComponent>())
 					{
-						RenderSettings rs = render->GetSettings();
-						bool vertexNormals = (rs.normals == NormalsMode::Vertex || rs.normals == NormalsMode::Both);
-						bool faceNormals = (rs.normals == NormalsMode::Face || rs.normals == NormalsMode::Both);
+						if (m->GetPrimitive()) meshesToInspect.push_back(m);
+					}
+					for (GameObject* child : node->GetChildren())
+					{
+						collectMeshes(child);
+					}
+				};
+			collectMeshes(selected);
 
-						bool changed = false;
-						changed |= ImGui::Checkbox("Mostrar Normales por Vértice (Amarillo)", &vertexNormals);
-						changed |= ImGui::Checkbox("Mostrar Normales por Cara (Cian)", &faceNormals);
-						changed |= ImGui::Checkbox("Aplicar a todos los objetos de la escena", &rs.normalsAllObjects);
+			if (!meshesToInspect.empty() && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				size_t totalVertices = 0;
+				size_t totalTriangles = 0;
+				size_t totalIndices = 0;
+				glm::vec3 bMin(FLT_MAX);
+				glm::vec3 bMax(-FLT_MAX);
 
-						if (changed)
-						{
-							if (vertexNormals && faceNormals) rs.normals = NormalsMode::Both;
-							else if (vertexNormals) rs.normals = NormalsMode::Vertex;
-							else if (faceNormals) rs.normals = NormalsMode::Face;
-							else rs.normals = NormalsMode::None;
-
-							render->SetSettings(rs);
-						}
+				for (MeshComponent* m : meshesToInspect)
+				{
+					const Primitive* prim = m->GetPrimitive();
+					if (prim)
+					{
+						totalVertices += prim->GetVertexCount();
+						totalTriangles += prim->GetTriangleCount();
+						totalIndices += prim->GetIndices().size();
+						bMin = glm::min(bMin, prim->GetBoundsMin());
+						bMax = glm::max(bMax, prim->GetBoundsMax());
 					}
 				}
-				else
+
+				if (meshesToInspect.size() > 1)
 				{
-					ImGui::TextDisabled("Sin malla cargada en GPU");
+					ImGui::BulletText("Sub-mallas (Partes): %zu", meshesToInspect.size());
+				}
+				ImGui::BulletText("Vértices: %zu", totalVertices);
+				ImGui::BulletText("Triángulos (Caras): %zu", totalTriangles);
+				ImGui::BulletText("Índices: %zu", totalIndices);
+				ImGui::BulletText("AABB Min: (%.2f, %.2f, %.2f)", bMin.x, bMin.y, bMin.z);
+				ImGui::BulletText("AABB Max: (%.2f, %.2f, %.2f)", bMax.x, bMax.y, bMax.z);
+
+				ImGui::Spacing();
+				ImGui::SeparatorText("Visualización de Normales");
+
+				Render* render = Engine::GetInstance().render.get();
+				if (render)
+				{
+					RenderSettings rs = render->GetSettings();
+					bool vertexNormals = (rs.normals == NormalsMode::Vertex || rs.normals == NormalsMode::Both);
+					bool faceNormals = (rs.normals == NormalsMode::Face || rs.normals == NormalsMode::Both);
+
+					bool changed = false;
+					changed |= ImGui::Checkbox("Mostrar Normales por Vértice (Amarillo)", &vertexNormals);
+					changed |= ImGui::Checkbox("Mostrar Normales por Cara (Cian)", &faceNormals);
+					changed |= ImGui::Checkbox("Aplicar a todos los objetos de la escena", &rs.normalsAllObjects);
+
+					if (changed)
+					{
+						if (vertexNormals && faceNormals) rs.normals = NormalsMode::Both;
+						else if (vertexNormals) rs.normals = NormalsMode::Vertex;
+						else if (faceNormals) rs.normals = NormalsMode::Face;
+						else rs.normals = NormalsMode::None;
+
+						render->SetSettings(rs);
+					}
 				}
 			}
 
 			// =====================================================================
 			// 3. MATERIAL / TEXTURE COMPONENT
 			// =====================================================================
-			MaterialComponent* mat = selected->GetComponent<MaterialComponent>();
-			if (mat && ImGui::CollapsingHeader("Texture & Material", ImGuiTreeNodeFlags_DefaultOpen))
+			std::vector<MaterialComponent*> materialsToInspect;
+			std::function<void(GameObject*)> collectMaterials = [&](GameObject* node)
+				{
+					if (!node) return;
+					if (MaterialComponent* m = node->GetComponent<MaterialComponent>())
+					{
+						materialsToInspect.push_back(m);
+					}
+					for (GameObject* child : node->GetChildren())
+					{
+						collectMaterials(child);
+					}
+				};
+			collectMaterials(selected);
+
+			if (!materialsToInspect.empty() && ImGui::CollapsingHeader("Texture & Material", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				glm::vec4 color = mat->GetColor();
+				MaterialComponent* primaryMat = materialsToInspect[0];
+
+				glm::vec4 color = primaryMat->GetColor();
 				if (ImGui::ColorEdit4("Color Base (Alpha)", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
 				{
-					mat->SetColor(color);
+					for (MaterialComponent* m : materialsToInspect)
+					{
+						m->SetColor(color);
+					}
 				}
 
 				ImGui::Spacing();
-				bool usingTexture = mat->GetUseTexture();
+				bool usingTexture = primaryMat->GetUseTexture();
 				if (ImGui::Checkbox("Usar Textura Difusa", &usingTexture))
 				{
-					mat->SetUseTexture(usingTexture);
+					for (MaterialComponent* m : materialsToInspect)
+					{
+						m->SetUseTexture(usingTexture);
+					}
 				}
 
-				bool usingChecker = mat->GetUseCheckerboard();
+				bool usingChecker = primaryMat->GetUseCheckerboard();
 				if (ImGui::Checkbox("Textura Checkerboard (Blanco/Negro)", &usingChecker))
 				{
-					mat->SetUseCheckerboard(usingChecker);
+					for (MaterialComponent* m : materialsToInspect)
+					{
+						m->SetUseCheckerboard(usingChecker);
+					}
 				}
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Datos de Textura");
-				const TextureInfo* texInfo = mat->GetTexture();
+				const TextureInfo* texInfo = primaryMat->GetTexture();
 				if (texInfo)
 				{
 					ImGui::BulletText("Path: %s", texInfo->path.c_str());
@@ -809,7 +863,7 @@ void ModuleUI::DrawInspectorPanel()
 					ImGui::TextDisabled("Sin textura difusa asignada (arrastra un PNG/JPG/DDS a la ventana).");
 				}
 
-				unsigned int activeId = mat->GetActiveTextureID();
+				unsigned int activeId = primaryMat->GetActiveTextureID();
 				if (activeId != 0)
 				{
 					ImGui::Spacing();
