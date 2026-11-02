@@ -42,13 +42,17 @@ Se han implementado todos los requisitos obligatorios de la Entrega 1:
 
 ## ⭐ Funcionalidades Extra
 - Gestión avanzada de jerarquía (Parent-Child) entre GameObjects.
-- Sistema de *grid* (cuadrícula) de renderizado en la escena activable y desactivable.
+- Sistema de *grid* (cuadrícula) y *axis* (ejes) activables.
 - Redimensionamiento de ventanas interactivo y en tiempo real.
+- Mouse Picking + Outline en el gameobject seleccionado
+- Wireframe
+- Missing texture
+- Z-buffer
+- Render options: Depht Test + Face Culling + Depth Test.
 - Interfaz modular implementada con un importador de módulos dedicado.
 
 ---
 
 ## 📝 Notas para el Profesor
-- El motor presenta una estricta separación de responsabilidades a nivel de código entre la lógica visual del Editor y los módulos base del motor.
-- El entorno de desarrollo hace uso de un stack técnico sólido (SDL3, OpenGL, GLAD, GLM) gestionado de manera limpia.
-- Se ha mantenido una estructura de repositorio organizada, con commits pequeños y descripciones claras a lo largo de las diferentes fases de desarrollo.
+- El panel de z-buffer aparece si lo activas en el apartado view
+- Si subes un fbx y le asignas una textura invalida, se asigna una missing texture
