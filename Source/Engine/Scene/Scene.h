@@ -56,6 +56,7 @@ private:
 	std::vector<std::unique_ptr<GameObject>> sceneEntities;
 	std::vector<GameObject*> pendingDestruction;
 
+	std::unique_ptr<GameObject> editorCameraObj;
 	GameObject* mainCameraPtr = nullptr;
 	GameObject* gameCameraPtr = nullptr;
 	GameObject* selected = nullptr;

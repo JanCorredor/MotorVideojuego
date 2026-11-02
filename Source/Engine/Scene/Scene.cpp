@@ -40,18 +40,16 @@ bool Scene::Start()
 	LOG("[Scene] Configurando escena por defecto...");
 
 	// Instance Editor Camera
-	auto camObj = std::make_unique<GameObject>("EditorCamera");
-	auto camTrans = std::make_unique<TransformComponent>(camObj.get());
-	camTrans->SetPosition(glm::vec4(0.0f, 1.0f, 5.0f,1.0f));
-	camObj->AddComponent(std::move(camTrans));
+	editorCameraObj = std::make_unique<GameObject>("EditorCamera");
+	auto camTrans = std::make_unique<TransformComponent>(editorCameraObj.get());
+	camTrans->SetPosition(glm::vec4(0.0f, 1.0f, 5.0f, 1.0f));
+	editorCameraObj->AddComponent(std::move(camTrans));
 
-	auto camComp = std::make_unique<CameraComponent>(camObj.get());
-	camObj->AddComponent(std::move(camComp));
+	auto camComp = std::make_unique<CameraComponent>(editorCameraObj.get());
+	editorCameraObj->AddComponent(std::move(camComp));
 
-	mainCameraPtr = camObj.get();
-	sceneRoot.AddChild(camObj.get());
-	sceneEntities.push_back(std::move(camObj));
-	LOG("[Scene] Instanciada 'EditorCamera' en posición (0.0, 1.0, 5.0)");
+	mainCameraPtr = editorCameraObj.get();
+	LOG("[Scene] Instanciada 'EditorCamera' interna en posición (0.0, 1.0, 5.0)");
 
 	// Instance Game Camera (Main Camera para la ventana Game)
 	auto gameCamObj = std::make_unique<GameObject>("Main Camera");
@@ -162,7 +160,10 @@ bool Scene::Update(float dt)
 		HandleDroppedFile(droppedPath);
 		Engine::GetInstance().input->ClearDroppedFile();
 	}
-
+	if (editorCameraObj)
+	{
+		editorCameraObj->Update(dt);
+	}
 	sceneRoot.Update(dt);
 	ProcessPendingDestructions();
 	return true;
@@ -183,6 +184,7 @@ bool Scene::CleanUp()
 	selected = nullptr;
 	mainCameraPtr = nullptr;
 	gameCameraPtr = nullptr;
+	editorCameraObj.reset();
 	sceneEntities.clear();
 	return true;
 }
