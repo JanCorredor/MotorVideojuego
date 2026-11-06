@@ -48,7 +48,7 @@ namespace
 		ImGui::AlignTextToFramePadding();
 		ImGui::TextUnformatted(label);
 
-		ImGui::TableSetColumnIndex(1);
+		ImGui::TableSetColumnIndex(2);
 		ImGui::PushItemWidth(-1.0f);
 		std::string id = std::string("##") + label;
 		bool changed = ImGui::DragFloat3(id.c_str(), glm::value_ptr(values), speed);
@@ -718,9 +718,10 @@ void ModuleUI::DrawInspectorPanel()
 			TransformComponent* transform = selected->GetComponent<TransformComponent>();
 			if (transform && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				if (ImGui::BeginTable("TransformTable", 2, ImGuiTableFlags_SizingFixedFit))
+				if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit))
 				{
 					ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
+					ImGui::TableSetupColumn("FixAllValue", ImGuiTableColumnFlags_WidthFixed, 25.0f);
 					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
 					glm::vec3 pos = transform->GetPosition();
@@ -735,16 +736,50 @@ void ModuleUI::DrawInspectorPanel()
 						transform->SetRotation(rot);
 					}
 
+					////////////////////Scale
 					glm::vec3 scl = transform->GetScale();
-					if (DrawVec3Control("Scale", scl, 0.05f))
+					
+					ImGui::TableNextRow();
+					ImGui::TableSetColumnIndex(0);
+					ImGui::AlignTextToFramePadding();
+					ImGui::TextUnformatted("Scale");
+
+			
+					ImGui::TableSetColumnIndex(1);
+				
+					static bool ScaleFixed = false;
+
+					if (ImGui::Button("&", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
 					{
-						transform->SetScale(scl);
+						ScaleFixed = !ScaleFixed;
 					}
 
+					ImGui::TableSetColumnIndex(2);
+					ImGui::PushItemWidth(-1.0f);
+					std::string id = std::string("##") + "Scale";
+					bool changed = ImGui::DragFloat3(id.c_str(), glm::value_ptr(scl), 0.05f);
+					ImGui::PopItemWidth();
+
+
+
+					if (changed)
+					{
+						if (ScaleFixed)
+						{
+							transform->SetScale(glm::vec3(scl.x, scl.x, scl.x));
+						}
+						else
+						{
+							transform->SetScale(scl);
+						}
+					}
+
+
+					//////////////////////////
 					ImGui::EndTable();
 				}
 
-				if (ImGui::SmallButton("Reset Transform"))
+				if (ImGui::Button("Reset Transform", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
 				{
 					transform->SetPosition(glm::vec3(0.0f));
 					transform->SetRotation(glm::vec3(0.0f));
@@ -917,6 +952,16 @@ void ModuleUI::DrawInspectorPanel()
 					cam->SetMovementSpeed(speed);
 				}
 			}
+
+			ImGui::Separator();
+
+			
+			
+			ImGui::Button("Añadir Componente", ImVec2(ImGui::GetItemRectSize().x, 0.0f)); //TODO
+			
+
+
+
 		}
 		else
 		{

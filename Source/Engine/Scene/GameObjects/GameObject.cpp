@@ -61,11 +61,6 @@ std::unique_ptr<GameObject> GameObject::Duplicate(const std::string& newName) co
     return clone;
 }
 
-std::unique_ptr<GameObject> GameObject::Clone(const std::string& newName) const
-{
-    return Duplicate(newName);
-}
-
 void GameObject::Update(float dt)
 {
 #ifdef _DEBUG
