@@ -687,26 +687,26 @@ void ModuleUI::DrawInspectorPanel()
 	if (ImGui::Begin("Inspector", &showInspector))
 	{
 		Scene* scene = Engine::GetInstance().scene.get();
-		GameObject* selected = scene ? scene->GetSelected() : nullptr;
+		GameObject* selectedGameObject = scene ? scene->GetSelected() : nullptr;
 
-		if (selected)
+		if (selectedGameObject)
 		{
-			bool isActive = selected->IsActive();
+			bool isActive = selectedGameObject->IsActive();
 			if (ImGui::Checkbox("##ActiveGO", &isActive))
 			{
-				if (isActive) selected->Enable();
-				else selected->Disable();
+				if (isActive) selectedGameObject->Enable();
+				else selectedGameObject->Disable();
 			}
 			ImGui::SameLine();
 
 			char nameBuf[128] = "";
-			strncpy_s(nameBuf, sizeof(nameBuf), selected->GetName().c_str(), _TRUNCATE);
+			strncpy_s(nameBuf, sizeof(nameBuf), selectedGameObject->GetName().c_str(), _TRUNCATE);
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 68.0f);
 			if (ImGui::InputText("##GOName", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
 			{
 				if (nameBuf[0] != '\0')
 				{
-					selected->SetName(nameBuf);
+					selectedGameObject->SetName(nameBuf);
 				}
 			}
 
@@ -715,7 +715,7 @@ void ModuleUI::DrawInspectorPanel()
 			// =====================================================================
 			// 1. TRANSFORM COMPONENT
 			// =====================================================================
-			TransformComponent* transform = selected->GetComponent<TransformComponent>();
+			TransformComponent* transform = selectedGameObject->GetComponent<TransformComponent>();
 			if (transform && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
 			{
 				if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit))
@@ -738,15 +738,15 @@ void ModuleUI::DrawInspectorPanel()
 
 					////////////////////Scale
 					glm::vec3 scl = transform->GetScale();
-					
+					glm::vec3 ogscl = transform->GetScale();
+
 					ImGui::TableNextRow();
 					ImGui::TableSetColumnIndex(0);
 					ImGui::AlignTextToFramePadding();
 					ImGui::TextUnformatted("Scale");
 
-			
 					ImGui::TableSetColumnIndex(1);
-				
+	
 					static bool ScaleFixed = false;
 
 					if (ImGui::Button("&", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
@@ -755,29 +755,35 @@ void ModuleUI::DrawInspectorPanel()
 					}
 
 					ImGui::TableSetColumnIndex(2);
+
 					ImGui::PushItemWidth(-1.0f);
-					std::string id = std::string("##") + "Scale";
-					bool changed = ImGui::DragFloat3(id.c_str(), glm::value_ptr(scl), 0.05f);
-					ImGui::PopItemWidth();
-
-
-
-					if (changed)
+					if (ImGui::DragFloat3("", glm::value_ptr(scl), 0.01f))
 					{
 						if (ScaleFixed)
 						{
-							transform->SetScale(glm::vec3(scl.x, scl.x, scl.x));
+							if (scl.x != ogscl.x)
+							{
+								transform->SetScale(glm::vec3(scl.x, scl.x, scl.x));
+							}
+							else if (scl.y != ogscl.y)
+							{
+								transform->SetScale(glm::vec3(scl.y, scl.y, scl.y));
+							}
+							else
+							{
+								transform->SetScale(glm::vec3(scl.z, scl.z, scl.z));
+							}
 						}
 						else
 						{
 							transform->SetScale(scl);
 						}
 					}
+					ImGui::PopItemWidth();
 
-
-					//////////////////////////
 					ImGui::EndTable();
 				}
+					//////////////////////////
 
 				if (ImGui::Button("Reset Transform", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
 				{
@@ -803,7 +809,7 @@ void ModuleUI::DrawInspectorPanel()
 						collectMeshes(child);
 					}
 				};
-			collectMeshes(selected);
+			collectMeshes(selectedGameObject);
 
 			if (!meshesToInspect.empty() && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
 			{
@@ -879,7 +885,7 @@ void ModuleUI::DrawInspectorPanel()
 						collectMaterials(child);
 					}
 				};
-			collectMaterials(selected);
+			collectMaterials(selectedGameObject);
 
 			if (!materialsToInspect.empty() && ImGui::CollapsingHeader("Texture & Material", ImGuiTreeNodeFlags_DefaultOpen))
 			{
@@ -939,7 +945,7 @@ void ModuleUI::DrawInspectorPanel()
 			// =====================================================================
 			// 4. CAMERA COMPONENT (si el GameObject seleccionado es una cámara)
 			// =====================================================================
-			CameraComponent* cam = selected->GetComponent<CameraComponent>();
+			CameraComponent* cam = selectedGameObject->GetComponent<CameraComponent>();
 			if (cam && ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 			{
 				ImGui::SliderFloat("FOV (Grados)", &cam->fov, 10.0f, 120.0f, "%.1f");
@@ -955,13 +961,77 @@ void ModuleUI::DrawInspectorPanel()
 
 			ImGui::Separator();
 
-			
-			
-			ImGui::Button("Añadir Componente", ImVec2(ImGui::GetItemRectSize().x, 0.0f)); //TODO
-			
+			const char* components[] = {"COMPONENT_MESH","COMPONENT_MATERIAL","COMPONENT_CAMERA"};
+			static int selected_component_idx = 0;
+			const char* selectedComponent = components[selected_component_idx];
+			if (ImGui::BeginCombo("Select ComponentType", selectedComponent))
+			{
+				static ImGuiTextFilter addComponentFilter;
+				if (ImGui::IsWindowAppearing())
+				{
+					ImGui::SetKeyboardFocusHere();
+					addComponentFilter.Clear();
+				}
+				addComponentFilter.Draw();
 
+				for (int n = 0; n < IM_COUNTOF(components); n++)
+				{
+					const bool is_selected = (selected_component_idx == n);
+					if (addComponentFilter.PassFilter(components[n]))
+						if (ImGui::Selectable(components[n], is_selected))
+							selected_component_idx = n;
+				}
+				ImGui::EndCombo();
+			}
+			
+			if (ImGui::Button("Add Component", ImVec2(ImGui::GetItemRectSize().x, 0.0f))) //TODO Turn into function
+			{
+				//If comopnent already has this comopnent, throw warning window
+				const ComponentType selectedType = ComponentType(selected_component_idx +1);
 
+				switch (selectedType)
+				{
+				case ComponentType::COMPONENT_MATERIAL:
+					if (selectedGameObject->GetComponent<MaterialComponent>() != nullptr)
+					{
+						LOG_WARNING("This GameObject does already have this component"); //TODO, MAKE WINDOW
+					}
+					else
+					{
+						auto mat = std::make_unique<MaterialComponent>(selectedGameObject);
+						mat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+						mat->SetUseTexture(false);
+						selectedGameObject->AddComponent(std::move(mat));
+					}
+					break;
+				case ComponentType::COMPONENT_MESH:
+					if (selectedGameObject->GetComponent<MeshComponent>() != nullptr)
+					{
+						LOG_WARNING("This GameObject does already have this component"); //TODO, MAKE WINDOW
+					}
+					else
+					{
+						std::unique_ptr<Primitive> prim = GeometryGenerator::CreateCube();
+						auto mesh = std::make_unique<MeshComponent>(selectedGameObject, std::move(prim));
+						
+						selectedGameObject->AddComponent(std::move(mesh));
+					}
 
+					break;
+				case ComponentType::COMPONENT_CAMERA:
+					if (selectedGameObject->GetComponent<MeshComponent>() != nullptr)
+					{
+						LOG_WARNING("This GameObject does already have this component"); //TODO, MAKE WINDOW
+					}
+					else
+					{
+						auto gameCamTrans = std::make_unique<CameraComponent>(selectedGameObject);
+						selectedGameObject->AddComponent(std::move(gameCamTrans));
+					}
+					break;
+				}
+				
+			}
 		}
 		else
 		{
