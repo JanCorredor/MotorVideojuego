@@ -11,6 +11,14 @@ enum class NormalsMode
 	Both
 };
 
+// Estructura de partición espacial activa para Frustum Culling y Mouse Picking (Raycast)
+enum class SpacePartitionMode
+{
+	None = 0,
+	Quadtree,
+	Octree
+};
+
 // Única fuente de verdad de las opciones de render. El Editor las edita a través de
 // Render::SetSettings(); nadie más guarda copias persistentes de estos valores.
 struct RenderSettings
@@ -31,4 +39,13 @@ struct RenderSettings
 	// Rejilla de referencia en el plano XZ y eje de coordenadas en el origen
 	bool showGrid = true;
 	bool showAxis = true;
+
+	// Space Partitioning (Quadtree / Octree), AABB & Frustum Culling
+	bool frustumCulling = true;
+	bool cullFromGameCameraInScene = false;
+	SpacePartitionMode partitionMode = SpacePartitionMode::Octree;
+	bool drawAABB = false;
+	bool drawQuadtree = false;
+	bool drawOctree = false;
+	bool drawFrustum = false;
 };

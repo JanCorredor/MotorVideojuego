@@ -2,12 +2,14 @@
 #include "../../../Engine.h"
 #include "../../../Input/Input.h"
 #include "../../../Window/Window.h"
+#include "../../../Render/Render.h"
 #include "../GameObject.h"
 #include "../../Scene.h"
 #include "MeshComponent.h"
 #include "../../../../Utils/Log.h"
 #include <algorithm>
 #include <stack>
+#include <unordered_set>
 
 CameraComponent::CameraComponent(GameObject* owner) : Component(COMPONENT_CAMERA, owner)
 {
@@ -266,10 +268,32 @@ bool CameraComponent::RayTriangleIntersection(const glm::vec3& rayOrigin, const 
     return false;
 }
 
-// Recorrido iterativo con stack: Transforma el rayo a Local Space -> Prueba AABB -> Prueba Triángulos
+// Recorrido iterativo con stack + aceleración mediante Quadtree/Octree: Transforma el rayo a Local Space -> Prueba AABB -> Prueba Triángulos
 void CameraComponent::CheckRaycastRecursive(GameObject* rootGo, glm::vec3 rayOrigin, glm::vec3 rayDir, GameObject*& closestObject, float& minDistance, const glm::mat4& rootParentMatrix)
 {
     if (!rootGo || !rootGo->IsActive()) return;
+
+    Scene* scene = Engine::GetInstance().scene.get();
+    Render* render = Engine::GetInstance().render.get();
+    SpacePartitionMode partitionMode = render ? render->GetSettings().partitionMode : SpacePartitionMode::None;
+
+    bool useTreeFilter = false;
+    std::unordered_set<GameObject*> staticCandidatesSet;
+
+    if (scene && partitionMode != SpacePartitionMode::None)
+    {
+        std::vector<GameObject*> treeHits;
+        if (partitionMode == SpacePartitionMode::Quadtree)
+        {
+            scene->GetQuadtree().QueryRay(rayOrigin, rayDir, treeHits);
+        }
+        else if (partitionMode == SpacePartitionMode::Octree)
+        {
+            scene->GetOctree().QueryRay(rayOrigin, rayDir, treeHits);
+        }
+        staticCandidatesSet.insert(treeHits.begin(), treeHits.end());
+        useTreeFilter = true;
+    }
 
     struct RaycastNode
     {
@@ -298,65 +322,69 @@ void CameraComponent::CheckRaycastRecursive(GameObject* rootGo, glm::vec3 rayOri
             MeshComponent* mesh = go->GetComponent<MeshComponent>();
             if (mesh && mesh->IsActive() && mesh->GetPrimitive() && go != owner)
             {
-                Primitive* prim = mesh->GetPrimitive();
-
-                // Transformamos el rayo una sola vez al espacio local del GameObject
-                glm::mat4 invModel = glm::inverse(globalMatrix);
-                glm::vec3 localOrigin = glm::vec3(invModel * glm::vec4(rayOrigin, 1.0f));
-                glm::vec3 localDir = glm::normalize(glm::vec3(invModel * glm::vec4(rayDir, 0.0f)));
-
-                // Damos un pequeño margen (padding) por si es un Plane con grosor 0 en el eje Y
-                glm::vec3 boxMin = prim->GetBoundsMin() - glm::vec3(0.001f);
-                glm::vec3 boxMax = prim->GetBoundsMax() + glm::vec3(0.001f);
-
-                float aabbDist = 0.0f;
-                if (RayAABBIntersection(localOrigin, localDir, boxMin, boxMax, aabbDist))
+                // Si el objeto es Static y hay Space Partitioning activo, descartarlo en O(1) si el árbol ya filtró su rama
+                if (!useTreeFilter || !go->IsStatic() || staticCandidatesSet.find(go) != staticCandidatesSet.end())
                 {
-                    const std::vector<Vertex>& vertices = prim->GetVertices();
-                    const std::vector<unsigned int>& indices = prim->GetIndices();
+                    Primitive* prim = mesh->GetPrimitive();
 
-                    if (!indices.empty())
+                    // Transformamos el rayo una sola vez al espacio local del GameObject
+                    glm::mat4 invModel = glm::inverse(globalMatrix);
+                    glm::vec3 localOrigin = glm::vec3(invModel * glm::vec4(rayOrigin, 1.0f));
+                    glm::vec3 localDir = glm::normalize(glm::vec3(invModel * glm::vec4(rayDir, 0.0f)));
+
+                    // Damos un pequeño margen (padding) por si es un Plane con grosor 0 en el eje Y
+                    glm::vec3 boxMin = prim->GetBoundsMin() - glm::vec3(0.001f);
+                    glm::vec3 boxMax = prim->GetBoundsMax() + glm::vec3(0.001f);
+
+                    float aabbDist = 0.0f;
+                    if (RayAABBIntersection(localOrigin, localDir, boxMin, boxMax, aabbDist))
                     {
-                        for (size_t i = 0; i + 2 < indices.size(); i += 3)
+                        const std::vector<Vertex>& vertices = prim->GetVertices();
+                        const std::vector<unsigned int>& indices = prim->GetIndices();
+
+                        if (!indices.empty())
                         {
-                            const glm::vec3& v0 = vertices[indices[i]].position;
-                            const glm::vec3& v1 = vertices[indices[i + 1]].position;
-                            const glm::vec3& v2 = vertices[indices[i + 2]].position;
-
-                            float localHitDist = 0.0f;
-                            if (RayTriangleIntersection(localOrigin, localDir, v0, v1, v2, localHitDist))
+                            for (size_t i = 0; i + 2 < indices.size(); i += 3)
                             {
-                                glm::vec3 localHitPoint = localOrigin + localDir * localHitDist;
-                                glm::vec3 worldHitPoint = glm::vec3(globalMatrix * glm::vec4(localHitPoint, 1.0f));
-                                float worldDist = glm::length(worldHitPoint - rayOrigin);
+                                const glm::vec3& v0 = vertices[indices[i]].position;
+                                const glm::vec3& v1 = vertices[indices[i + 1]].position;
+                                const glm::vec3& v2 = vertices[indices[i + 2]].position;
 
-                                if (worldDist < minDistance)
+                                float localHitDist = 0.0f;
+                                if (RayTriangleIntersection(localOrigin, localDir, v0, v1, v2, localHitDist))
                                 {
-                                    minDistance = worldDist;
-                                    closestObject = go;
+                                    glm::vec3 localHitPoint = localOrigin + localDir * localHitDist;
+                                    glm::vec3 worldHitPoint = glm::vec3(globalMatrix * glm::vec4(localHitPoint, 1.0f));
+                                    float worldDist = glm::length(worldHitPoint - rayOrigin);
+
+                                    if (worldDist < minDistance)
+                                    {
+                                        minDistance = worldDist;
+                                        closestObject = go;
+                                    }
                                 }
                             }
                         }
-                    }
-                    else
-                    {
-                        for (size_t i = 0; i + 2 < vertices.size(); i += 3)
+                        else
                         {
-                            const glm::vec3& v0 = vertices[i].position;
-                            const glm::vec3& v1 = vertices[i + 1].position;
-                            const glm::vec3& v2 = vertices[i + 2].position;
-
-                            float localHitDist = 0.0f;
-                            if (RayTriangleIntersection(localOrigin, localDir, v0, v1, v2, localHitDist))
+                            for (size_t i = 0; i + 2 < vertices.size(); i += 3)
                             {
-                                glm::vec3 localHitPoint = localOrigin + localDir * localHitDist;
-                                glm::vec3 worldHitPoint = glm::vec3(globalMatrix * glm::vec4(localHitPoint, 1.0f));
-                                float worldDist = glm::length(worldHitPoint - rayOrigin);
+                                const glm::vec3& v0 = vertices[i].position;
+                                const glm::vec3& v1 = vertices[i + 1].position;
+                                const glm::vec3& v2 = vertices[i + 2].position;
 
-                                if (worldDist < minDistance)
+                                float localHitDist = 0.0f;
+                                if (RayTriangleIntersection(localOrigin, localDir, v0, v1, v2, localHitDist))
                                 {
-                                    minDistance = worldDist;
-                                    closestObject = go;
+                                    glm::vec3 localHitPoint = localOrigin + localDir * localHitDist;
+                                    glm::vec3 worldHitPoint = glm::vec3(globalMatrix * glm::vec4(localHitPoint, 1.0f));
+                                    float worldDist = glm::length(worldHitPoint - rayOrigin);
+
+                                    if (worldDist < minDistance)
+                                    {
+                                        minDistance = worldDist;
+                                        closestObject = go;
+                                    }
                                 }
                             }
                         }

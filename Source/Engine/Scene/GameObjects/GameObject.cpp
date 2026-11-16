@@ -1,6 +1,7 @@
 #include "GameObject.h"
 #include "./Components/Component.h"
 #include "./Components/TransformComponent.h"
+#include "./Components/MeshComponent.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -17,7 +18,7 @@ GameObject::GameObject(const std::string& name, GameUUID id) : uuid(id), name(na
 }
 
 GameObject::GameObject(const GameObject& other)
-    : uuid(GameUUID()), name(other.name), active(other.active), componentOrder(other.componentOrder), parent(nullptr)
+    : uuid(GameUUID()), name(other.name), active(other.active), isStatic(other.isStatic), componentOrder(other.componentOrder), parent(nullptr)
 {
     for (const std::unique_ptr<Component>& comp : other.components)
     {
@@ -39,6 +40,7 @@ GameObject& GameObject::operator=(const GameObject& other)
 
     name = other.name;
     active = other.active;
+    isStatic = other.isStatic;
     componentOrder = other.componentOrder;
     for (size_t i = 0; i < COMPONENT_COUNT; ++i)
     {
@@ -306,6 +308,50 @@ bool GameObject::IsDescendantOf(const GameObject* ancestor) const
         if (node == ancestor) return true;
     }
     return false;
+}
+
+void GameObject::SetStatic(bool value, bool applyToChildren)
+{
+    isStatic = value;
+    if (!applyToChildren) return;
+
+    std::stack<GameObject*> stack;
+    for (size_t i = children.size(); i > 0; --i)
+    {
+        stack.push(children[i - 1]);
+    }
+
+    while (!stack.empty())
+    {
+        GameObject* current = stack.top();
+        stack.pop();
+        if (!current) continue;
+
+        current->isStatic = value;
+        const std::vector<GameObject*>& currentChildren = current->GetChildren();
+        for (size_t i = currentChildren.size(); i > 0; --i)
+        {
+            stack.push(currentChildren[i - 1]);
+        }
+    }
+}
+
+bool GameObject::HasWorldAABB() const
+{
+    const MeshComponent* mesh = GetComponent<MeshComponent>();
+    return mesh != nullptr && mesh->IsActive() && mesh->GetPrimitive() != nullptr;
+}
+
+AABB GameObject::GetWorldAABB() const
+{
+    const MeshComponent* mesh = GetComponent<MeshComponent>();
+    if (mesh && mesh->GetPrimitive())
+    {
+        const Primitive* prim = mesh->GetPrimitive();
+        return AABB::FromTransformedLocalBox(prim->GetBoundsMin(), prim->GetBoundsMax(), GetWorldMatrix());
+    }
+    glm::vec3 pos = glm::vec3(GetWorldMatrix()[3]);
+    return AABB(pos - glm::vec3(0.1f), pos + glm::vec3(0.1f));
 }
 
 glm::mat4 GameObject::GetWorldMatrix() const

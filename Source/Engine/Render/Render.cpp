@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <stack>
+#include <unordered_set>
 
 #ifdef _DEBUG
 #include <tracy/Tracy.hpp>
@@ -648,6 +649,124 @@ void Render::BindDefaultFramebuffer()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
+void Render::CollectVisibleRenderItems(Scene* scene, const glm::mat4& cullViewProj, const glm::vec3& cameraPos,
+	std::vector<RenderItem>& opaqueItems, std::vector<RenderItem>& transparentItems, CullingStats* outStats)
+{
+	opaqueItems.clear();
+	transparentItems.clear();
+
+	CullingStats stats{};
+	if (!scene || !scene->GetRoot())
+	{
+		if (outStats) *outStats = stats;
+		return;
+	}
+
+	const bool useFrustumCulling = settings.frustumCulling;
+	Frustum frustum;
+	std::unordered_set<GameObject*> visibleStaticSet;
+	bool useTreeForStatic = false;
+
+	if (useFrustumCulling)
+	{
+		frustum = Frustum::FromViewProjection(cullViewProj);
+
+		if (settings.partitionMode == SpacePartitionMode::Quadtree)
+		{
+			std::vector<GameObject*> treeResults;
+			stats.treeNodesVisited = scene->GetQuadtree().QueryFrustum(frustum, treeResults);
+			visibleStaticSet.insert(treeResults.begin(), treeResults.end());
+			useTreeForStatic = true;
+		}
+		else if (settings.partitionMode == SpacePartitionMode::Octree)
+		{
+			std::vector<GameObject*> treeResults;
+			stats.treeNodesVisited = scene->GetOctree().QueryFrustum(frustum, treeResults);
+			visibleStaticSet.insert(treeResults.begin(), treeResults.end());
+			useTreeForStatic = true;
+		}
+	}
+
+	struct TraversalNode
+	{
+		GameObject* go;
+		glm::mat4 parentMatrix;
+	};
+
+	std::stack<TraversalNode> stack;
+	stack.push({ scene->GetRoot(), glm::mat4(1.0f) });
+
+	while (!stack.empty())
+	{
+		TraversalNode current = stack.top();
+		stack.pop();
+
+		GameObject* go = current.go;
+		if (!go || !go->IsActive()) continue;
+
+		glm::mat4 globalMatrix = current.parentMatrix;
+		if (TransformComponent* t = go->GetComponent<TransformComponent>())
+		{
+			globalMatrix = current.parentMatrix * t->GetLocalModelMatrix();
+		}
+
+		MeshComponent* meshComp = go->GetComponent<MeshComponent>();
+		if (meshComp && meshComp->IsActive() && meshComp->GetPrimitive())
+		{
+			stats.totalMeshObjects++;
+			bool isVisible = true;
+
+			if (useFrustumCulling)
+			{
+				if (useTreeForStatic && go->IsStatic())
+				{
+					isVisible = (visibleStaticSet.find(go) != visibleStaticSet.end());
+				}
+				else
+				{
+					const Primitive* prim = meshComp->GetPrimitive();
+					AABB worldBox = AABB::FromTransformedLocalBox(prim->GetBoundsMin(), prim->GetBoundsMax(), globalMatrix);
+					isVisible = frustum.IntersectsAABB(worldBox);
+				}
+			}
+
+			if (isVisible)
+			{
+				stats.visibleObjects++;
+				MaterialComponent* mat = go->GetComponent<MaterialComponent>();
+				bool isTransparent = (mat && mat->IsActive()) ? mat->HasTransparentAlpha() : false;
+
+				glm::vec3 objPos = glm::vec3(globalMatrix[3]);
+				float dist = glm::length(cameraPos - objPos);
+
+				if (isTransparent)
+				{
+					transparentItems.push_back({ go, globalMatrix, dist });
+				}
+				else
+				{
+					opaqueItems.push_back({ go, globalMatrix, dist });
+				}
+			}
+			else
+			{
+				stats.culledObjects++;
+			}
+		}
+
+		const std::vector<GameObject*>& children = go->GetChildren();
+		for (size_t i = children.size(); i > 0; --i)
+		{
+			stack.push({ children[i - 1], globalMatrix });
+		}
+	}
+
+	if (outStats)
+	{
+		*outStats = stats;
+	}
+}
+
 void Render::RenderScene()
 {
 #ifdef _DEBUG
@@ -705,68 +824,24 @@ void Render::RenderScene()
 	glUniform1i(u.texture, 0);
 
 	// -------------------------------------------------------------------------
-	// Recolección y Clasificación (Opacos vs Transparentes)
+	// Recolección y Clasificación (Opacos vs Transparentes) con Frustum Culling
 	// -------------------------------------------------------------------------
-	struct RenderItem {
-		GameObject* go;
-		glm::mat4 modelMatrix;
-		float distanceToCamera;
-	};
-
 	std::vector<RenderItem> opaqueItems;
 	std::vector<RenderItem> transparentItems;
 
-	struct TraversalNode
+	glm::mat4 cullViewProj = projection * view;
+	if (settings.cullFromGameCameraInScene && scene)
 	{
-		GameObject* go;
-		glm::mat4 parentMatrix;
-	};
-
-	if (scene && scene->GetRoot())
-	{
-		std::stack<TraversalNode> stack;
-		stack.push({ scene->GetRoot(), glm::mat4(1.0f) });
-
-		while (!stack.empty())
+		GameObject* gameCamObj = scene->GetGameCameraObject();
+		CameraComponent* gameCam = (gameCamObj && gameCamObj->IsActive()) ? gameCamObj->GetComponent<CameraComponent>() : nullptr;
+		if (gameCam)
 		{
-			TraversalNode current = stack.top();
-			stack.pop();
-
-			GameObject* go = current.go;
-			if (!go || !go->IsActive()) continue;
-
-			glm::mat4 globalMatrix = current.parentMatrix;
-			if (TransformComponent* t = go->GetComponent<TransformComponent>())
-			{
-				globalMatrix = current.parentMatrix * t->GetLocalModelMatrix();
-			}
-
-			MeshComponent* meshComp = go->GetComponent<MeshComponent>();
-			if (meshComp && meshComp->IsActive())
-			{
-				MaterialComponent* mat = go->GetComponent<MaterialComponent>();
-				bool isTransparent = (mat && mat->IsActive()) ? mat->HasTransparentAlpha() : false;
-
-				glm::vec3 objPos = glm::vec3(globalMatrix[3]);
-				float dist = glm::length(cameraPos - objPos);
-
-				if (isTransparent)
-				{
-					transparentItems.push_back({ go, globalMatrix, dist });
-				}
-				else
-				{
-					opaqueItems.push_back({ go, globalMatrix, dist });
-				}
-			}
-
-			const std::vector<GameObject*>& children = go->GetChildren();
-			for (size_t i = children.size(); i > 0; --i)
-			{
-				stack.push({ children[i - 1], globalMatrix });
-			}
+			float gameAspect = (gameFboHeight > 0) ? (float)gameFboWidth / (float)gameFboHeight : ((fboHeight > 0) ? (float)fboWidth / (float)fboHeight : 1.0f);
+			cullViewProj = gameCam->GetProjectionMatrix(gameAspect) * gameCam->GetViewMatrix();
 		}
 	}
+
+	CollectVisibleRenderItems(scene, cullViewProj, cameraPos, opaqueItems, transparentItems, &lastCullingStats);
 
 	// Ordenar transparentes de más lejano a más cercano (Back-to-Front)
 	std::sort(transparentItems.begin(), transparentItems.end(), [](const RenderItem& a, const RenderItem& b) {
@@ -990,11 +1065,17 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 
 	const bool wantNormals = settings.normals != NormalsMode::None;
 	const bool wantOutline = settings.highlightSelection && selected != nullptr;
-	if (!wantNormals && !wantOutline) return;
+	const bool wantSpaceDebug = settings.drawAABB || settings.drawQuadtree || settings.drawOctree || settings.drawFrustum;
+	if (!wantNormals && !wantOutline && !wantSpaceDebug) return;
 
 	if (wantOutline && selected)
 	{
 		DrawSelectionOutline(selected, view, projection);
+	}
+
+	if (wantSpaceDebug)
+	{
+		DrawSpacePartitioningDebug(view, projection);
 	}
 
 	if (wantNormals)
@@ -1063,6 +1144,176 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 		}
 	}
+}
+
+void Render::DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& projection)
+{
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
+	Scene* scene = Engine::GetInstance().scene.get();
+	if (!scene) return;
+
+	auto appendLine = [](std::vector<float>& buffer, const glm::vec3& a, const glm::vec3& b)
+	{
+		buffer.push_back(a.x); buffer.push_back(a.y); buffer.push_back(a.z);
+		buffer.push_back(b.x); buffer.push_back(b.y); buffer.push_back(b.z);
+	};
+
+	auto appendBox = [&](std::vector<float>& buffer, const AABB& box)
+	{
+		const glm::vec3& mn = box.minPoint;
+		const glm::vec3& mx = box.maxPoint;
+
+		const glm::vec3 c[8] = {
+			glm::vec3(mn.x, mn.y, mn.z),
+			glm::vec3(mx.x, mn.y, mn.z),
+			glm::vec3(mx.x, mx.y, mn.z),
+			glm::vec3(mn.x, mx.y, mn.z),
+			glm::vec3(mn.x, mn.y, mx.z),
+			glm::vec3(mx.x, mn.y, mx.z),
+			glm::vec3(mx.x, mx.y, mx.z),
+			glm::vec3(mn.x, mx.y, mx.z)
+		};
+
+		// Cara frontal (-Z)
+		appendLine(buffer, c[0], c[1]);
+		appendLine(buffer, c[1], c[2]);
+		appendLine(buffer, c[2], c[3]);
+		appendLine(buffer, c[3], c[0]);
+		// Cara trasera (+Z)
+		appendLine(buffer, c[4], c[5]);
+		appendLine(buffer, c[5], c[6]);
+		appendLine(buffer, c[6], c[7]);
+		appendLine(buffer, c[7], c[4]);
+		// Uniones entre caras
+		appendLine(buffer, c[0], c[4]);
+		appendLine(buffer, c[1], c[5]);
+		appendLine(buffer, c[2], c[6]);
+		appendLine(buffer, c[3], c[7]);
+	};
+
+	auto drawLineBatch = [&](const std::vector<float>& lines, const glm::vec3& color, float lineWidth)
+	{
+		if (lines.empty()) return;
+		const size_t bytes = lines.size() * sizeof(float);
+
+		glBindVertexArray(debugVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
+
+		if (bytes > debugVBOCapacityBytes)
+		{
+			debugVBOCapacityBytes = bytes * 2;
+			glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)debugVBOCapacityBytes, nullptr, GL_DYNAMIC_DRAW);
+		}
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)bytes, lines.data());
+
+		glLineWidth(lineWidth);
+		glUniform3fv(lu.color, 1, glm::value_ptr(color));
+		glDrawArrays(GL_LINES, 0, (GLsizei)(lines.size() / 3));
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	};
+
+	glUseProgram(lineShaderProgram);
+	glUniformMatrix4fv(lu.view, 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(lu.projection, 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(lu.model, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
+	glEnable(GL_DEPTH_TEST);
+
+	// 1. Dibujar AABB de los GameObjects (con std::stack)
+	if (settings.drawAABB && scene->GetRoot())
+	{
+		std::vector<float> aabbLines;
+		std::stack<GameObject*> stack;
+		stack.push(scene->GetRoot());
+
+		while (!stack.empty())
+		{
+			GameObject* node = stack.top();
+			stack.pop();
+			if (!node || !node->IsActive()) continue;
+
+			if (node != scene->GetRoot() && node->HasWorldAABB())
+			{
+				appendBox(aabbLines, node->GetWorldAABB());
+			}
+
+			const std::vector<GameObject*>& children = node->GetChildren();
+			for (size_t i = children.size(); i > 0; --i)
+			{
+				stack.push(children[i - 1]);
+			}
+		}
+
+		drawLineBatch(aabbLines, glm::vec3(0.15f, 0.95f, 0.30f), 1.8f); // Verde: AABB
+	}
+
+	// 2. Dibujar Quadtree
+	if (settings.drawQuadtree)
+	{
+		std::vector<AABB> quadBoxes;
+		scene->GetQuadtree().CollectNodeBounds(quadBoxes);
+
+		std::vector<float> quadLines;
+		quadLines.reserve(quadBoxes.size() * 72);
+		for (const AABB& box : quadBoxes)
+		{
+			appendBox(quadLines, box);
+		}
+		drawLineBatch(quadLines, glm::vec3(0.95f, 0.30f, 0.95f), 1.5f); // Magenta: Quadtree
+	}
+
+	// 3. Dibujar Octree
+	if (settings.drawOctree)
+	{
+		std::vector<AABB> octBoxes;
+		scene->GetOctree().CollectNodeBounds(octBoxes);
+
+		std::vector<float> octLines;
+		octLines.reserve(octBoxes.size() * 72);
+		for (const AABB& box : octBoxes)
+		{
+			appendBox(octLines, box);
+		}
+		drawLineBatch(octLines, glm::vec3(0.20f, 0.80f, 1.0f), 1.5f); // Cian: Octree
+	}
+
+	// 4. Dibujar Frustum de la Main Camera (Game Camera)
+	if (settings.drawFrustum)
+	{
+		GameObject* gameCamObj = scene->GetGameCameraObject();
+		CameraComponent* gameCam = (gameCamObj && gameCamObj->IsActive()) ? gameCamObj->GetComponent<CameraComponent>() : nullptr;
+		if (gameCam)
+		{
+			float aspect = (gameFboHeight > 0) ? (float)gameFboWidth / (float)gameFboHeight : ((fboHeight > 0) ? (float)fboWidth / (float)fboHeight : 1.0f);
+			glm::mat4 vp = gameCam->GetProjectionMatrix(aspect) * gameCam->GetViewMatrix();
+			std::array<glm::vec3, 8> c = Frustum::ExtractCorners(vp);
+
+			std::vector<float> frustumLines;
+			// Plano Near
+			appendLine(frustumLines, c[0], c[1]);
+			appendLine(frustumLines, c[1], c[2]);
+			appendLine(frustumLines, c[2], c[3]);
+			appendLine(frustumLines, c[3], c[0]);
+			// Plano Far
+			appendLine(frustumLines, c[4], c[5]);
+			appendLine(frustumLines, c[5], c[6]);
+			appendLine(frustumLines, c[6], c[7]);
+			appendLine(frustumLines, c[7], c[4]);
+			// Aristas laterales Near -> Far
+			appendLine(frustumLines, c[0], c[4]);
+			appendLine(frustumLines, c[1], c[5]);
+			appendLine(frustumLines, c[2], c[6]);
+			appendLine(frustumLines, c[3], c[7]);
+
+			drawLineBatch(frustumLines, glm::vec3(1.0f, 0.85f, 0.20f), 2.0f); // Ámbar: Frustum
+		}
+	}
+
+	glLineWidth(1.0f);
 }
 
 void Render::CollectNormals(GameObject* rootGo, const glm::mat4& rootParentMatrix)
@@ -1248,59 +1499,11 @@ void Render::RenderGame()
 	glUniform1i(u.lighting, settings.lighting ? 1 : 0);
 	glUniform1i(u.texture, 0);
 
-	struct RenderItem {
-		GameObject* go;
-		glm::mat4 modelMatrix;
-		float distanceToCamera;
-	};
-
 	std::vector<RenderItem> opaqueItems;
 	std::vector<RenderItem> transparentItems;
 
-	struct TraversalNode
-	{
-		GameObject* go;
-		glm::mat4 parentMatrix;
-	};
-
-	if (scene && scene->GetRoot())
-	{
-		std::stack<TraversalNode> stack;
-		stack.push({ scene->GetRoot(), glm::mat4(1.0f) });
-
-		while (!stack.empty())
-		{
-			TraversalNode current = stack.top();
-			stack.pop();
-
-			GameObject* go = current.go;
-			if (!go || !go->IsActive()) continue;
-
-			glm::mat4 globalMatrix = current.parentMatrix;
-			if (TransformComponent* t = go->GetComponent<TransformComponent>())
-			{
-				globalMatrix = current.parentMatrix * t->GetLocalModelMatrix();
-			}
-
-			MeshComponent* meshComp = go->GetComponent<MeshComponent>();
-			if (meshComp && meshComp->IsActive())
-			{
-				MaterialComponent* mat = go->GetComponent<MaterialComponent>();
-				bool isTransparent = (mat && mat->IsActive()) ? mat->HasTransparentAlpha() : false;
-				glm::vec3 objPos = glm::vec3(globalMatrix[3]);
-				float dist = glm::length(cameraPos - objPos);
-
-				if (isTransparent) transparentItems.push_back({ go, globalMatrix, dist });
-				else opaqueItems.push_back({ go, globalMatrix, dist });
-			}
-
-			const std::vector<GameObject*>& children = go->GetChildren();
-			for (size_t i = children.size(); i > 0; --i)
-			{
-				stack.push({ children[i - 1], globalMatrix });
-			}
-		}
-	}
+	CollectVisibleRenderItems(scene, projection * view, cameraPos, opaqueItems, transparentItems,
+		!viewportVisible ? &lastCullingStats : nullptr);
 
 	std::sort(transparentItems.begin(), transparentItems.end(), [](const RenderItem& a, const RenderItem& b) {
 		return a.distanceToCamera > b.distanceToCamera;

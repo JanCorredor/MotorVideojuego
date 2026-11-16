@@ -761,17 +761,29 @@ void ModuleUI::DrawInspectorPanel()
 			{
 				if (isActive) selectedGameObject->Enable();
 				else selectedGameObject->Disable();
+				if (scene) scene->MarkSpacePartitioningDirty();
 			}
 			ImGui::SameLine();
 
 			char nameBuf[128] = "";
 			strncpy_s(nameBuf, sizeof(nameBuf), selectedGameObject->GetName().c_str(), _TRUNCATE);
-			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 68.0f);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 85.0f);
 			if (ImGui::InputText("##GOName", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
 			{
 				if (nameBuf[0] != '\0')
 				{
 					selectedGameObject->SetName(nameBuf);
+				}
+			}
+			ImGui::SameLine();
+
+			bool isStatic = selectedGameObject->IsStatic();
+			if (ImGui::Checkbox("Static", &isStatic))
+			{
+				selectedGameObject->SetStatic(isStatic, true);
+				if (scene)
+				{
+					scene->RebuildSpacePartitioning();
 				}
 			}
 
@@ -840,6 +852,7 @@ void ModuleUI::DrawInspectorPanel()
 				}
 				if (selectedGameObject->RemoveComponent(type))
 				{
+					if (scene) scene->MarkSpacePartitioningDirty();
 					LOG("[UI] Componente '%s' eliminado de '%s'", GetComponentTypeName(type), selectedGameObject->GetName().c_str());
 					return;
 				}
@@ -864,6 +877,7 @@ void ModuleUI::DrawInspectorPanel()
 				}
 				if (removedFromChildren)
 				{
+					if (scene) scene->MarkSpacePartitioningDirty();
 					LOG("[UI] Componente '%s' eliminado de las sub-partes de '%s'", GetComponentTypeName(type), selectedGameObject->GetName().c_str());
 				}
 			};
@@ -886,6 +900,7 @@ void ModuleUI::DrawInspectorPanel()
 				{
 					selectedGameObject->AddComponent(sourceComp->Clone(selectedGameObject));
 				}
+				if (scene) scene->MarkSpacePartitioningDirty();
 				LOG("[UI] Componente '%s' pegado en '%s'", GetComponentTypeName(cType), selectedGameObject->GetName().c_str());
 			};
 
@@ -916,6 +931,7 @@ void ModuleUI::DrawInspectorPanel()
 								if (compActive) m->Enable();
 								else m->Disable();
 							}
+							if (scene) scene->MarkSpacePartitioningDirty();
 						}
 						else if (compType == COMPONENT_MATERIAL)
 						{
@@ -1082,6 +1098,13 @@ void ModuleUI::DrawInspectorPanel()
 						TransformComponent* transform = selectedGameObject->GetComponent<TransformComponent>();
 						if (transform)
 						{
+							const bool isObjectStatic = selectedGameObject->IsStatic();
+							if (isObjectStatic)
+							{
+								ImGui::TextDisabled("Objeto Static: Transform bloqueado.");
+							}
+
+							ImGui::BeginDisabled(isObjectStatic);
 							if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit))
 							{
 								ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
@@ -1092,12 +1115,14 @@ void ModuleUI::DrawInspectorPanel()
 								if (DrawVec3Control("Position", pos, 0.1f))
 								{
 									transform->SetPosition(pos);
+									if (scene) scene->MarkSpacePartitioningDirty();
 								}
 
 								glm::vec3 rot = transform->GetRotation();
 								if (DrawVec3Control("Rotation", rot, 1.0f))
 								{
 									transform->SetRotation(rot);
+									if (scene) scene->MarkSpacePartitioningDirty();
 								}
 
 								////////////////////Scale
@@ -1142,6 +1167,7 @@ void ModuleUI::DrawInspectorPanel()
 									{
 										transform->SetScale(scl);
 									}
+									if (scene) scene->MarkSpacePartitioningDirty();
 								}
 								ImGui::PopItemWidth();
 
@@ -1153,7 +1179,9 @@ void ModuleUI::DrawInspectorPanel()
 								transform->SetPosition(glm::vec3(0.0f));
 								transform->SetRotation(glm::vec3(0.0f));
 								transform->SetScale(glm::vec3(1.0f));
+								if (scene) scene->MarkSpacePartitioningDirty();
 							}
+							ImGui::EndDisabled();
 						}
 					}
 					// =====================================================================
@@ -1204,6 +1232,12 @@ void ModuleUI::DrawInspectorPanel()
 							changed |= ImGui::Checkbox("Mostrar Normales por Vértice (Amarillo)", &vertexNormals);
 							changed |= ImGui::Checkbox("Mostrar Normales por Cara (Cian)", &faceNormals);
 							changed |= ImGui::Checkbox("Aplicar a todos los objetos de la escena", &rs.normalsAllObjects);
+
+							ImGui::Spacing();
+							ImGui::SeparatorText("Visualización de Volúmenes (Space Partitioning)");
+							changed |= ImGui::Checkbox("Dibujar AABB (Verde)", &rs.drawAABB);
+							changed |= ImGui::Checkbox("Dibujar Quadtree (Magenta)", &rs.drawQuadtree);
+							changed |= ImGui::Checkbox("Dibujar Octree (Cian)", &rs.drawOctree);
 
 							if (changed)
 							{
@@ -1351,6 +1385,7 @@ void ModuleUI::DrawInspectorPanel()
 						std::unique_ptr<Primitive> prim = GeometryGenerator::CreateCube();
 						auto mesh = std::make_unique<MeshComponent>(selectedGameObject, std::move(prim));
 						selectedGameObject->AddComponent(std::move(mesh));
+						if (scene) scene->MarkSpacePartitioningDirty();
 					}
 					break;
 				case ComponentType::COMPONENT_CAMERA:
@@ -1847,6 +1882,54 @@ void ModuleUI::DrawConfigurationPanel()
 				ImGui::SeparatorText("Grid & Origin Axis");
 				settingsChanged |= ImGui::Checkbox("Mostrar Rejilla (Plano XZ)", &rs.showGrid);
 				settingsChanged |= ImGui::Checkbox("Mostrar Ejes Centrales (X: Rojo, Y: Verde, Z: Azul)", &rs.showAxis);
+
+				ImGui::Spacing();
+				ImGui::SeparatorText("Space Partitioning & Frustum Culling");
+				settingsChanged |= ImGui::Checkbox("Frustum Culling Activo", &rs.frustumCulling);
+				settingsChanged |= ImGui::Checkbox("Evaluar Culling desde Main Camera en Scene", &rs.cullFromGameCameraInScene);
+
+				static const char* partitionModes[] = {
+					"Desactivado (Solo AABB directo)",
+					"Quadtree (2D XZ)",
+					"Octree (3D XYZ)"
+				};
+				int currentPartitionMode = (int)rs.partitionMode;
+				if (ImGui::Combo("Estructura Activa", &currentPartitionMode, partitionModes, IM_ARRAYSIZE(partitionModes)))
+				{
+					rs.partitionMode = (SpacePartitionMode)currentPartitionMode;
+					settingsChanged = true;
+				}
+
+				Scene* scenePtr = Engine::GetInstance().scene.get();
+				if (scenePtr)
+				{
+					int maxObjs = scenePtr->GetTreeMaxObjects();
+					int maxDepth = scenePtr->GetTreeMaxDepth();
+					bool treeParamsChanged = false;
+					treeParamsChanged |= ImGui::SliderInt("Máx. Objetos por Nodo", &maxObjs, 1, 10);
+					treeParamsChanged |= ImGui::SliderInt("Profundidad Máxima", &maxDepth, 1, 8);
+					if (treeParamsChanged)
+					{
+						scenePtr->SetTreeParameters(maxObjs, maxDepth);
+					}
+				}
+
+				settingsChanged |= ImGui::Checkbox("Dibujar AABB (Verde)", &rs.drawAABB);
+				settingsChanged |= ImGui::Checkbox("Dibujar Quadtree (Magenta)", &rs.drawQuadtree);
+				settingsChanged |= ImGui::Checkbox("Dibujar Octree (Cian)", &rs.drawOctree);
+				settingsChanged |= ImGui::Checkbox("Dibujar Frustum Main Camera (Ámbar)", &rs.drawFrustum);
+
+				const CullingStats& cStats = rnd->GetCullingStats();
+				ImGui::BulletText("Mallas Activas: %d (Visibles: %d | Descartadas por Culling: %d)",
+					cStats.totalMeshObjects, cStats.visibleObjects, cStats.culledObjects);
+				if (scenePtr)
+				{
+					ImGui::BulletText("Objetos Static en Árbol: %zu | Nodos Quadtree: %zu | Nodos Octree: %zu (Visitados: %d)",
+						scenePtr->GetOctree().GetObjectCount(),
+						scenePtr->GetQuadtree().GetNodeCount(),
+						scenePtr->GetOctree().GetNodeCount(),
+						cStats.treeNodesVisited);
+				}
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Depuración de Normales");

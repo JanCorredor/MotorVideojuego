@@ -8,6 +8,15 @@
 #include <vector>
 
 class GameObject;
+class Scene;
+
+struct CullingStats
+{
+	int totalMeshObjects = 0;
+	int visibleObjects = 0;
+	int culledObjects = 0;
+	int treeNodesVisited = 0;
+};
 
 class Render : public Module
 {
@@ -72,8 +81,18 @@ public:
 	//Z Buffer
 	unsigned int GetDepthTexture() const { return linearDepthTexture; }
 
+	const CullingStats& GetCullingStats() const { return lastCullingStats; }
+
 private:
+	struct RenderItem
+	{
+		GameObject* go = nullptr;
+		glm::mat4 modelMatrix = glm::mat4(1.0f);
+		float distanceToCamera = 0.0f;
+	};
+
 	RenderSettings settings;
+	CullingStats lastCullingStats;
 	SDL_Color background;
 	bool viewportVisible = true;
 
@@ -163,8 +182,12 @@ private:
 	void RenderGame();
 	void BindDefaultFramebuffer();
 
+	void CollectVisibleRenderItems(Scene* scene, const glm::mat4& cullViewProj, const glm::vec3& cameraPos,
+		std::vector<RenderItem>& opaqueItems, std::vector<RenderItem>& transparentItems, CullingStats* outStats);
+
 	void DrawSingleGameObject(GameObject* go, const glm::mat4& parentMatrix);
 	void DrawDebug(const glm::mat4& view, const glm::mat4& projection);
+	void DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& projection);
 	void CollectNormals(GameObject* go, const glm::mat4& parentMatrix);
 	void AppendNormals(GameObject* go, const glm::mat4& worldMatrix);
 	void DrawSelectionOutline(GameObject* selected, const glm::mat4& view, const glm::mat4& projection);};
