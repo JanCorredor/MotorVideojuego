@@ -95,7 +95,7 @@ bool Engine::Awake() {
 
     //Iterates the module list and calls Awake on each module
     bool result = true;
-    for (const auto& module : moduleList) 
+    for (const std::shared_ptr<Module>& module : moduleList) 
     {
         LOG("[Engine] Inicializando módulo: %s (Awake)", module->name.c_str());
         result = module->Awake();
@@ -123,7 +123,7 @@ bool Engine::Start() {
 
     // Iterates the module list and calls Start on each module
     bool result = true;
-    for (const auto& module : moduleList) {
+    for (const std::shared_ptr<Module>& module : moduleList) {
         LOG("[Engine] Arrancando módulo: %s (Start)", module->name.c_str());
         result = module->Start();
         if (!result) {
@@ -176,7 +176,7 @@ bool Engine::CleanUp() {
 
     // Iterates the module list in reverse order and calls CleanUp on each module
     bool result = true;
-    for (auto it = moduleList.rbegin(); it != moduleList.rend(); ++it) {
+    for (std::list<std::shared_ptr<Module>>::reverse_iterator it = moduleList.rbegin(); it != moduleList.rend(); ++it) {
         LOG("[Engine] Limpiando módulo: %s (CleanUp)", (*it)->name.c_str());
         if (!(*it)->CleanUp()) {
             LOG_ERROR("[Engine] Falló la limpieza (CleanUp) del módulo: %s", (*it)->name.c_str());
@@ -282,7 +282,7 @@ bool Engine::PreUpdate()
 #endif
     //Iterates the module list and calls PreUpdate on each module
     bool result = true;
-    for (const auto& module : moduleList) {
+    for (const std::shared_ptr<Module>& module : moduleList) {
         result = module->PreUpdate();
         if (!result) {
             break;
@@ -300,7 +300,7 @@ bool Engine::DoUpdate()
 #endif
     //Iterates the module list and calls Update on each module
     bool result = true;
-    for (const auto& module : moduleList) {
+    for (const std::shared_ptr<Module>& module : moduleList) {
         result = module->Update(dt);
         if (!result) {
             break;
@@ -318,7 +318,7 @@ bool Engine::PostUpdate()
 #endif
     //Iterates the module list and calls PostUpdate on each module
     bool result = true;
-    for (const auto& module : moduleList) {
+    for (const std::shared_ptr<Module>& module : moduleList) {
         result = module->PostUpdate();
         if (!result) {
             break;

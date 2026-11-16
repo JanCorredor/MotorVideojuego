@@ -29,6 +29,7 @@
 
 #include <functional>
 #include <cfloat>
+#include <stack>
 
 #ifdef _DEBUG
 	#include <tracy/Tracy.hpp>
@@ -39,6 +40,24 @@ namespace
 	constexpr const char* REPO_URL_DOCS     = "https://github.com/JanCorredor/MotorVideojuego";
 	constexpr const char* REPO_URL_ISSUES   = "https://github.com/JanCorredor/MotorVideojuego/issues";
 	constexpr const char* REPO_URL_RELEASES = "https://github.com/JanCorredor/MotorVideojuego/releases";
+
+	struct ComponentDragPayload
+	{
+		GameObject* sourceObject = nullptr;
+		ComponentType type = COMPONENT_TRANSFORM;
+	};
+
+	const char* GetComponentTypeName(ComponentType type)
+	{
+		switch (type)
+		{
+		case COMPONENT_TRANSFORM: return "Transform";
+		case COMPONENT_MESH:      return "Mesh";
+		case COMPONENT_MATERIAL:  return "Texture & Material";
+		case COMPONENT_CAMERA:    return "Camera";
+		default:                  return "Component";
+		}
+	}
 
 	// Helper para alinear etiquetas y campos vec3 uniformemente en tablas
 	bool DrawVec3Control(const char* label, glm::vec3& values, float speed = 0.1f)
@@ -507,12 +526,52 @@ void ModuleUI::DrawHierarchyPanel()
 			GameObject* root = scene->GetRoot();
 			if (root)
 			{
-				const std::vector<GameObject*> rootChildren = root->GetChildren();
-				for (GameObject* child : rootChildren)
+				struct HierarchyStackItem
 				{
+					GameObject* node;
+					bool isTreePopMarker;
+				};
+
+				std::stack<HierarchyStackItem> stack;
+				const std::vector<GameObject*> rootChildren = root->GetChildren();
+				for (size_t i = rootChildren.size(); i > 0; --i)
+				{
+					GameObject* child = rootChildren[i - 1];
 					if (child && child->GetParent() == root)
 					{
-						DrawHierarchyNode(child, selected);
+						stack.push({ child, false });
+					}
+				}
+
+				while (!stack.empty())
+				{
+					HierarchyStackItem item = stack.top();
+					stack.pop();
+
+					if (item.isTreePopMarker)
+					{
+						ImGui::TreePop();
+						continue;
+					}
+
+					GameObject* node = item.node;
+					if (!node) continue;
+
+					const std::vector<GameObject*> children = node->GetChildren();
+					const bool hasChildren = !children.empty();
+
+					bool nodeOpen = DrawHierarchyNode(node, selected, hasChildren);
+					if (nodeOpen && hasChildren)
+					{
+						stack.push({ nullptr, true });
+						for (size_t i = children.size(); i > 0; --i)
+						{
+							GameObject* child = children[i - 1];
+							if (child && child->GetParent() == node)
+							{
+								stack.push({ child, false });
+							}
+						}
 					}
 				}
 			}
@@ -540,15 +599,13 @@ void ModuleUI::DrawHierarchyPanel()
 	ImGui::End();
 }
 
-void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
+bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool hasChildren)
 {
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
 
-	if (!node) return;
-
-	const bool hasChildren = !node->GetChildren().empty();
+	if (!node) return false;
 
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 	if (selected == node)
@@ -590,7 +647,7 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 		ImGui::EndDragDropSource();
 	}
 
-	// 3. Drag & Drop: Destino de soltado (reemparentar como hijo de 'node') //TODO: PASAR ESTO CON EL OTRO DROP
+	// 3. Drag & Drop: Destino de soltado (reemparentar como hijo de 'node' o copiar componente)
 	if (ImGui::BeginDragDropTarget())
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT"))
@@ -599,6 +656,19 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 			if (droppedNode && droppedNode != node)
 			{
 				droppedNode->SetParent(node);
+			}
+		}
+		if (const ImGuiPayload* compPayload = ImGui::AcceptDragDropPayload("INSPECTOR_COMPONENT"))
+		{
+			const ComponentDragPayload* data = static_cast<const ComponentDragPayload*>(compPayload->Data);
+			if (data && data->sourceObject)
+			{
+				const Component* srcComp = data->sourceObject->GetComponentByType(data->type);
+				if (srcComp)
+				{
+					node->AddComponent(srcComp->Clone(node));
+					LOG("[UI] Componente '%s' copiado a '%s'", GetComponentTypeName(data->type), node->GetName().c_str());
+				}
 			}
 		}
 		ImGui::EndDragDropTarget();
@@ -649,6 +719,12 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 			}
 		}
 
+		if (copiedComponent != nullptr && ImGui::MenuItem("Paste Component"))
+		{
+			node->AddComponent(copiedComponent->Clone(node));
+			LOG("[UI] Componente '%s' pegado en '%s'", GetComponentTypeName(copiedComponent->GetType()), node->GetName().c_str());
+		}
+
 		ImGui::Separator();
 
 		if (ImGui::MenuItem("Delete", "Supr"))
@@ -662,18 +738,7 @@ void ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected)
 		ImGui::EndPopup();
 	}
 
-	if (nodeOpen && hasChildren)
-	{
-		const std::vector<GameObject*> children = node->GetChildren();
-		for (GameObject* child : children)
-		{
-			if (child && child->GetParent() == node)
-			{
-				DrawHierarchyNode(child, selected);
-			}
-		}
-		ImGui::TreePop();
-	}
+	return nodeOpen;
 }
 
 void ModuleUI::DrawInspectorPanel()
@@ -712,251 +777,524 @@ void ModuleUI::DrawInspectorPanel()
 
 			ImGui::Separator();
 
-			// =====================================================================
-			// 1. TRANSFORM COMPONENT
-			// =====================================================================
-			TransformComponent* transform = selectedGameObject->GetComponent<TransformComponent>();
-			if (transform && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit))
-				{
-					ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
-					ImGui::TableSetupColumn("FixAllValue", ImGuiTableColumnFlags_WidthFixed, 25.0f);
-					ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-
-					glm::vec3 pos = transform->GetPosition();
-					if (DrawVec3Control("Position", pos, 0.1f))
-					{
-						transform->SetPosition(pos);
-					}
-
-					glm::vec3 rot = transform->GetRotation();
-					if (DrawVec3Control("Rotation", rot, 1.0f))
-					{
-						transform->SetRotation(rot);
-					}
-
-					////////////////////Scale
-					glm::vec3 scl = transform->GetScale();
-					glm::vec3 ogscl = transform->GetScale();
-
-					ImGui::TableNextRow();
-					ImGui::TableSetColumnIndex(0);
-					ImGui::AlignTextToFramePadding();
-					ImGui::TextUnformatted("Scale");
-
-					ImGui::TableSetColumnIndex(1);
-	
-					static bool ScaleFixed = false;
-
-					if (ImGui::Button("&", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
-					{
-						ScaleFixed = !ScaleFixed;
-					}
-
-					ImGui::TableSetColumnIndex(2);
-
-					ImGui::PushItemWidth(-1.0f);
-					if (ImGui::DragFloat3("", glm::value_ptr(scl), 0.01f))
-					{
-						if (ScaleFixed)
-						{
-							if (scl.x != ogscl.x)
-							{
-								transform->SetScale(glm::vec3(scl.x, scl.x, scl.x));
-							}
-							else if (scl.y != ogscl.y)
-							{
-								transform->SetScale(glm::vec3(scl.y, scl.y, scl.y));
-							}
-							else
-							{
-								transform->SetScale(glm::vec3(scl.z, scl.z, scl.z));
-							}
-						}
-						else
-						{
-							transform->SetScale(scl);
-						}
-					}
-					ImGui::PopItemWidth();
-
-					ImGui::EndTable();
-				}
-					//////////////////////////
-
-				if (ImGui::Button("Reset Transform", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
-				{
-					transform->SetPosition(glm::vec3(0.0f));
-					transform->SetRotation(glm::vec3(0.0f));
-					transform->SetScale(glm::vec3(1.0f));
-				}
-			}
-
-			// =====================================================================
-			// 2. MESH COMPONENT
-			// =====================================================================
+			// Recolectar Meshes y Materials del subárbol usando std::stack (sin recursión)
 			std::vector<MeshComponent*> meshesToInspect;
-			std::function<void(GameObject*)> collectMeshes = [&](GameObject* node)
+			std::vector<MaterialComponent*> materialsToInspect;
+			{
+				std::stack<GameObject*> stack;
+				stack.push(selectedGameObject);
+				while (!stack.empty())
 				{
-					if (!node) return;
+					GameObject* node = stack.top();
+					stack.pop();
+					if (!node) continue;
+
 					if (MeshComponent* m = node->GetComponent<MeshComponent>())
 					{
 						if (m->GetPrimitive()) meshesToInspect.push_back(m);
 					}
-					for (GameObject* child : node->GetChildren())
+					if (MaterialComponent* mat = node->GetComponent<MaterialComponent>())
 					{
-						collectMeshes(child);
+						materialsToInspect.push_back(mat);
 					}
-				};
-			collectMeshes(selectedGameObject);
 
-			if (!meshesToInspect.empty() && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				size_t totalVertices = 0;
-				size_t totalTriangles = 0;
-				size_t totalIndices = 0;
-				glm::vec3 bMin(FLT_MAX);
-				glm::vec3 bMax(-FLT_MAX);
-
-				for (MeshComponent* m : meshesToInspect)
-				{
-					const Primitive* prim = m->GetPrimitive();
-					if (prim)
+					const std::vector<GameObject*>& children = node->GetChildren();
+					for (size_t i = children.size(); i > 0; --i)
 					{
-						totalVertices += prim->GetVertexCount();
-						totalTriangles += prim->GetTriangleCount();
-						totalIndices += prim->GetIndices().size();
-						bMin = glm::min(bMin, prim->GetBoundsMin());
-						bMax = glm::max(bMax, prim->GetBoundsMax());
-					}
-				}
-
-				if (meshesToInspect.size() > 1)
-				{
-					ImGui::BulletText("Sub-mallas (Partes): %zu", meshesToInspect.size());
-				}
-				ImGui::BulletText("Vértices: %zu", totalVertices);
-				ImGui::BulletText("Triángulos (Caras): %zu", totalTriangles);
-				ImGui::BulletText("Índices: %zu", totalIndices);
-				ImGui::BulletText("AABB Min: (%.2f, %.2f, %.2f)", bMin.x, bMin.y, bMin.z);
-				ImGui::BulletText("AABB Max: (%.2f, %.2f, %.2f)", bMax.x, bMax.y, bMax.z);
-
-				ImGui::Spacing();
-				ImGui::SeparatorText("Visualización de Normales");
-
-				Render* render = Engine::GetInstance().render.get();
-				if (render)
-				{
-					RenderSettings rs = render->GetSettings();
-					bool vertexNormals = (rs.normals == NormalsMode::Vertex || rs.normals == NormalsMode::Both);
-					bool faceNormals = (rs.normals == NormalsMode::Face || rs.normals == NormalsMode::Both);
-
-					bool changed = false;
-					changed |= ImGui::Checkbox("Mostrar Normales por Vértice (Amarillo)", &vertexNormals);
-					changed |= ImGui::Checkbox("Mostrar Normales por Cara (Cian)", &faceNormals);
-					changed |= ImGui::Checkbox("Aplicar a todos los objetos de la escena", &rs.normalsAllObjects);
-
-					if (changed)
-					{
-						if (vertexNormals && faceNormals) rs.normals = NormalsMode::Both;
-						else if (vertexNormals) rs.normals = NormalsMode::Vertex;
-						else if (faceNormals) rs.normals = NormalsMode::Face;
-						else rs.normals = NormalsMode::None;
-
-						render->SetSettings(rs);
+						stack.push(children[i - 1]);
 					}
 				}
 			}
 
-			// =====================================================================
-			// 3. MATERIAL / TEXTURE COMPONENT
-			// =====================================================================
-			std::vector<MaterialComponent*> materialsToInspect;
-			std::function<void(GameObject*)> collectMaterials = [&](GameObject* node)
-				{
-					if (!node) return;
-					if (MaterialComponent* m = node->GetComponent<MaterialComponent>())
-					{
-						materialsToInspect.push_back(m);
-					}
-					for (GameObject* child : node->GetChildren())
-					{
-						collectMaterials(child);
-					}
-				};
-			collectMaterials(selectedGameObject);
-
-			if (!materialsToInspect.empty() && ImGui::CollapsingHeader("Texture & Material", ImGuiTreeNodeFlags_DefaultOpen))
+			// Construir lista ordenada de componentes visibles según el orden del GameObject
+			std::vector<ComponentType> visibleComponents;
+			const std::array<ComponentType, COMPONENT_COUNT>& order = selectedGameObject->GetComponentOrder();
+			for (ComponentType type : order)
 			{
-				MaterialComponent* primaryMat = materialsToInspect[0];
+				bool present = (selectedGameObject->GetComponentByType(type) != nullptr);
+				if (!present && type == COMPONENT_MESH && !meshesToInspect.empty()) present = true;
+				if (!present && type == COMPONENT_MATERIAL && !materialsToInspect.empty()) present = true;
+				if (present)
+				{
+					visibleComponents.push_back(type);
+				}
+			}
 
-				glm::vec4 color = primaryMat->GetColor();
-				if (ImGui::ColorEdit4("Color Base (Alpha)", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
+			auto resolveTargetComponent = [&](ComponentType type) -> Component*
+			{
+				if (Component* direct = selectedGameObject->GetComponentByType(type))
+				{
+					return direct;
+				}
+				if (type == COMPONENT_MESH && !meshesToInspect.empty()) return meshesToInspect[0];
+				if (type == COMPONENT_MATERIAL && !materialsToInspect.empty()) return materialsToInspect[0];
+				return nullptr;
+			};
+
+			auto removeComponentFromSelected = [&](ComponentType type)
+			{
+				if (type == COMPONENT_TRANSFORM)
+				{
+					LOG_WARNING("[UI] No se puede eliminar TransformComponent.");
+					return;
+				}
+				if (selectedGameObject->RemoveComponent(type))
+				{
+					LOG("[UI] Componente '%s' eliminado de '%s'", GetComponentTypeName(type), selectedGameObject->GetName().c_str());
+					return;
+				}
+				// Si es un objeto contenedor padre cuyas partes hijas poseen el componente, eliminarlo de los hijos con un stack
+				bool removedFromChildren = false;
+				std::stack<GameObject*> stack;
+				stack.push(selectedGameObject);
+				while (!stack.empty())
+				{
+					GameObject* node = stack.top();
+					stack.pop();
+					if (!node) continue;
+					if (node->RemoveComponent(type))
+					{
+						removedFromChildren = true;
+					}
+					const std::vector<GameObject*>& children = node->GetChildren();
+					for (size_t i = children.size(); i > 0; --i)
+					{
+						stack.push(children[i - 1]);
+					}
+				}
+				if (removedFromChildren)
+				{
+					LOG("[UI] Componente '%s' eliminado de las sub-partes de '%s'", GetComponentTypeName(type), selectedGameObject->GetName().c_str());
+				}
+			};
+
+			auto pasteComponentToSelected = [&](const Component* sourceComp)
+			{
+				if (!sourceComp) return;
+				ComponentType cType = sourceComp->GetType();
+				if (cType == COMPONENT_MATERIAL && selectedGameObject->GetComponent<MaterialComponent>() == nullptr && !materialsToInspect.empty())
 				{
 					for (MaterialComponent* m : materialsToInspect)
 					{
-						m->SetColor(color);
+						if (GameObject* ownerNode = m->GetOwner())
+						{
+							ownerNode->AddComponent(sourceComp->Clone(ownerNode));
+						}
 					}
-				}
-
-				ImGui::Spacing();
-				bool usingTexture = primaryMat->GetUseTexture();
-				if (ImGui::Checkbox("Usar Textura Difusa", &usingTexture))
-				{
-					for (MaterialComponent* m : materialsToInspect)
-					{
-						m->SetUseTexture(usingTexture);
-					}
-				}
-
-				bool usingChecker = primaryMat->GetUseCheckerboard();
-				if (ImGui::Checkbox("Textura Checkerboard (Blanco/Negro)", &usingChecker))
-				{
-					for (MaterialComponent* m : materialsToInspect)
-					{
-						m->SetUseCheckerboard(usingChecker);
-					}
-				}
-
-				ImGui::Spacing();
-				ImGui::SeparatorText("Datos de Textura");
-				const TextureInfo* texInfo = primaryMat->GetTexture();
-				if (texInfo)
-				{
-					ImGui::BulletText("Path: %s", texInfo->path.c_str());
-					ImGui::BulletText("Tamaño: %d x %d px", texInfo->width, texInfo->height);
-					ImGui::BulletText("OpenGL Texture ID: %u", texInfo->id);
 				}
 				else
 				{
-					ImGui::TextDisabled("Sin textura difusa asignada (arrastra un PNG/JPG/DDS a la ventana).");
+					selectedGameObject->AddComponent(sourceComp->Clone(selectedGameObject));
 				}
+				LOG("[UI] Componente '%s' pegado en '%s'", GetComponentTypeName(cType), selectedGameObject->GetName().c_str());
+			};
 
-				unsigned int activeId = primaryMat->GetActiveTextureID();
-				if (activeId != 0)
-				{
-					ImGui::Spacing();
-					ImGui::TextDisabled("Vista previa activa:");
-					ImGui::Image((ImTextureID)(intptr_t)activeId, ImVec2(64, 64));
-				}
-			}
+			bool orderChangedOrRemoved = false;
 
-			// =====================================================================
-			// 4. CAMERA COMPONENT (si el GameObject seleccionado es una cámara)
-			// =====================================================================
-			CameraComponent* cam = selectedGameObject->GetComponent<CameraComponent>();
-			if (cam && ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+			for (size_t compIdx = 0; compIdx < visibleComponents.size(); ++compIdx)
 			{
-				ImGui::SliderFloat("FOV (Grados)", &cam->fov, 10.0f, 120.0f, "%.1f");
-				ImGui::DragFloat("Near Plane", &cam->nearPlane, 0.01f, 0.01f, 10.0f, "%.2f");
-				ImGui::DragFloat("Far Plane", &cam->farPlane, 1.0f, 10.0f, 1000.0f, "%.1f");
+				if (orderChangedOrRemoved) break;
 
-				float speed = cam->GetMovementSpeed();
-				if (ImGui::SliderFloat("Velocidad", &speed, 0.5f, 30.0f, "%.1f"))
+				ComponentType compType = visibleComponents[compIdx];
+				Component* targetComp = resolveTargetComponent(compType);
+
+				ImGui::PushID((int)compType);
+
+				// Checkbox de activación para componentes que no sean Transform
+				if (targetComp && compType != COMPONENT_TRANSFORM)
 				{
-					cam->SetMovementSpeed(speed);
+					bool compActive = targetComp->IsActive();
+					if (ImGui::Checkbox("##CompActive", &compActive))
+					{
+						if (compActive) targetComp->Enable();
+						else targetComp->Disable();
+
+						if (compType == COMPONENT_MESH)
+						{
+							for (MeshComponent* m : meshesToInspect)
+							{
+								if (compActive) m->Enable();
+								else m->Disable();
+							}
+						}
+						else if (compType == COMPONENT_MATERIAL)
+						{
+							for (MaterialComponent* m : materialsToInspect)
+							{
+								if (compActive) m->Enable();
+								else m->Disable();
+							}
+						}
+					}
+					ImGui::SameLine();
 				}
+
+				bool headerOpen = ImGui::CollapsingHeader(
+					GetComponentTypeName(compType),
+					ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap
+				);
+
+				// Drag & Drop Source en la cabecera del componente (para mover de orden o arrastrar a otro GameObject)
+				if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+				{
+					ComponentDragPayload payload{ selectedGameObject, compType };
+					ImGui::SetDragDropPayload("INSPECTOR_COMPONENT", &payload, sizeof(ComponentDragPayload));
+					ImGui::Text("Mover / Copiar '%s'", GetComponentTypeName(compType));
+					ImGui::EndDragDropSource();
+				}
+
+				// Drag & Drop Target en la cabecera del componente (reordenar soltando encima de otro componente)
+				if (ImGui::BeginDragDropTarget())
+				{
+					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("INSPECTOR_COMPONENT"))
+					{
+						const ComponentDragPayload* data = static_cast<const ComponentDragPayload*>(payload->Data);
+						if (data)
+						{
+							if (data->sourceObject == selectedGameObject && data->type != compType)
+							{
+								selectedGameObject->SwapComponentOrder(data->type, compType);
+								orderChangedOrRemoved = true;
+							}
+							else if (data->sourceObject && data->sourceObject != selectedGameObject)
+							{
+								if (const Component* foreignComp = data->sourceObject->GetComponentByType(data->type))
+								{
+									pasteComponentToSelected(foreignComp);
+									orderChangedOrRemoved = true;
+								}
+							}
+						}
+					}
+					ImGui::EndDragDropTarget();
+				}
+
+				// Menú contextual al hacer clic derecho sobre la cabecera del componente
+				if (ImGui::BeginPopupContextItem("ComponentHeaderContextMenu"))
+				{
+					if (ImGui::MenuItem("Move Up", nullptr, false, compIdx > 0))
+					{
+						selectedGameObject->SwapComponentOrder(compType, visibleComponents[compIdx - 1]);
+						orderChangedOrRemoved = true;
+					}
+					if (ImGui::MenuItem("Move Down", nullptr, false, compIdx + 1 < visibleComponents.size()))
+					{
+						selectedGameObject->SwapComponentOrder(compType, visibleComponents[compIdx + 1]);
+						orderChangedOrRemoved = true;
+					}
+					ImGui::Separator();
+					if (ImGui::MenuItem("Copy Component", nullptr, false, targetComp != nullptr))
+					{
+						copiedComponent = targetComp->Clone(nullptr);
+						LOG("[UI] Componente '%s' copiado al portapapeles", GetComponentTypeName(compType));
+					}
+					if (ImGui::MenuItem("Paste Component", nullptr, false, copiedComponent != nullptr))
+					{
+						pasteComponentToSelected(copiedComponent.get());
+						orderChangedOrRemoved = true;
+					}
+					ImGui::Separator();
+					if (ImGui::MenuItem("Remove Component", nullptr, false, compType != COMPONENT_TRANSFORM))
+					{
+						removeComponentFromSelected(compType);
+						orderChangedOrRemoved = true;
+					}
+					ImGui::EndPopup();
+				}
+
+				// Botones rápidos alineados a la derecha en la cabecera: [^] [v] [C] [P] [X]
+				const bool canRemove = (compType != COMPONENT_TRANSFORM);
+				const bool canPasteHere = (copiedComponent != nullptr && copiedComponent->GetType() == compType);
+				float buttonsWidth = 72.0f + (canPasteHere ? 22.0f : 0.0f) + (canRemove ? 22.0f : 0.0f);
+				float availWidth = ImGui::GetWindowContentRegionMax().x;
+				ImGui::SameLine( std::max(140.0f, availWidth - buttonsWidth) );
+
+				ImGui::BeginDisabled(compIdx == 0);
+				if (ImGui::SmallButton("^"))
+				{
+					selectedGameObject->SwapComponentOrder(compType, visibleComponents[compIdx - 1]);
+					orderChangedOrRemoved = true;
+				}
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Mover arriba");
+				ImGui::EndDisabled();
+
+				ImGui::SameLine(0.0f, 2.0f);
+				ImGui::BeginDisabled(compIdx + 1 >= visibleComponents.size());
+				if (ImGui::SmallButton("v"))
+				{
+					selectedGameObject->SwapComponentOrder(compType, visibleComponents[compIdx + 1]);
+					orderChangedOrRemoved = true;
+				}
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Mover abajo");
+				ImGui::EndDisabled();
+
+				ImGui::SameLine(0.0f, 2.0f);
+				ImGui::BeginDisabled(targetComp == nullptr);
+				if (ImGui::SmallButton("C"))
+				{
+					if (targetComp)
+					{
+						copiedComponent = targetComp->Clone(nullptr);
+						LOG("[UI] Componente '%s' copiado al portapapeles", GetComponentTypeName(compType));
+					}
+				}
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Copiar componente");
+				ImGui::EndDisabled();
+
+				if (canPasteHere)
+				{
+					ImGui::SameLine(0.0f, 2.0f);
+					if (ImGui::SmallButton("P"))
+					{
+						pasteComponentToSelected(copiedComponent.get());
+						orderChangedOrRemoved = true;
+					}
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("Pegar valores del componente");
+				}
+
+				if (canRemove)
+				{
+					ImGui::SameLine(0.0f, 2.0f);
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.18f, 0.18f, 1.0f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.25f, 0.25f, 1.0f));
+					if (ImGui::SmallButton("X"))
+					{
+						removeComponentFromSelected(compType);
+						orderChangedOrRemoved = true;
+					}
+					ImGui::PopStyleColor(2);
+					if (ImGui::IsItemHovered()) ImGui::SetTooltip("Eliminar componente");
+				}
+
+				if (orderChangedOrRemoved)
+				{
+					ImGui::PopID();
+					break;
+				}
+
+				if (headerOpen)
+				{
+					// =====================================================================
+					// 1. TRANSFORM COMPONENT
+					// =====================================================================
+					if (compType == COMPONENT_TRANSFORM)
+					{
+						TransformComponent* transform = selectedGameObject->GetComponent<TransformComponent>();
+						if (transform)
+						{
+							if (ImGui::BeginTable("TransformTable", 3, ImGuiTableFlags_SizingFixedFit))
+							{
+								ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 75.0f);
+								ImGui::TableSetupColumn("FixAllValue", ImGuiTableColumnFlags_WidthFixed, 25.0f);
+								ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+								glm::vec3 pos = transform->GetPosition();
+								if (DrawVec3Control("Position", pos, 0.1f))
+								{
+									transform->SetPosition(pos);
+								}
+
+								glm::vec3 rot = transform->GetRotation();
+								if (DrawVec3Control("Rotation", rot, 1.0f))
+								{
+									transform->SetRotation(rot);
+								}
+
+								////////////////////Scale
+								glm::vec3 scl = transform->GetScale();
+								glm::vec3 ogscl = transform->GetScale();
+
+								ImGui::TableNextRow();
+								ImGui::TableSetColumnIndex(0);
+								ImGui::AlignTextToFramePadding();
+								ImGui::TextUnformatted("Scale");
+
+								ImGui::TableSetColumnIndex(1);
+
+								static bool ScaleFixed = false;
+
+								if (ImGui::Button("&", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
+								{
+									ScaleFixed = !ScaleFixed;
+								}
+
+								ImGui::TableSetColumnIndex(2);
+
+								ImGui::PushItemWidth(-1.0f);
+								if (ImGui::DragFloat3("", glm::value_ptr(scl), 0.01f))
+								{
+									if (ScaleFixed)
+									{
+										if (scl.x != ogscl.x)
+										{
+											transform->SetScale(glm::vec3(scl.x, scl.x, scl.x));
+										}
+										else if (scl.y != ogscl.y)
+										{
+											transform->SetScale(glm::vec3(scl.y, scl.y, scl.y));
+										}
+										else
+										{
+											transform->SetScale(glm::vec3(scl.z, scl.z, scl.z));
+										}
+									}
+									else
+									{
+										transform->SetScale(scl);
+									}
+								}
+								ImGui::PopItemWidth();
+
+								ImGui::EndTable();
+							}
+
+							if (ImGui::Button("Reset Transform", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
+							{
+								transform->SetPosition(glm::vec3(0.0f));
+								transform->SetRotation(glm::vec3(0.0f));
+								transform->SetScale(glm::vec3(1.0f));
+							}
+						}
+					}
+					// =====================================================================
+					// 2. MESH COMPONENT
+					// =====================================================================
+					else if (compType == COMPONENT_MESH && !meshesToInspect.empty())
+					{
+						size_t totalVertices = 0;
+						size_t totalTriangles = 0;
+						size_t totalIndices = 0;
+						glm::vec3 bMin(FLT_MAX);
+						glm::vec3 bMax(-FLT_MAX);
+
+						for (MeshComponent* m : meshesToInspect)
+						{
+							const Primitive* prim = m->GetPrimitive();
+							if (prim)
+							{
+								totalVertices += prim->GetVertexCount();
+								totalTriangles += prim->GetTriangleCount();
+								totalIndices += prim->GetIndices().size();
+								bMin = glm::min(bMin, prim->GetBoundsMin());
+								bMax = glm::max(bMax, prim->GetBoundsMax());
+							}
+						}
+
+						if (meshesToInspect.size() > 1)
+						{
+							ImGui::BulletText("Sub-mallas (Partes): %zu", meshesToInspect.size());
+						}
+						ImGui::BulletText("Vértices: %zu", totalVertices);
+						ImGui::BulletText("Triángulos (Caras): %zu", totalTriangles);
+						ImGui::BulletText("Índices: %zu", totalIndices);
+						ImGui::BulletText("AABB Min: (%.2f, %.2f, %.2f)", bMin.x, bMin.y, bMin.z);
+						ImGui::BulletText("AABB Max: (%.2f, %.2f, %.2f)", bMax.x, bMax.y, bMax.z);
+
+						ImGui::Spacing();
+						ImGui::SeparatorText("Visualización de Normales");
+
+						Render* render = Engine::GetInstance().render.get();
+						if (render)
+						{
+							RenderSettings rs = render->GetSettings();
+							bool vertexNormals = (rs.normals == NormalsMode::Vertex || rs.normals == NormalsMode::Both);
+							bool faceNormals = (rs.normals == NormalsMode::Face || rs.normals == NormalsMode::Both);
+
+							bool changed = false;
+							changed |= ImGui::Checkbox("Mostrar Normales por Vértice (Amarillo)", &vertexNormals);
+							changed |= ImGui::Checkbox("Mostrar Normales por Cara (Cian)", &faceNormals);
+							changed |= ImGui::Checkbox("Aplicar a todos los objetos de la escena", &rs.normalsAllObjects);
+
+							if (changed)
+							{
+								if (vertexNormals && faceNormals) rs.normals = NormalsMode::Both;
+								else if (vertexNormals) rs.normals = NormalsMode::Vertex;
+								else if (faceNormals) rs.normals = NormalsMode::Face;
+								else rs.normals = NormalsMode::None;
+
+								render->SetSettings(rs);
+							}
+						}
+					}
+					// =====================================================================
+					// 3. MATERIAL / TEXTURE COMPONENT
+					// =====================================================================
+					else if (compType == COMPONENT_MATERIAL && !materialsToInspect.empty())
+					{
+						MaterialComponent* primaryMat = materialsToInspect[0];
+
+						glm::vec4 color = primaryMat->GetColor();
+						if (ImGui::ColorEdit4("Color Base (Alpha)", glm::value_ptr(color), ImGuiColorEditFlags_PickerHueWheel))
+						{
+							for (MaterialComponent* m : materialsToInspect)
+							{
+								m->SetColor(color);
+							}
+						}
+
+						ImGui::Spacing();
+						bool usingTexture = primaryMat->GetUseTexture();
+						if (ImGui::Checkbox("Usar Textura Difusa", &usingTexture))
+						{
+							for (MaterialComponent* m : materialsToInspect)
+							{
+								m->SetUseTexture(usingTexture);
+							}
+						}
+
+						bool usingChecker = primaryMat->GetUseCheckerboard();
+						if (ImGui::Checkbox("Textura Checkerboard (Blanco/Negro)", &usingChecker))
+						{
+							for (MaterialComponent* m : materialsToInspect)
+							{
+								m->SetUseCheckerboard(usingChecker);
+							}
+						}
+
+						ImGui::Spacing();
+						ImGui::SeparatorText("Datos de Textura");
+						const TextureInfo* texInfo = primaryMat->GetTexture();
+						if (texInfo)
+						{
+							ImGui::BulletText("Path: %s", texInfo->path.c_str());
+							ImGui::BulletText("Tamaño: %d x %d px", texInfo->width, texInfo->height);
+							ImGui::BulletText("OpenGL Texture ID: %u", texInfo->id);
+						}
+						else
+						{
+							ImGui::TextDisabled("Sin textura difusa asignada (arrastra un PNG/JPG/DDS a la ventana).");
+						}
+
+						unsigned int activeId = primaryMat->GetActiveTextureID();
+						if (activeId != 0)
+						{
+							ImGui::Spacing();
+							ImGui::TextDisabled("Vista previa activa:");
+							ImGui::Image((ImTextureID)(intptr_t)activeId, ImVec2(64, 64));
+						}
+					}
+					// =====================================================================
+					// 4. CAMERA COMPONENT
+					// =====================================================================
+					else if (compType == COMPONENT_CAMERA)
+					{
+						CameraComponent* cam = selectedGameObject->GetComponent<CameraComponent>();
+						if (cam)
+						{
+							ImGui::SliderFloat("FOV (Grados)", &cam->fov, 10.0f, 120.0f, "%.1f");
+							ImGui::DragFloat("Near Plane", &cam->nearPlane, 0.01f, 0.01f, 10.0f, "%.2f");
+							ImGui::DragFloat("Far Plane", &cam->farPlane, 1.0f, 10.0f, 1000.0f, "%.1f");
+
+							float speed = cam->GetMovementSpeed();
+							if (ImGui::SliderFloat("Velocidad", &speed, 0.5f, 30.0f, "%.1f"))
+							{
+								cam->SetMovementSpeed(speed);
+							}
+						}
+					}
+				}
+
+				ImGui::PopID();
 			}
 
 			ImGui::Separator();
@@ -984,17 +1322,16 @@ void ModuleUI::DrawInspectorPanel()
 				ImGui::EndCombo();
 			}
 			
-			if (ImGui::Button("Add Component", ImVec2(ImGui::GetItemRectSize().x, 0.0f))) //TODO Turn into function
+			if (ImGui::Button("Add Component", ImVec2(ImGui::GetItemRectSize().x, 0.0f)))
 			{
-				//If comopnent already has this comopnent, throw warning window
-				const ComponentType selectedType = ComponentType(selected_component_idx +1);
+				const ComponentType selectedType = ComponentType(selected_component_idx + 1);
 
 				switch (selectedType)
 				{
 				case ComponentType::COMPONENT_MATERIAL:
 					if (selectedGameObject->GetComponent<MaterialComponent>() != nullptr)
 					{
-						LOG_WARNING("This GameObject does already have this component"); //TODO, MAKE WINDOW
+						LOG_WARNING("This GameObject does already have this component");
 					}
 					else
 					{
@@ -1007,30 +1344,38 @@ void ModuleUI::DrawInspectorPanel()
 				case ComponentType::COMPONENT_MESH:
 					if (selectedGameObject->GetComponent<MeshComponent>() != nullptr)
 					{
-						LOG_WARNING("This GameObject does already have this component"); //TODO, MAKE WINDOW
+						LOG_WARNING("This GameObject does already have this component");
 					}
 					else
 					{
 						std::unique_ptr<Primitive> prim = GeometryGenerator::CreateCube();
 						auto mesh = std::make_unique<MeshComponent>(selectedGameObject, std::move(prim));
-						
 						selectedGameObject->AddComponent(std::move(mesh));
 					}
-
 					break;
 				case ComponentType::COMPONENT_CAMERA:
-					if (selectedGameObject->GetComponent<MeshComponent>() != nullptr)
+					if (selectedGameObject->GetComponent<CameraComponent>() != nullptr)
 					{
-						LOG_WARNING("This GameObject does already have this component"); //TODO, MAKE WINDOW
+						LOG_WARNING("This GameObject does already have this component");
 					}
 					else
 					{
-						auto gameCamTrans = std::make_unique<CameraComponent>(selectedGameObject);
-						selectedGameObject->AddComponent(std::move(gameCamTrans));
+						auto gameCamComp = std::make_unique<CameraComponent>(selectedGameObject);
+						selectedGameObject->AddComponent(std::move(gameCamComp));
 					}
 					break;
+				default:
+					break;
 				}
-				
+			}
+
+			if (copiedComponent != nullptr)
+			{
+				std::string pasteBtnLabel = std::string("Paste Component (") + GetComponentTypeName(copiedComponent->GetType()) + ")";
+				if (ImGui::Button(pasteBtnLabel.c_str(), ImVec2(-1.0f, 0.0f)))
+				{
+					pasteComponentToSelected(copiedComponent.get());
+				}
 			}
 		}
 		else
@@ -1054,6 +1399,7 @@ bool ModuleUI::PostUpdate()
 bool ModuleUI::CleanUp()
 {
 	LOG("[ImGui] Apagando Dear ImGui y liberando recursos...");
+	copiedComponent.reset();
 	consoleViewCache.clear();
 	consoleViewCache.shrink_to_fit();
 

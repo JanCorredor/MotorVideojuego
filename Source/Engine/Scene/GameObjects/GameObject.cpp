@@ -6,6 +6,7 @@
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
+#include <stack>
 
 #ifdef _DEBUG
 #include <tracy/Tracy.hpp>
@@ -16,15 +17,16 @@ GameObject::GameObject(const std::string& name, GameUUID id) : uuid(id), name(na
 }
 
 GameObject::GameObject(const GameObject& other)
-    : uuid(GameUUID()), name(other.name), active(other.active), parent(nullptr)
+    : uuid(GameUUID()), name(other.name), active(other.active), componentOrder(other.componentOrder), parent(nullptr)
 {
-    for (const auto& comp : other.components)
+    for (const std::unique_ptr<Component>& comp : other.components)
     {
         if (comp)
         {
             AddComponent(comp->Clone(this));
         }
     }
+    componentOrder = other.componentOrder;
 }
 
 GameObject::~GameObject()
@@ -37,6 +39,7 @@ GameObject& GameObject::operator=(const GameObject& other)
 
     name = other.name;
     active = other.active;
+    componentOrder = other.componentOrder;
     for (size_t i = 0; i < COMPONENT_COUNT; ++i)
     {
         if (other.components[i])
@@ -69,20 +72,33 @@ void GameObject::Update(float dt)
 
     if (!active) return;
 
-    // Iterar directamente sobre el array fijo (cero indirectación dinámicas)
-    for (auto& comp : components)
-    {
-        if (comp && comp->IsActive())
-        {
-            comp->Update(dt);
-        }
-    }
+    std::stack<GameObject*> stack;
+    stack.push(this);
 
-    for (auto child : children)
+    while (!stack.empty())
     {
-        if (child->IsActive())
+        GameObject* current = stack.top();
+        stack.pop();
+
+        if (!current || !current->IsActive()) continue;
+
+        for (ComponentType type : current->componentOrder)
         {
-            child->Update(dt);
+            std::unique_ptr<Component>& comp = current->components[type];
+            if (comp && comp->IsActive())
+            {
+                comp->Update(dt);
+            }
+        }
+
+        const std::vector<GameObject*>& currentChildren = current->GetChildren();
+        for (size_t i = currentChildren.size(); i > 0; --i)
+        {
+            GameObject* child = currentChildren[i - 1];
+            if (child && child->IsActive())
+            {
+                stack.push(child);
+            }
         }
     }
 }
@@ -91,9 +107,121 @@ void GameObject::AddComponent(std::unique_ptr<Component> component)
 {
     if (!component) return;
 
-    // Asignar directamente en el índice del enum correspondiente
     ComponentType type = component->GetType();
+    if (type < 0 || type >= COMPONENT_COUNT) return;
+
+    if (type == COMPONENT_TRANSFORM && components[COMPONENT_TRANSFORM] != nullptr)
+    {
+        TransformComponent* existingTrans = static_cast<TransformComponent*>(components[COMPONENT_TRANSFORM].get());
+        TransformComponent* incomingTrans = static_cast<TransformComponent*>(component.get());
+        existingTrans->SetPosition(incomingTrans->GetPosition());
+        existingTrans->SetRotation(incomingTrans->GetRotation());
+        existingTrans->SetScale(incomingTrans->GetScale());
+        if (incomingTrans->IsActive()) existingTrans->Enable();
+        else existingTrans->Disable();
+        return;
+    }
+
     components[type] = std::move(component);
+}
+
+bool GameObject::RemoveComponent(ComponentType type)
+{
+    if (type <= COMPONENT_TRANSFORM || type >= COMPONENT_COUNT)
+    {
+        return false;
+    }
+
+    if (!components[type])
+    {
+        return false;
+    }
+
+    components[type].reset();
+    return true;
+}
+
+Component* GameObject::GetComponentByType(ComponentType type)
+{
+    if (type < 0 || type >= COMPONENT_COUNT) return nullptr;
+    return components[type].get();
+}
+
+const Component* GameObject::GetComponentByType(ComponentType type) const
+{
+    if (type < 0 || type >= COMPONENT_COUNT) return nullptr;
+    return components[type].get();
+}
+
+bool GameObject::SwapComponentOrder(ComponentType typeA, ComponentType typeB)
+{
+    if (typeA == typeB) return false;
+    if (typeA < 0 || typeA >= COMPONENT_COUNT || typeB < 0 || typeB >= COMPONENT_COUNT) return false;
+
+    size_t idxA = COMPONENT_COUNT;
+    size_t idxB = COMPONENT_COUNT;
+    for (size_t i = 0; i < COMPONENT_COUNT; ++i)
+    {
+        if (componentOrder[i] == typeA) idxA = i;
+        if (componentOrder[i] == typeB) idxB = i;
+    }
+
+    if (idxA < COMPONENT_COUNT && idxB < COMPONENT_COUNT)
+    {
+        std::swap(componentOrder[idxA], componentOrder[idxB]);
+        return true;
+    }
+    return false;
+}
+
+bool GameObject::MoveComponentUp(ComponentType type)
+{
+    size_t idx = COMPONENT_COUNT;
+    for (size_t i = 0; i < COMPONENT_COUNT; ++i)
+    {
+        if (componentOrder[i] == type)
+        {
+            idx = i;
+            break;
+        }
+    }
+    if (idx == 0 || idx >= COMPONENT_COUNT) return false;
+
+    for (size_t i = idx; i > 0; --i)
+    {
+        ComponentType prevType = componentOrder[i - 1];
+        if (components[prevType] != nullptr)
+        {
+            std::swap(componentOrder[idx], componentOrder[i - 1]);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool GameObject::MoveComponentDown(ComponentType type)
+{
+    size_t idx = COMPONENT_COUNT;
+    for (size_t i = 0; i < COMPONENT_COUNT; ++i)
+    {
+        if (componentOrder[i] == type)
+        {
+            idx = i;
+            break;
+        }
+    }
+    if (idx >= COMPONENT_COUNT - 1) return false;
+
+    for (size_t i = idx + 1; i < COMPONENT_COUNT; ++i)
+    {
+        ComponentType nextType = componentOrder[i];
+        if (components[nextType] != nullptr)
+        {
+            std::swap(componentOrder[idx], componentOrder[i]);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool GameObject::SetParent(GameObject* newParent)
@@ -186,7 +314,16 @@ glm::mat4 GameObject::GetWorldMatrix() const
     {
         return t->GetWorldMatrix();
     }
-    return parent ? parent->GetWorldMatrix() : glm::mat4(1.0f);
+    const GameObject* curr = parent;
+    while (curr != nullptr)
+    {
+        if (const TransformComponent* t = curr->GetComponent<TransformComponent>())
+        {
+            return t->GetWorldMatrix();
+        }
+        curr = curr->parent;
+    }
+    return glm::mat4(1.0f);
 }
 
 void GameObject::InvalidateWorldTransform()
@@ -197,8 +334,28 @@ void GameObject::InvalidateWorldTransform()
         return;
     }
 
-    for (GameObject* child : children)
+    std::stack<GameObject*> stack;
+    for (size_t i = children.size(); i > 0; --i)
     {
-        child->InvalidateWorldTransform();
+        stack.push(children[i - 1]);
+    }
+
+    while (!stack.empty())
+    {
+        GameObject* current = stack.top();
+        stack.pop();
+        if (!current) continue;
+
+        if (TransformComponent* t = current->GetComponent<TransformComponent>())
+        {
+            if (t->IsWorldDirty()) continue;
+            t->SetWorldDirty();
+        }
+
+        const std::vector<GameObject*>& currentChildren = current->GetChildren();
+        for (size_t i = currentChildren.size(); i > 0; --i)
+        {
+            stack.push(currentChildren[i - 1]);
+        }
     }
 }

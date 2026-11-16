@@ -2,8 +2,10 @@
 
 #include "../Module.h"
 #include "../../Utils/Log.h"
+#include "../Scene/GameObjects/Components/Component.h"
 #include <cstdint>
 #include <vector>
+#include <memory>
 
 class GameObject;
 
@@ -28,7 +30,7 @@ private:
 	void DrawScenePanel();
 	void DrawGamePanel();
 	void DrawHierarchyPanel();
-	void DrawHierarchyNode(GameObject* node, GameObject* selected);
+	bool DrawHierarchyNode(GameObject* node, GameObject* selected, bool hasChildren);
 	void DrawInspectorPanel();
 	void DrawConsolePanel();
 	void DrawConfigurationPanel();
@@ -70,4 +72,7 @@ private:
 
 	// Estado del panel Configuration
 	char windowTitleBuffer[128] = "Motor Videojuego";
+
+	// Portapapeles para copiar y pegar componentes en el Editor
+	std::unique_ptr<Component> copiedComponent;
 };

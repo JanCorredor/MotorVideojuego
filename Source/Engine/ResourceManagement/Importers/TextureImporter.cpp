@@ -5,6 +5,7 @@
 #include "../../../Utils/Log.h"
 
 #include <algorithm>
+#include <stack>
 
 bool TextureImporter::IsSupportedExtension(const std::string& extension)
 {
@@ -41,22 +42,28 @@ bool TextureImporter::ImportAndAssignToGameObject(const std::string& filePath, G
 
     bool assigned = false;
 
-    // Si el objeto seleccionado tiene MaterialComponent directo, se la asignamos
-    if (MaterialComponent* mat = target->GetComponent<MaterialComponent>())
-    {
-        if (mat->SetTexture(filePath))
-        {
-            mat->SetUseTexture(true);
-            assigned = true;
-        }
-    }
+    std::stack<GameObject*> stack;
+    stack.push(target);
 
-    // Si es un contenedor padre (ej. FBX con varias partes), aplicamos también a sus hijos
-    for (GameObject* child : target->GetChildren())
+    while (!stack.empty())
     {
-        if (ImportAndAssignToGameObject(filePath, child))
+        GameObject* current = stack.top();
+        stack.pop();
+        if (!current) continue;
+
+        if (MaterialComponent* mat = current->GetComponent<MaterialComponent>())
         {
-            assigned = true;
+            if (mat->SetTexture(filePath))
+            {
+                mat->SetUseTexture(true);
+                assigned = true;
+            }
+        }
+
+        const std::vector<GameObject*>& children = current->GetChildren();
+        for (size_t i = children.size(); i > 0; --i)
+        {
+            stack.push(children[i - 1]);
         }
     }
 

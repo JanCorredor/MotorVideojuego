@@ -17,7 +17,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <filesystem>
-#include <functional>
+#include <stack>
 
 #ifdef _DEBUG
 #include <tracy/Tracy.hpp>
@@ -202,7 +202,7 @@ bool Scene::CleanUp()
 std::string Scene::MakeUniqueName(const std::string& baseName) const
 {
 	bool exists = false;
-	for (const auto& entity : sceneEntities)
+	for (const std::unique_ptr<GameObject>& entity : sceneEntities)
 	{
 		if (entity->GetName() == baseName)
 		{
@@ -217,7 +217,7 @@ std::string Scene::MakeUniqueName(const std::string& baseName) const
 	{
 		std::string candidate = baseName + " (" + std::to_string(index) + ")";
 		bool found = false;
-		for (const auto& entity : sceneEntities)
+		for (const std::unique_ptr<GameObject>& entity : sceneEntities)
 		{
 			if (entity->GetName() == candidate)
 			{
@@ -240,7 +240,7 @@ bool Scene::OwnsObject(const GameObject* object) const
 		if (pending == object) return false;
 	}
 
-	for (const auto& entity : sceneEntities)
+	for (const std::unique_ptr<GameObject>& entity : sceneEntities)
 	{
 		if (entity.get() == object) return true;
 	}
@@ -285,7 +285,7 @@ GameObject* Scene::CreateNewGameObject(std::vector<std::unique_ptr<Component>> o
 	auto newObj = std::make_unique<GameObject>(uniqueName);
 
 	std::unordered_set<ComponentType> presentTypes;
-	for (auto& comp : objComponents)
+	for (std::unique_ptr<Component>& comp : objComponents)
 	{
 		if (comp)
 		{
@@ -372,15 +372,22 @@ void Scene::DestroyGameObject(GameObject* target)
 	if (!OwnsObject(target)) return;
 
 	std::vector<GameObject*> toDestroy;
-	std::function<void(GameObject*)> collectPostOrder = [&](GameObject* node)
+	std::stack<GameObject*> stack;
+	stack.push(target);
+
+	while (!stack.empty())
 	{
+		GameObject* node = stack.top();
+		stack.pop();
+		if (!node) continue;
+
+		toDestroy.push_back(node);
 		for (GameObject* child : node->GetChildren())
 		{
-			collectPostOrder(child);
+			stack.push(child);
 		}
-		toDestroy.push_back(node);
-	};
-	collectPostOrder(target);
+	}
+	std::reverse(toDestroy.begin(), toDestroy.end());
 
 	for (GameObject* obj : toDestroy)
 	{
@@ -459,9 +466,25 @@ GameObject* Scene::DuplicateGameObject(GameObject* target, GameObject* parent)
 		targetParent = &sceneRoot;
 	}
 
-	std::function<GameObject*(GameObject*, GameObject*)> duplicateRecursive =
-		[&](GameObject* src, GameObject* parentNode) -> GameObject*
+	struct DuplicateTask
 	{
+		GameObject* src;
+		GameObject* parentNode;
+	};
+
+	std::stack<DuplicateTask> stack;
+	stack.push({ target, targetParent });
+	GameObject* duplicatedRoot = nullptr;
+
+	while (!stack.empty())
+	{
+		DuplicateTask current = stack.top();
+		stack.pop();
+
+		GameObject* src = current.src;
+		GameObject* parentNode = current.parentNode;
+		if (!src) continue;
+
 		TransformComponent* srcTrans = src->GetComponent<TransformComponent>();
 		glm::vec3 localPos = srcTrans ? srcTrans->GetPosition() : glm::vec3(0.0f);
 		glm::vec3 localRot = srcTrans ? srcTrans->GetRotation() : glm::vec3(0.0f);
@@ -478,18 +501,24 @@ GameObject* Scene::DuplicateGameObject(GameObject* target, GameObject* parent)
 			cloneTrans->SetScale(localScale);
 		}
 
-		for (GameObject* child : src->GetChildren())
+		if (duplicatedRoot == nullptr)
 		{
-			duplicateRecursive(child, registeredClone);
+			duplicatedRoot = registeredClone;
 		}
 
-		return registeredClone;
-	};
+		const std::vector<GameObject*>& children = src->GetChildren();
+		for (size_t i = children.size(); i > 0; --i)
+		{
+			stack.push({ children[i - 1], registeredClone });
+		}
+	}
 
-	GameObject* duplicatedRoot = duplicateRecursive(target, targetParent);
 	SetSelected(duplicatedRoot);
-	LOG("[Scene] GameObject '%s' duplicado como '%s' (Total entidades: %zu)",
-		target->GetName().c_str(), duplicatedRoot->GetName().c_str(), sceneEntities.size());
+	if (duplicatedRoot)
+	{
+		LOG("[Scene] GameObject '%s' duplicado como '%s' (Total entidades: %zu)",
+			target->GetName().c_str(), duplicatedRoot->GetName().c_str(), sceneEntities.size());
+	}
 
 	return duplicatedRoot;
 }

@@ -1,5 +1,7 @@
 #include "TransformComponent.h"
 #include "../GameObject.h"
+#include <stack>
+#include <vector>
 
 std::unique_ptr<Component> TransformComponent::Clone(GameObject* newOwner) const
 {
@@ -15,9 +17,44 @@ const glm::mat4& TransformComponent::GetWorldMatrix() const
 {
 	if (worldDirty)
 	{
-		const GameObject* parent = owner ? owner->GetParent() : nullptr;
-		worldMatrix = parent ? parent->GetWorldMatrix() * GetLocalModelMatrix() : GetLocalModelMatrix();
-		worldDirty = false;
+		std::stack<const TransformComponent*> chain;
+		const TransformComponent* currTrans = this;
+		while (currTrans != nullptr && currTrans->worldDirty)
+		{
+			chain.push(currTrans);
+			const GameObject* p = currTrans->owner ? currTrans->owner->GetParent() : nullptr;
+			currTrans = nullptr;
+			while (p != nullptr)
+			{
+				if (const TransformComponent* pt = p->GetComponent<TransformComponent>())
+				{
+					currTrans = pt;
+					break;
+				}
+				p = p->GetParent();
+			}
+		}
+
+		while (!chain.empty())
+		{
+			const TransformComponent* t = chain.top();
+			chain.pop();
+
+			glm::mat4 parentWorld = glm::mat4(1.0f);
+			const GameObject* p = t->owner ? t->owner->GetParent() : nullptr;
+			while (p != nullptr)
+			{
+				if (const TransformComponent* pt = p->GetComponent<TransformComponent>())
+				{
+					parentWorld = pt->worldMatrix;
+					break;
+				}
+				p = p->GetParent();
+			}
+
+			t->worldMatrix = parentWorld * t->GetLocalModelMatrix();
+			t->worldDirty = false;
+		}
 	}
 	return worldMatrix;
 }
@@ -29,8 +66,30 @@ void TransformComponent::InvalidateWorld()
 	worldDirty = true;
 
 	if (owner == nullptr) return;
-	for (GameObject* child : owner->GetChildren())
+
+	std::stack<GameObject*> stack;
+	const std::vector<GameObject*>& initialChildren = owner->GetChildren();
+	for (size_t i = initialChildren.size(); i > 0; --i)
 	{
-		child->InvalidateWorldTransform();
+		stack.push(initialChildren[i - 1]);
+	}
+
+	while (!stack.empty())
+	{
+		GameObject* current = stack.top();
+		stack.pop();
+		if (!current) continue;
+
+		if (TransformComponent* t = current->GetComponent<TransformComponent>())
+		{
+			if (t->IsWorldDirty()) continue;
+			t->SetWorldDirty();
+		}
+
+		const std::vector<GameObject*>& children = current->GetChildren();
+		for (size_t i = children.size(); i > 0; --i)
+		{
+			stack.push(children[i - 1]);
+		}
 	}
 }

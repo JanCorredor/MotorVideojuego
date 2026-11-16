@@ -50,7 +50,7 @@ bool TextureManager::Start()
 bool TextureManager::CleanUp()
 {
 	size_t freed = 0;
-	for (auto& entry : cache)
+	for (std::pair<const std::string, std::unique_ptr<TextureInfo>>& entry : cache)
 	{
 		if (entry.second->id != 0)
 		{
@@ -99,7 +99,7 @@ void TextureManager::ApplyParameters(unsigned int textureId, bool hasMipmaps) co
 void TextureManager::SetSettings(const TextureSettings& newSettings)
 {
 	settings = newSettings;
-	for (auto& entry : cache)
+	for (std::pair<const std::string, std::unique_ptr<TextureInfo>>& entry : cache)
 	{
 		ApplyParameters(entry.second->id, true);
 	}

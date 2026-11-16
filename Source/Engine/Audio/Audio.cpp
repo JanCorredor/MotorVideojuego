@@ -168,7 +168,7 @@ bool Audio::CleanUp() {
         }
     }
 
-    for (auto& s : sfx_) FreeSound(s);
+    for (SoundData& s : sfx_) FreeSound(s);
     sfx_.clear();
 
     // Close device after streams are gone.

@@ -21,6 +21,7 @@
 #include "../Scene/GameObjects/Components/CameraComponent.h"
 
 #include <algorithm>
+#include <stack>
 
 #ifdef _DEBUG
 #include <tracy/Tracy.hpp>
@@ -715,42 +716,56 @@ void Render::RenderScene()
 	std::vector<RenderItem> opaqueItems;
 	std::vector<RenderItem> transparentItems;
 
-	std::function<void(GameObject*, const glm::mat4&)> collectItems = [&](GameObject* go, const glm::mat4& parentMatrix) 
+	struct TraversalNode
 	{
-		if (!go || !go->IsActive()) return;
-
-		glm::mat4 globalMatrix = parentMatrix;
-		if (auto t = go->GetComponent<TransformComponent>()) 
-		{
-			globalMatrix = parentMatrix * t->GetLocalModelMatrix();
-		}
-
-		if (go->GetComponent<MeshComponent>()) 
-		{
-			MaterialComponent* mat = go->GetComponent<MaterialComponent>();
-
-			// Usamos el nuevo método que revisa tanto el color como la textura cargada
-			bool isTransparent = mat ? mat->HasTransparentAlpha() : false;
-
-			glm::vec3 objPos = glm::vec3(globalMatrix[3]);
-			float dist = glm::length(cameraPos - objPos);
-
-			if (isTransparent) {
-				transparentItems.push_back({ go, globalMatrix, dist });
-			}
-			else {
-				opaqueItems.push_back({ go, globalMatrix, dist });
-			}
-		}
-
-		for (GameObject* child : go->GetChildren()) 
-		{
-			collectItems(child, globalMatrix);
-		}
+		GameObject* go;
+		glm::mat4 parentMatrix;
 	};
 
-	if (scene->GetRoot()) {
-		collectItems(scene->GetRoot(), glm::mat4(1.0f));
+	if (scene && scene->GetRoot())
+	{
+		std::stack<TraversalNode> stack;
+		stack.push({ scene->GetRoot(), glm::mat4(1.0f) });
+
+		while (!stack.empty())
+		{
+			TraversalNode current = stack.top();
+			stack.pop();
+
+			GameObject* go = current.go;
+			if (!go || !go->IsActive()) continue;
+
+			glm::mat4 globalMatrix = current.parentMatrix;
+			if (TransformComponent* t = go->GetComponent<TransformComponent>())
+			{
+				globalMatrix = current.parentMatrix * t->GetLocalModelMatrix();
+			}
+
+			MeshComponent* meshComp = go->GetComponent<MeshComponent>();
+			if (meshComp && meshComp->IsActive())
+			{
+				MaterialComponent* mat = go->GetComponent<MaterialComponent>();
+				bool isTransparent = (mat && mat->IsActive()) ? mat->HasTransparentAlpha() : false;
+
+				glm::vec3 objPos = glm::vec3(globalMatrix[3]);
+				float dist = glm::length(cameraPos - objPos);
+
+				if (isTransparent)
+				{
+					transparentItems.push_back({ go, globalMatrix, dist });
+				}
+				else
+				{
+					opaqueItems.push_back({ go, globalMatrix, dist });
+				}
+			}
+
+			const std::vector<GameObject*>& children = go->GetChildren();
+			for (size_t i = children.size(); i > 0; --i)
+			{
+				stack.push({ children[i - 1], globalMatrix });
+			}
+		}
 	}
 
 	// Ordenar transparentes de más lejano a más cercano (Back-to-Front)
@@ -762,7 +777,7 @@ void Render::RenderScene()
 	// Objetos Opacos (Escriben en Depth Buffer)
 	// -------------------------------------------------------------------------
 	glDepthMask(GL_TRUE);
-	for (const auto& item : opaqueItems) 
+	for (const RenderItem& item : opaqueItems) 
 	{
 		DrawSingleGameObject(item.go, item.modelMatrix);
 	}
@@ -778,7 +793,7 @@ void Render::RenderScene()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glDepthMask(GL_FALSE);
-	for (const auto& item : transparentItems) {
+	for (const RenderItem& item : transparentItems) {
 		DrawSingleGameObject(item.go, item.modelMatrix);
 	}
 	glDepthMask(GL_TRUE); // Restaurar la máscara por defecto
@@ -911,12 +926,12 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 	MeshComponent* mesh = go->GetComponent<MeshComponent>();
 	MaterialComponent* material = go->GetComponent<MaterialComponent>();
 
-	if (mesh && mesh->GetPrimitive()) 
+	if (mesh && mesh->IsActive() && mesh->GetPrimitive()) 
 	{
 		glUniformMatrix4fv(u.model, 1, GL_FALSE, glm::value_ptr(worldMatrix));
 
 		glActiveTexture(GL_TEXTURE0);
-		if (material) 
+		if (material && material->IsActive()) 
 		{
 			unsigned int texId = material->GetActiveTextureID();
 			glUniform4fv(u.color, 1, glm::value_ptr(material->GetColor()));
@@ -1050,27 +1065,48 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 	}
 }
 
-void Render::CollectNormals(GameObject* go, const glm::mat4& parentMatrix)
+void Render::CollectNormals(GameObject* rootGo, const glm::mat4& rootParentMatrix)
 {
-	if (!go || !go->IsActive()) return;
+	if (!rootGo || !rootGo->IsActive()) return;
 
-	glm::mat4 globalMatrix = parentMatrix;
-	TransformComponent* transform = go->GetComponent<TransformComponent>();
-	if (transform) {
-		globalMatrix = parentMatrix * transform->GetLocalModelMatrix();
-	}
+	struct NormalNode
+	{
+		GameObject* go;
+		glm::mat4 parentMatrix;
+	};
 
-	AppendNormals(go, globalMatrix);
+	std::stack<NormalNode> stack;
+	stack.push({ rootGo, rootParentMatrix });
 
-	for (GameObject* child : go->GetChildren()) {
-		CollectNormals(child, globalMatrix);
+	while (!stack.empty())
+	{
+		NormalNode current = stack.top();
+		stack.pop();
+
+		GameObject* go = current.go;
+		if (!go || !go->IsActive()) continue;
+
+		glm::mat4 globalMatrix = current.parentMatrix;
+		TransformComponent* transform = go->GetComponent<TransformComponent>();
+		if (transform)
+		{
+			globalMatrix = current.parentMatrix * transform->GetLocalModelMatrix();
+		}
+
+		AppendNormals(go, globalMatrix);
+
+		const std::vector<GameObject*>& children = go->GetChildren();
+		for (size_t i = children.size(); i > 0; --i)
+		{
+			stack.push({ children[i - 1], globalMatrix });
+		}
 	}
 }
 
 void Render::AppendNormals(GameObject* go, const glm::mat4& worldMatrix)
 {
 	MeshComponent* mesh = go->GetComponent<MeshComponent>();
-	if (!mesh || !mesh->GetPrimitive()) return;
+	if (!mesh || !mesh->IsActive() || !mesh->GetPrimitive()) return;
 
 	Primitive* prim = mesh->GetPrimitive();
 	const bool wantVertex = (settings.normals == NormalsMode::Vertex || settings.normals == NormalsMode::Both);
@@ -1130,24 +1166,29 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	glUniform1f(scu.scaleFactor, 1.03f);
 	glUniform3fv(scu.color, 1, glm::value_ptr(settings.outlineColor));
 
-	std::function<void(GameObject*)> drawOutlineRecursive = [&](GameObject* node)
+	std::stack<GameObject*> stack;
+	stack.push(selected);
+
+	while (!stack.empty())
+	{
+		GameObject* node = stack.top();
+		stack.pop();
+
+		if (!node || !node->IsActive()) continue;
+
+		MeshComponent* mesh = node->GetComponent<MeshComponent>();
+		if (mesh && mesh->IsActive() && mesh->GetPrimitive())
 		{
-			if (!node || !node->IsActive()) return;
+			glUniformMatrix4fv(scu.model, 1, GL_FALSE, glm::value_ptr(node->GetWorldMatrix()));
+			mesh->GetPrimitive()->Draw();
+		}
 
-			MeshComponent* mesh = node->GetComponent<MeshComponent>();
-			if (mesh && mesh->GetPrimitive())
-			{
-				glUniformMatrix4fv(scu.model, 1, GL_FALSE, glm::value_ptr(node->GetWorldMatrix()));
-				mesh->GetPrimitive()->Draw();
-			}
-
-			for (GameObject* child : node->GetChildren())
-			{
-				drawOutlineRecursive(child);
-			}
-		};
-
-	drawOutlineRecursive(selected);
+		const std::vector<GameObject*>& children = node->GetChildren();
+		for (size_t i = children.size(); i > 0; --i)
+		{
+			stack.push(children[i - 1]);
+		}
+	}
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
@@ -1216,20 +1257,36 @@ void Render::RenderGame()
 	std::vector<RenderItem> opaqueItems;
 	std::vector<RenderItem> transparentItems;
 
-	std::function<void(GameObject*, const glm::mat4&)> collectItems = [&](GameObject* go, const glm::mat4& parentMatrix)
-		{
-			if (!go || !go->IsActive()) return;
+	struct TraversalNode
+	{
+		GameObject* go;
+		glm::mat4 parentMatrix;
+	};
 
-			glm::mat4 globalMatrix = parentMatrix;
-			if (auto t = go->GetComponent<TransformComponent>())
+	if (scene && scene->GetRoot())
+	{
+		std::stack<TraversalNode> stack;
+		stack.push({ scene->GetRoot(), glm::mat4(1.0f) });
+
+		while (!stack.empty())
+		{
+			TraversalNode current = stack.top();
+			stack.pop();
+
+			GameObject* go = current.go;
+			if (!go || !go->IsActive()) continue;
+
+			glm::mat4 globalMatrix = current.parentMatrix;
+			if (TransformComponent* t = go->GetComponent<TransformComponent>())
 			{
-				globalMatrix = parentMatrix * t->GetLocalModelMatrix();
+				globalMatrix = current.parentMatrix * t->GetLocalModelMatrix();
 			}
 
-			if (go->GetComponent<MeshComponent>())
+			MeshComponent* meshComp = go->GetComponent<MeshComponent>();
+			if (meshComp && meshComp->IsActive())
 			{
 				MaterialComponent* mat = go->GetComponent<MaterialComponent>();
-				bool isTransparent = mat ? mat->HasTransparentAlpha() : false;
+				bool isTransparent = (mat && mat->IsActive()) ? mat->HasTransparentAlpha() : false;
 				glm::vec3 objPos = glm::vec3(globalMatrix[3]);
 				float dist = glm::length(cameraPos - objPos);
 
@@ -1237,15 +1294,12 @@ void Render::RenderGame()
 				else opaqueItems.push_back({ go, globalMatrix, dist });
 			}
 
-			for (GameObject* child : go->GetChildren())
+			const std::vector<GameObject*>& children = go->GetChildren();
+			for (size_t i = children.size(); i > 0; --i)
 			{
-				collectItems(child, globalMatrix);
+				stack.push({ children[i - 1], globalMatrix });
 			}
-		};
-
-	if (scene->GetRoot())
-	{
-		collectItems(scene->GetRoot(), glm::mat4(1.0f));
+		}
 	}
 
 	std::sort(transparentItems.begin(), transparentItems.end(), [](const RenderItem& a, const RenderItem& b) {
@@ -1257,7 +1311,7 @@ void Render::RenderGame()
 	settings.highlightSelection = false;
 
 	glDepthMask(GL_TRUE);
-	for (const auto& item : opaqueItems)
+	for (const RenderItem& item : opaqueItems)
 	{
 		DrawSingleGameObject(item.go, item.modelMatrix);
 	}
@@ -1265,7 +1319,7 @@ void Render::RenderGame()
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE);
-	for (const auto& item : transparentItems)
+	for (const RenderItem& item : transparentItems)
 	{
 		DrawSingleGameObject(item.go, item.modelMatrix);
 	}

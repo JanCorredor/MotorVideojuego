@@ -50,6 +50,9 @@ public:
 	// Invalida solo la matriz global de este nodo y sus descendientes 
 	void InvalidateWorld();
 
+	bool IsWorldDirty() const { return worldDirty; }
+	void SetWorldDirty() { worldDirty = true; }
+
 private:
 	glm::vec3 position;
 	glm::vec3 rotation;

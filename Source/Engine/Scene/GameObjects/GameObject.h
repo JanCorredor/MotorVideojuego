@@ -35,6 +35,18 @@ public:
 	// Añadir componente (transferencia directa)
 	void AddComponent(std::unique_ptr<Component> component);
 
+	// Eliminar componente por tipo (Transform no se puede eliminar)
+	bool RemoveComponent(ComponentType type);
+
+	Component* GetComponentByType(ComponentType type);
+	const Component* GetComponentByType(ComponentType type) const;
+
+	// Orden de componentes en el GameObject / Inspector
+	const std::array<ComponentType, COMPONENT_COUNT>& GetComponentOrder() const { return componentOrder; }
+	bool MoveComponentUp(ComponentType type);
+	bool MoveComponentDown(ComponentType type);
+	bool SwapComponentOrder(ComponentType typeA, ComponentType typeB);
+
 	// Acceso rápido en O(1) directo sin dynamic_cast
 	template <typename T>
 	T* GetComponent()
@@ -83,6 +95,12 @@ private:
 	// Array fijo indexado por enum ComponentType (COMPONENT_TRANSFORM=0, COMPONENT_MESH=1, etc.)
 	// Acceso en O(1) directo sin bucles ni asignaciones dinámicas extra
 	std::array<std::unique_ptr<Component>, COMPONENT_COUNT> components;
+	std::array<ComponentType, COMPONENT_COUNT> componentOrder = {
+		COMPONENT_TRANSFORM,
+		COMPONENT_MESH,
+		COMPONENT_MATERIAL,
+		COMPONENT_CAMERA
+	};
 
 	GameObject* parent = nullptr;
 	std::vector<GameObject*> children;

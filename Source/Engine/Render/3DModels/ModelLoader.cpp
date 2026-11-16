@@ -5,6 +5,7 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/version.h>
+#include <stack>
 
 std::unique_ptr<Primitive> ModelLoader::LoadFBX(const std::string& path) 
 {
@@ -101,19 +102,28 @@ std::vector<SubMeshData> ModelLoader::LoadFBXMeshes(const std::string& path)
     LOG("[Assimp] Archivo '%s' procesado. Partes/Mallas encontradas: %u", path.c_str(), scene->mNumMeshes);
 
     std::vector<std::string> meshNodeNames(scene->mNumMeshes, "");
-    std::function<void(const aiNode*)> traverseNodes = [&](const aiNode* node) {
-        if (!node) return;
-        for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
+    std::stack<const aiNode*> nodeStack;
+    nodeStack.push(scene->mRootNode);
+
+    while (!nodeStack.empty())
+    {
+        const aiNode* node = nodeStack.top();
+        nodeStack.pop();
+        if (!node) continue;
+
+        for (unsigned int i = 0; i < node->mNumMeshes; ++i)
+        {
             unsigned int meshIdx = node->mMeshes[i];
-            if (meshIdx < scene->mNumMeshes && meshNodeNames[meshIdx].empty() && node->mName.length > 0) {
+            if (meshIdx < scene->mNumMeshes && meshNodeNames[meshIdx].empty() && node->mName.length > 0)
+            {
                 meshNodeNames[meshIdx] = node->mName.C_Str();
             }
         }
-        for (unsigned int i = 0; i < node->mNumChildren; ++i) {
-            traverseNodes(node->mChildren[i]);
+        for (unsigned int i = node->mNumChildren; i > 0; --i)
+        {
+            nodeStack.push(node->mChildren[i - 1]);
         }
-        };
-    traverseNodes(scene->mRootNode);
+    }
 
     result.reserve(scene->mNumMeshes);
 
