@@ -15,8 +15,10 @@
 #include "../ResourceManagement/Importers/TextureImporter.h"
 
 #include <unordered_set>
+#include <unordered_map>
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
 #include <stack>
 #include <cfloat>
 #include <cmath>
@@ -209,6 +211,12 @@ bool Scene::PostUpdate()
 bool Scene::CleanUp()
 {
 	LOG("[Scene] Limpiando entidades de la escena (%zu entidades)...", sceneEntities.size());
+	const std::string& tempFile = Engine::GetInstance().GetTempSceneFilePath();
+	std::error_code ec;
+	if (!tempFile.empty() && std::filesystem::exists(tempFile, ec))
+	{
+		std::filesystem::remove(tempFile, ec);
+	}
 	quadtree.Clear();
 	octree.Clear();
 	pendingDestruction.clear();
@@ -613,6 +621,415 @@ void Scene::RebuildSpacePartitioning()
 
 	LOG("[Scene] Space Partitioning reconstruido (%zu objetos Static): Quadtree=%zu nodos, Octree=%zu nodos",
 		staticEntries.size(), quadtree.GetNodeCount(), octree.GetNodeCount());
+}
+
+bool Scene::SaveTemporaryScene(const std::string& filePath) const
+{
+	std::ofstream out(filePath, std::ios::binary | std::ios::trunc);
+	if (!out.is_open())
+	{
+		LOG_ERROR("[Scene] No se pudo crear el archivo temporal de escena: '%s'", filePath.c_str());
+		return false;
+	}
+
+	auto writeString = [&out](const std::string& s)
+	{
+		uint32_t len = (uint32_t)s.size();
+		out.write(reinterpret_cast<const char*>(&len), sizeof(len));
+		if (len > 0)
+		{
+			out.write(s.data(), len);
+		}
+	};
+
+	const char magic[8] = { 'M', 'V', 'S', 'C', 'E', 'N', 'E', '1' };
+	out.write(magic, sizeof(magic));
+	out.write(reinterpret_cast<const char*>(&treeMaxObjectsPerNode), sizeof(treeMaxObjectsPerNode));
+	out.write(reinterpret_cast<const char*>(&treeMaxDepth), sizeof(treeMaxDepth));
+
+	// Recolectar los GameObjects en pre-orden usando std::stack para que todo padre preceda a sus hijos
+	std::vector<const GameObject*> orderedObjects;
+	std::stack<const GameObject*> stack;
+	const std::vector<GameObject*>& rootChildren = sceneRoot.GetChildren();
+	for (size_t i = rootChildren.size(); i > 0; --i)
+	{
+		if (rootChildren[i - 1])
+		{
+			stack.push(rootChildren[i - 1]);
+		}
+	}
+
+	while (!stack.empty())
+	{
+		const GameObject* current = stack.top();
+		stack.pop();
+		if (!current) continue;
+
+		orderedObjects.push_back(current);
+
+		const std::vector<GameObject*>& children = current->GetChildren();
+		for (size_t i = children.size(); i > 0; --i)
+		{
+			if (children[i - 1])
+			{
+				stack.push(children[i - 1]);
+			}
+		}
+	}
+
+	uint32_t objectCount = (uint32_t)orderedObjects.size();
+	out.write(reinterpret_cast<const char*>(&objectCount), sizeof(objectCount));
+
+	for (size_t idx = 0; idx < orderedObjects.size(); ++idx)
+	{
+		const GameObject* go = orderedObjects[idx];
+		uint64_t uuid = (uint64_t)go->GetUUID();
+		uint64_t parentUuid = 0;
+		if (go->GetParent() != nullptr && go->GetParent() != &sceneRoot)
+		{
+			parentUuid = (uint64_t)go->GetParent()->GetUUID();
+		}
+
+		out.write(reinterpret_cast<const char*>(&uuid), sizeof(uuid));
+		out.write(reinterpret_cast<const char*>(&parentUuid), sizeof(parentUuid));
+		writeString(go->GetName());
+
+		uint8_t flags = 0;
+		if (go->IsActive())         flags |= (1 << 0);
+		if (go->IsStatic())         flags |= (1 << 1);
+		if (go == gameCameraPtr)    flags |= (1 << 2);
+		if (go == selected)         flags |= (1 << 3);
+		out.write(reinterpret_cast<const char*>(&flags), sizeof(flags));
+
+		const std::array<ComponentType, COMPONENT_COUNT>& order = go->GetComponentOrder();
+		for (size_t c = 0; c < COMPONENT_COUNT; ++c)
+		{
+			int32_t cType = (int32_t)order[c];
+			out.write(reinterpret_cast<const char*>(&cType), sizeof(cType));
+		}
+
+		// 1. TransformComponent
+		const TransformComponent* trans = go->GetComponent<TransformComponent>();
+		uint8_t hasTrans = (trans != nullptr) ? 1 : 0;
+		out.write(reinterpret_cast<const char*>(&hasTrans), sizeof(hasTrans));
+		if (trans)
+		{
+			uint8_t cActive = trans->IsActive() ? 1 : 0;
+			glm::vec3 pos = trans->GetPosition();
+			glm::vec3 rot = trans->GetRotation();
+			glm::vec3 scl = trans->GetScale();
+			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
+			out.write(reinterpret_cast<const char*>(&pos), sizeof(pos));
+			out.write(reinterpret_cast<const char*>(&rot), sizeof(rot));
+			out.write(reinterpret_cast<const char*>(&scl), sizeof(scl));
+		}
+
+		// 2. MeshComponent
+		const MeshComponent* mesh = go->GetComponent<MeshComponent>();
+		uint8_t hasMesh = (mesh != nullptr) ? 1 : 0;
+		out.write(reinterpret_cast<const char*>(&hasMesh), sizeof(hasMesh));
+		if (mesh)
+		{
+			uint8_t cActive = mesh->IsActive() ? 1 : 0;
+			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
+			const Primitive* prim = mesh->GetPrimitive();
+			uint8_t hasPrim = (prim != nullptr) ? 1 : 0;
+			out.write(reinterpret_cast<const char*>(&hasPrim), sizeof(hasPrim));
+			if (prim)
+			{
+				const std::vector<Vertex>& verts = prim->GetVertices();
+				const std::vector<unsigned int>& inds = prim->GetIndices();
+				uint32_t vCount = (uint32_t)verts.size();
+				uint32_t iCount = (uint32_t)inds.size();
+				out.write(reinterpret_cast<const char*>(&vCount), sizeof(vCount));
+				if (vCount > 0)
+				{
+					out.write(reinterpret_cast<const char*>(verts.data()), vCount * sizeof(Vertex));
+				}
+				out.write(reinterpret_cast<const char*>(&iCount), sizeof(iCount));
+				if (iCount > 0)
+				{
+					out.write(reinterpret_cast<const char*>(inds.data()), iCount * sizeof(unsigned int));
+				}
+			}
+		}
+
+		// 3. MaterialComponent
+		const MaterialComponent* mat = go->GetComponent<MaterialComponent>();
+		uint8_t hasMat = (mat != nullptr) ? 1 : 0;
+		out.write(reinterpret_cast<const char*>(&hasMat), sizeof(hasMat));
+		if (mat)
+		{
+			uint8_t cActive = mat->IsActive() ? 1 : 0;
+			glm::vec4 col = mat->GetColor();
+			uint8_t useTex = mat->GetUseTexture() ? 1 : 0;
+			uint8_t useCheck = mat->GetUseCheckerboard() ? 1 : 0;
+			uint8_t useMissing = mat->GetUsingMissingTexture() ? 1 : 0;
+			std::string texPath = (mat->GetTexture() != nullptr) ? mat->GetTexture()->path : "";
+
+			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
+			out.write(reinterpret_cast<const char*>(&col), sizeof(col));
+			out.write(reinterpret_cast<const char*>(&useTex), sizeof(useTex));
+			out.write(reinterpret_cast<const char*>(&useCheck), sizeof(useCheck));
+			out.write(reinterpret_cast<const char*>(&useMissing), sizeof(useMissing));
+			writeString(texPath);
+		}
+
+		// 4. CameraComponent
+		const CameraComponent* cam = go->GetComponent<CameraComponent>();
+		uint8_t hasCam = (cam != nullptr) ? 1 : 0;
+		out.write(reinterpret_cast<const char*>(&hasCam), sizeof(hasCam));
+		if (cam)
+		{
+			uint8_t cActive = cam->IsActive() ? 1 : 0;
+			float fov = cam->fov;
+			float nearP = cam->nearPlane;
+			float farP = cam->farPlane;
+			float speed = cam->GetMovementSpeed();
+			float sens = cam->GetMouseSensitivity();
+			float orbit = cam->GetOrbitDistance();
+
+			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
+			out.write(reinterpret_cast<const char*>(&fov), sizeof(fov));
+			out.write(reinterpret_cast<const char*>(&nearP), sizeof(nearP));
+			out.write(reinterpret_cast<const char*>(&farP), sizeof(farP));
+			out.write(reinterpret_cast<const char*>(&speed), sizeof(speed));
+			out.write(reinterpret_cast<const char*>(&sens), sizeof(sens));
+			out.write(reinterpret_cast<const char*>(&orbit), sizeof(orbit));
+		}
+	}
+
+	out.close();
+	LOG("[Scene] Archivo temporal de escena guardado con éxito: '%s' (%u GameObjects)", filePath.c_str(), objectCount);
+	return true;
+}
+
+bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad)
+{
+	std::ifstream in(filePath, std::ios::binary);
+	if (!in.is_open())
+	{
+		LOG_ERROR("[Scene] No se pudo abrir el archivo temporal de escena: '%s'", filePath.c_str());
+		return false;
+	}
+
+	auto readString = [&in]() -> std::string
+	{
+		uint32_t len = 0;
+		in.read(reinterpret_cast<char*>(&len), sizeof(len));
+		if (!in || len == 0) return "";
+		std::string s(len, '\0');
+		in.read(&s[0], len);
+		return s;
+	};
+
+	char magic[8] = {};
+	in.read(magic, sizeof(magic));
+	const char expectedMagic[8] = { 'M', 'V', 'S', 'C', 'E', 'N', 'E', '1' };
+	for (int i = 0; i < 8; ++i)
+	{
+		if (magic[i] != expectedMagic[i])
+		{
+			LOG_ERROR("[Scene] Formato inválido en archivo temporal de escena: '%s'", filePath.c_str());
+			return false;
+		}
+	}
+
+	in.read(reinterpret_cast<char*>(&treeMaxObjectsPerNode), sizeof(treeMaxObjectsPerNode));
+	in.read(reinterpret_cast<char*>(&treeMaxDepth), sizeof(treeMaxDepth));
+
+	uint32_t objectCount = 0;
+	in.read(reinterpret_cast<char*>(&objectCount), sizeof(objectCount));
+
+	// Limpiar escena actual antes de reconstruir
+	pendingDestruction.clear();
+	selected = nullptr;
+	gameCameraPtr = nullptr;
+
+	while (!sceneRoot.GetChildren().empty())
+	{
+		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
+	}
+	sceneEntities.clear();
+
+	std::unordered_map<uint64_t, GameObject*> uuidMap;
+	GameObject* restoredSelected = nullptr;
+
+	for (uint32_t idx = 0; idx < objectCount; ++idx)
+	{
+		uint64_t uuid = 0;
+		uint64_t parentUuid = 0;
+		in.read(reinterpret_cast<char*>(&uuid), sizeof(uuid));
+		in.read(reinterpret_cast<char*>(&parentUuid), sizeof(parentUuid));
+		std::string objName = readString();
+
+		uint8_t flags = 0;
+		in.read(reinterpret_cast<char*>(&flags), sizeof(flags));
+
+		std::array<ComponentType, COMPONENT_COUNT> savedOrder = {
+			COMPONENT_TRANSFORM, COMPONENT_MESH, COMPONENT_MATERIAL, COMPONENT_CAMERA
+		};
+		for (size_t c = 0; c < COMPONENT_COUNT; ++c)
+		{
+			int32_t cType = 0;
+			in.read(reinterpret_cast<char*>(&cType), sizeof(cType));
+			if (cType >= 0 && cType < COMPONENT_COUNT)
+			{
+				savedOrder[c] = (ComponentType)cType;
+			}
+		}
+
+		auto newObj = std::make_unique<GameObject>(objName, GameUUID(uuid));
+		if (flags & (1 << 0)) newObj->Enable();
+		else newObj->Disable();
+		newObj->SetStatic((flags & (1 << 1)) != 0, false);
+
+		GameObject* parentPtr = &sceneRoot;
+		if (parentUuid != 0)
+		{
+			std::unordered_map<uint64_t, GameObject*>::iterator it = uuidMap.find(parentUuid);
+			if (it != uuidMap.end() && it->second != nullptr)
+			{
+				parentPtr = it->second;
+			}
+		}
+
+		// Registrar primero en el padre antes de asignar el Transform local para evitar recomposición de matriz
+		GameObject* regObj = Register(std::move(newObj), parentPtr);
+		uuidMap[uuid] = regObj;
+
+		if (flags & (1 << 2)) gameCameraPtr = regObj;
+		if (flags & (1 << 3)) restoredSelected = regObj;
+
+		// 1. TransformComponent
+		uint8_t hasTrans = 0;
+		in.read(reinterpret_cast<char*>(&hasTrans), sizeof(hasTrans));
+		if (hasTrans)
+		{
+			uint8_t cActive = 1;
+			glm::vec3 pos(0.0f), rot(0.0f), scl(1.0f);
+			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
+			in.read(reinterpret_cast<char*>(&pos), sizeof(pos));
+			in.read(reinterpret_cast<char*>(&rot), sizeof(rot));
+			in.read(reinterpret_cast<char*>(&scl), sizeof(scl));
+
+			auto trans = std::make_unique<TransformComponent>(regObj);
+			trans->SetPosition(pos);
+			trans->SetRotation(rot);
+			trans->SetScale(scl);
+			if (!cActive) trans->Disable();
+			regObj->AddComponent(std::move(trans));
+		}
+
+		// 2. MeshComponent
+		uint8_t hasMesh = 0;
+		in.read(reinterpret_cast<char*>(&hasMesh), sizeof(hasMesh));
+		if (hasMesh)
+		{
+			uint8_t cActive = 1;
+			uint8_t hasPrim = 0;
+			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
+			in.read(reinterpret_cast<char*>(&hasPrim), sizeof(hasPrim));
+
+			std::unique_ptr<Primitive> prim = nullptr;
+			if (hasPrim)
+			{
+				uint32_t vCount = 0;
+				uint32_t iCount = 0;
+				in.read(reinterpret_cast<char*>(&vCount), sizeof(vCount));
+				std::vector<Vertex> verts(vCount);
+				if (vCount > 0)
+				{
+					in.read(reinterpret_cast<char*>(verts.data()), vCount * sizeof(Vertex));
+				}
+				in.read(reinterpret_cast<char*>(&iCount), sizeof(iCount));
+				std::vector<unsigned int> inds(iCount);
+				if (iCount > 0)
+				{
+					in.read(reinterpret_cast<char*>(inds.data()), iCount * sizeof(unsigned int));
+				}
+				prim = std::make_unique<Primitive>();
+				prim->Init(std::move(verts), std::move(inds));
+			}
+
+			auto mesh = std::make_unique<MeshComponent>(regObj, std::move(prim));
+			if (!cActive) mesh->Disable();
+			regObj->AddComponent(std::move(mesh));
+		}
+
+		// 3. MaterialComponent
+		uint8_t hasMat = 0;
+		in.read(reinterpret_cast<char*>(&hasMat), sizeof(hasMat));
+		if (hasMat)
+		{
+			uint8_t cActive = 1;
+			glm::vec4 col(1.0f);
+			uint8_t useTex = 0, useCheck = 0, useMissing = 0;
+			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
+			in.read(reinterpret_cast<char*>(&col), sizeof(col));
+			in.read(reinterpret_cast<char*>(&useTex), sizeof(useTex));
+			in.read(reinterpret_cast<char*>(&useCheck), sizeof(useCheck));
+			in.read(reinterpret_cast<char*>(&useMissing), sizeof(useMissing));
+			std::string texPath = readString();
+
+			auto mat = std::make_unique<MaterialComponent>(regObj);
+			mat->SetColor(col);
+			if (!texPath.empty() && texPath.find("(procedural)") == std::string::npos)
+			{
+				mat->SetTexture(texPath);
+			}
+			mat->SetUseTexture(useTex != 0);
+			mat->SetUseCheckerboard(useCheck != 0);
+			mat->SetUsingMissingTexture(useMissing != 0);
+			if (!cActive) mat->Disable();
+			regObj->AddComponent(std::move(mat));
+		}
+
+		// 4. CameraComponent
+		uint8_t hasCam = 0;
+		in.read(reinterpret_cast<char*>(&hasCam), sizeof(hasCam));
+		if (hasCam)
+		{
+			uint8_t cActive = 1;
+			float fov = 45.0f, nearP = 0.1f, farP = 100.0f, speed = 5.0f, sens = 0.1f, orbit = 5.0f;
+			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
+			in.read(reinterpret_cast<char*>(&fov), sizeof(fov));
+			in.read(reinterpret_cast<char*>(&nearP), sizeof(nearP));
+			in.read(reinterpret_cast<char*>(&farP), sizeof(farP));
+			in.read(reinterpret_cast<char*>(&speed), sizeof(speed));
+			in.read(reinterpret_cast<char*>(&sens), sizeof(sens));
+			in.read(reinterpret_cast<char*>(&orbit), sizeof(orbit));
+
+			auto cam = std::make_unique<CameraComponent>(regObj);
+			cam->fov = fov;
+			cam->nearPlane = nearP;
+			cam->farPlane = farP;
+			cam->SetMovementSpeed(speed);
+			cam->SetMouseSensitivity(sens);
+			cam->SetOrbitDistance(orbit);
+			if (!cActive) cam->Disable();
+			regObj->AddComponent(std::move(cam));
+		}
+
+		regObj->SetComponentOrder(savedOrder);
+	}
+
+	in.close();
+
+	if (deleteFileAfterLoad)
+	{
+		std::error_code ec;
+		std::filesystem::remove(filePath, ec);
+		LOG("[Scene] Archivo temporal '%s' restaurado (%u objetos) y eliminado del disco", filePath.c_str(), objectCount);
+	}
+	else
+	{
+		LOG("[Scene] Archivo temporal '%s' restaurado (%u objetos)", filePath.c_str(), objectCount);
+	}
+
+	selected = restoredSelected;
+	RebuildSpacePartitioning();
+	return true;
 }
 
 // ============================================================================

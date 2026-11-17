@@ -177,6 +177,10 @@ public:
 	int GetTreeMaxDepth() const { return treeMaxDepth; }
 	void SetTreeParameters(int maxObjectsPerNode, int maxDepth);
 
+	// Guardado y restauración de escena temporal (Play / Stop)
+	bool SaveTemporaryScene(const std::string& filePath) const;
+	bool LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad = true);
+
 private:
 	
 	void ProcessPendingDestructions();

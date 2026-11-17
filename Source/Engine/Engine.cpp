@@ -34,6 +34,7 @@ Engine::Engine()
     // Measure the amount of ms that takes to execute the Engine constructor and LOG the result
 	Timer timer = Timer();
     startupTime = Timer();
+    gameTimer.Stop();
     frameTime = PerfTimer();
     lastSecFrameTime = PerfTimer();
     frames = 0;
@@ -227,6 +228,25 @@ void Engine::FinishUpdate()
 
     // Amount of ms took the last update (dt)
     dt = (float)frameTime.ReadMs();
+
+    // Actualizar cronómetro del Juego (Time Management)
+    if (simulationState == SimulationState::Playing)
+    {
+        gameDt = dt * timeScale;
+        gameTimeSec += (gameDt / 1000.0f);
+        gameFrameCount++;
+    }
+    else if (simulationState == SimulationState::Paused && stepRequested)
+    {
+        gameDt = dt * (timeScale > 0.0f ? timeScale : 1.0f);
+        gameTimeSec += (gameDt / 1000.0f);
+        gameFrameCount++;
+        stepRequested = false;
+    }
+    else
+    {
+        gameDt = 0.0f;
+    }
 
     // Amount of frames during the last second
     lastSecFrameCount++;
@@ -424,6 +444,69 @@ void Engine::UpdateMemoryMetrics()
 					hardwareMetrics.vramTotalMB = hardwareMetrics.vramAvailableMB;
 			}
 		}
+	}
+}
+
+void Engine::Play()
+{
+	if (simulationState == SimulationState::Stopped)
+	{
+		if (scene)
+		{
+			scene->SaveTemporaryScene(tempSceneFilePath);
+		}
+		gameTimer.Start();
+		gameTimeSec = 0.0f;
+		gameDt = 0.0f;
+		gameFrameCount = 0;
+		stepRequested = false;
+		simulationState = SimulationState::Playing;
+		LOG("[TimeManagement] Modo PLAY iniciado. Cronómetro de juego en marcha.");
+	}
+	else if (simulationState == SimulationState::Paused)
+	{
+		gameTimer.Resume();
+		simulationState = SimulationState::Playing;
+		LOG("[TimeManagement] Simulación reanudada (Resume).");
+	}
+}
+
+void Engine::Pause()
+{
+	if (simulationState == SimulationState::Playing)
+	{
+		gameTimer.Pause();
+		simulationState = SimulationState::Paused;
+		gameDt = 0.0f;
+		LOG("[TimeManagement] Simulación en PAUSA (Tiempo de juego: %.2f s).", gameTimeSec);
+	}
+}
+
+void Engine::Step()
+{
+	if (simulationState == SimulationState::Paused)
+	{
+		stepRequested = true;
+		LOG("[TimeManagement] Avanzando 1 frame en modo Pausa (Step).");
+	}
+}
+
+void Engine::Stop()
+{
+	if (simulationState != SimulationState::Stopped)
+	{
+		simulationState = SimulationState::Stopped;
+		gameTimer.Stop();
+		gameTimeSec = 0.0f;
+		gameDt = 0.0f;
+		gameFrameCount = 0;
+		stepRequested = false;
+
+		if (scene)
+		{
+			scene->LoadTemporaryScene(tempSceneFilePath, true);
+		}
+		LOG("[TimeManagement] Modo STOP: cronómetro de juego reiniciado y escena restaurada al estado inicial.");
 	}
 }
 

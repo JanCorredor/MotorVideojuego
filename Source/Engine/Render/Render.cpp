@@ -1065,7 +1065,7 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 
 	const bool wantNormals = settings.normals != NormalsMode::None;
 	const bool wantOutline = settings.highlightSelection && selected != nullptr;
-	const bool wantSpaceDebug = settings.drawAABB || settings.drawQuadtree || settings.drawOctree || settings.drawFrustum;
+	const bool wantSpaceDebug = settings.drawAABB || settings.drawQuadtree || settings.drawOctree || settings.drawFrustum || settings.cullFromGameCameraInScene;
 	if (!wantNormals && !wantOutline && !wantSpaceDebug) return;
 
 	if (wantOutline && selected)
@@ -1282,7 +1282,7 @@ void Render::DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& 
 	}
 
 	// 4. Dibujar Frustum de la Main Camera (Game Camera)
-	if (settings.drawFrustum)
+	if (settings.drawFrustum || settings.cullFromGameCameraInScene)
 	{
 		GameObject* gameCamObj = scene->GetGameCameraObject();
 		CameraComponent* gameCam = (gameCamObj && gameCamObj->IsActive()) ? gameCamObj->GetComponent<CameraComponent>() : nullptr;

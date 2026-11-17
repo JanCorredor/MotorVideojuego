@@ -71,6 +71,7 @@ public:
 
 	// Orden de componentes en el GameObject / Inspector
 	const std::array<ComponentType, COMPONENT_COUNT>& GetComponentOrder() const { return componentOrder; }
+	void SetComponentOrder(const std::array<ComponentType, COMPONENT_COUNT>& newOrder) { componentOrder = newOrder; }
 	bool MoveComponentUp(ComponentType type);
 	bool MoveComponentDown(ComponentType type);
 	bool SwapComponentOrder(ComponentType typeA, ComponentType typeB);

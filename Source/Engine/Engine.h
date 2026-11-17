@@ -18,6 +18,13 @@ class Scene;
 class ModuleUI;
 class TextureManager;
 
+enum class SimulationState
+{
+	Stopped = 0,
+	Playing,
+	Paused
+};
+
 
 struct HardwareMetrics
 {
@@ -83,6 +90,27 @@ public:
 	void SetTargetFrameRate(int fps) { targetFrameRate = fps; }
 	int GetTargetFrameRate() const { return targetFrameRate; }
 
+	// Time Management (2 cronómetros: Editor y Juego)
+	SimulationState GetSimulationState() const { return simulationState; }
+	bool IsPlaying() const { return simulationState == SimulationState::Playing; }
+	bool IsPaused() const { return simulationState == SimulationState::Paused; }
+	bool IsStopped() const { return simulationState == SimulationState::Stopped; }
+
+	void Play();
+	void Pause();
+	void Step();
+	void Stop();
+
+	float GetEditorTimeSec() const { return startupTime.ReadSecFloat(); }
+	float GetEditorTimeMSec() const { return startupTime.ReadMSec(); }
+	float GetGameTimeSec() const { return gameTimeSec; }
+	float GetGameTimerRawSec() const { return gameTimer.ReadSecFloat(); }
+	float GetGameDt() const { return gameDt; }
+	float GetTimeScale() const { return timeScale; }
+	void SetTimeScale(float scale) { timeScale = (scale < 0.0f) ? 0.0f : scale; }
+	int GetGameFrameCount() const { return gameFrameCount; }
+	const std::string& GetTempSceneFilePath() const { return tempSceneFilePath; }
+
 private:
 
 	// Private constructor to prevent instantiation
@@ -145,8 +173,17 @@ private:
 	// Calculate timing measures
 	// required variables are provided:
 	Timer startupTime;
+	Timer gameTimer;
 	PerfTimer frameTime;
 	PerfTimer lastSecFrameTime;
+
+	SimulationState simulationState = SimulationState::Stopped;
+	float gameTimeSec = 0.0f;
+	float gameDt = 0.0f;
+	float timeScale = 1.0f;
+	int gameFrameCount = 0;
+	bool stepRequested = false;
+	std::string tempSceneFilePath = "temp_playmode.scene";
 
 	int frameCount = 0;
 	int framesPerSecond = 0;

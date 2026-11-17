@@ -12,15 +12,52 @@ Timer::Timer()
 
 void Timer::Start()
 {
-	startTime = SDL_GetTicks();
+	running = true;
+	paused = false;
+	startTime = (unsigned int)SDL_GetTicks();
+	pausedTime = 0;
+}
+
+void Timer::Stop()
+{
+	running = false;
+	paused = false;
+	startTime = 0;
+	pausedTime = 0;
+}
+
+void Timer::Pause()
+{
+	if (running && !paused)
+	{
+		paused = true;
+		pausedTime = (unsigned int)SDL_GetTicks() - startTime;
+	}
+}
+
+void Timer::Resume()
+{
+	if (running && paused)
+	{
+		paused = false;
+		startTime = (unsigned int)SDL_GetTicks() - pausedTime;
+		pausedTime = 0;
+	}
 }
 
 int Timer::ReadSec() const
 {
-	return (SDL_GetTicks() - startTime) / 1000;
+	return (int)(ReadMSec() / 1000.0f);
+}
+
+float Timer::ReadSecFloat() const
+{
+	return ReadMSec() / 1000.0f;
 }
 
 float Timer::ReadMSec() const
 {
-	return (float)(SDL_GetTicks() - startTime);
+	if (!running) return 0.0f;
+	if (paused) return (float)pausedTime;
+	return (float)((unsigned int)SDL_GetTicks() - startTime);
 }

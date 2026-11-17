@@ -30,6 +30,7 @@
 #include <functional>
 #include <cfloat>
 #include <stack>
+#include <filesystem>
 
 #ifdef _DEBUG
 	#include <tracy/Tracy.hpp>
@@ -366,6 +367,78 @@ bool ModuleUI::DrawMainMenuBar()
 			ImGui::EndMenu();
 		}
 
+		// =====================================================================
+		// BARRA DE TIME MANAGEMENT (PLAY / PAUSE / STEP / STOP + 2 CRONÓMETROS)
+		// =====================================================================
+		ImGui::Separator();
+		Engine& eng = Engine::GetInstance();
+		const SimulationState simState = eng.GetSimulationState();
+
+		if (simState == SimulationState::Playing)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.65f, 0.25f, 1.0f));
+		}
+		if (ImGui::SmallButton(simState == SimulationState::Paused ? "> Resume" : "> Play"))
+		{
+			eng.Play();
+		}
+		if (simState == SimulationState::Playing)
+		{
+			ImGui::PopStyleColor();
+		}
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(simState == SimulationState::Stopped);
+		if (simState == SimulationState::Paused)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.55f, 0.15f, 1.0f));
+		}
+		if (ImGui::SmallButton("|| Pause"))
+		{
+			if (simState == SimulationState::Paused) eng.Play();
+			else eng.Pause();
+		}
+		if (simState == SimulationState::Paused)
+		{
+			ImGui::PopStyleColor();
+		}
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(simState != SimulationState::Paused);
+		if (ImGui::SmallButton(">| Step"))
+		{
+			eng.Step();
+		}
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::BeginDisabled(simState == SimulationState::Stopped);
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.18f, 0.18f, 1.0f));
+		if (ImGui::SmallButton("[] Stop"))
+		{
+			eng.Stop();
+		}
+		ImGui::PopStyleColor();
+		ImGui::EndDisabled();
+
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(75.0f);
+		float timeScale = eng.GetTimeScale();
+		if (ImGui::SliderFloat("##TimeScaleBar", &timeScale, 0.0f, 4.0f, "%.1fx"))
+		{
+			eng.SetTimeScale(timeScale);
+		}
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Time Scale del reloj de juego");
+
+		ImGui::SameLine();
+		ImGui::TextColored(ImVec4(0.45f, 0.85f, 1.0f, 1.0f), "Editor: %.2f s", eng.GetEditorTimeSec());
+		ImGui::SameLine();
+		ImVec4 gameTimerColor = (simState == SimulationState::Playing)
+			? ImVec4(0.30f, 1.0f, 0.45f, 1.0f)
+			: ((simState == SimulationState::Paused) ? ImVec4(1.0f, 0.85f, 0.25f, 1.0f) : ImVec4(0.65f, 0.65f, 0.65f, 1.0f));
+		ImGui::TextColored(gameTimerColor, "| Game: %.2f s", eng.GetGameTimeSec());
+
 		ImGui::EndMainMenuBar();
 	}
 
@@ -405,6 +478,37 @@ void ModuleUI::DrawScenePanel()
 	}
 
 	if (render) render->SetViewportVisible(true);
+
+	if (render)
+	{
+		RenderSettings rs = render->GetSettings();
+		bool barChanged = false;
+
+		if (ImGui::Checkbox("Frustum Culling", &rs.cullFromGameCameraInScene))
+		{
+			if (rs.cullFromGameCameraInScene)
+			{
+				rs.frustumCulling = true;
+			}
+			barChanged = true;
+		}
+		ImGui::SameLine();
+		barChanged |= ImGui::Checkbox("AABB", &rs.drawAABB);
+		ImGui::SameLine();
+		barChanged |= ImGui::Checkbox("Quadtree", &rs.drawQuadtree);
+		ImGui::SameLine();
+		barChanged |= ImGui::Checkbox("Octree", &rs.drawOctree);
+
+		if (barChanged)
+		{
+			render->SetSettings(rs);
+		}
+
+		const CullingStats& cStats = render->GetCullingStats();
+		ImGui::SameLine();
+		ImGui::TextDisabled("| Visibles: %d/%d (Culled: %d)", cStats.visibleObjects, cStats.totalMeshObjects, cStats.culledObjects);
+		ImGui::Separator();
+	}
 
 	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 	if (render && viewportSize.x > 0 && viewportSize.y > 0)
@@ -1324,6 +1428,25 @@ void ModuleUI::DrawInspectorPanel()
 							{
 								cam->SetMovementSpeed(speed);
 							}
+
+							if (Render* render = Engine::GetInstance().render.get())
+							{
+								ImGui::Spacing();
+								ImGui::SeparatorText("Frustum Culling");
+								RenderSettings rs = render->GetSettings();
+								bool camCullChanged = false;
+								camCullChanged |= ImGui::Checkbox("Frustum Culling Activo", &rs.frustumCulling);
+								if (ImGui::Checkbox("Ver Frustum Culling desde Cámara del Editor", &rs.cullFromGameCameraInScene))
+								{
+									if (rs.cullFromGameCameraInScene) rs.frustumCulling = true;
+									camCullChanged = true;
+								}
+								camCullChanged |= ImGui::Checkbox("Dibujar Frustum", &rs.drawFrustum);
+								if (camCullChanged)
+								{
+									render->SetSettings(rs);
+								}
+							}
 						}
 					}
 				}
@@ -1715,12 +1838,36 @@ void ModuleUI::DrawConfigurationPanel()
 			// =========================================================================
 			if (ImGui::BeginTabItem("Application"))
 			{
-				const auto& perf = Engine::GetInstance().GetPerformanceData();
+				Engine& eng = Engine::GetInstance();
+				const auto& perf = eng.GetPerformanceData();
 
 				ImGui::Text("Motor: Motor Videojuego 3D");
 				ImGui::BulletText("Tiempo Activo (Uptime): %.1f s", perf.uptimeSeconds);
 				ImGui::BulletText("Frames Totales: %zu", perf.totalFrames);
 				ImGui::BulletText("Consumo RAM del Proceso: %zu MB (Pico: %zu MB)", perf.processMemoryMB, perf.processPeakMemoryMB);
+
+				ImGui::Spacing();
+				ImGui::SeparatorText("Time Management (Reloj del Editor y del Juego)");
+
+				const SimulationState simState = eng.GetSimulationState();
+				const char* stateLabel = (simState == SimulationState::Playing) ? "PLAYING" : ((simState == SimulationState::Paused) ? "PAUSED" : "STOPPED (Editor)");
+				ImGui::BulletText("Estado de Simulación: %s", stateLabel);
+				ImGui::BulletText("Cronómetro 1 (Tiempo del Editor / Real Time): %.2f s (dt real: %.2f ms | Frames: %zu)",
+					eng.GetEditorTimeSec(), eng.GetDt(), perf.totalFrames);
+				ImGui::BulletText("Cronómetro 2 (Tiempo del Juego / Game Clock): %.2f s (Real en Play: %.2f s | dt juego: %.2f ms | Frames juego: %d)",
+					eng.GetGameTimeSec(), eng.GetGameTimerRawSec(), eng.GetGameDt(), eng.GetGameFrameCount());
+
+				float timeScale = eng.GetTimeScale();
+				if (ImGui::SliderFloat("Escala de Tiempo (Time Scale)", &timeScale, 0.0f, 4.0f, "%.2fx"))
+				{
+					eng.SetTimeScale(timeScale);
+				}
+
+				std::error_code ec;
+				const bool tempExists = std::filesystem::exists(eng.GetTempSceneFilePath(), ec);
+				ImGui::BulletText("Archivo Temporal de Escena ('%s'): %s",
+					eng.GetTempSceneFilePath().c_str(),
+					tempExists ? "Creado en disco (listo para restaurar al dar Stop)" : "Inactivo");
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Control de Framerate");
