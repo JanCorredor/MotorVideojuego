@@ -19,6 +19,8 @@
 #include <imgui_internal.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
+#include <ImGuizmo.h>
+#include <imnodes.h>
 
 #include <SDL3/SDL.h>
 
@@ -120,6 +122,7 @@ bool ModuleUI::Start()
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
+	ImNodes::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -173,6 +176,7 @@ bool ModuleUI::PreUpdate()
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL3_NewFrame();
 	ImGui::NewFrame();
+	ImGuizmo::BeginFrame();
 
 	return true;
 }
@@ -1563,6 +1567,7 @@ bool ModuleUI::CleanUp()
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplSDL3_Shutdown();
+	ImNodes::DestroyContext();
 	ImGui::DestroyContext();
 
 	return true;

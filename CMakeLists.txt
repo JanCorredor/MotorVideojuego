@@ -24,6 +24,20 @@ find_package(imgui CONFIG REQUIRED)
 find_package(DevIL REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
+find_package(imguizmo CONFIG REQUIRED)
+
+# imnodes (no tiene port en vcpkg)
+include(FetchContent)
+FetchContent_Declare(
+    imnodes
+    GIT_REPOSITORY https://github.com/Nelarius/imnodes.git
+    GIT_TAG        2d0c280b07b2f62b120034811cc6e41251673961
+    SOURCE_SUBDIR  _no_cmake_
+)
+FetchContent_MakeAvailable(imnodes)
+add_library(imnodes STATIC ${imnodes_SOURCE_DIR}/imnodes.cpp)
+target_include_directories(imnodes PUBLIC ${imnodes_SOURCE_DIR})
+target_link_libraries(imnodes PUBLIC imgui::imgui)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     "Source/*.cpp"
@@ -44,6 +58,8 @@ DevIL::ILU
 DevIL::ILUT
 assimp::assimp
 Tracy::TracyClient
+imguizmo::imguizmo
+imnodes
 )
 
 # Copy required DLLs (TracyClient.dll, SDL3.dll, assimp.dll, etc.) to executable directory

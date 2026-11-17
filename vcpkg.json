@@ -18,6 +18,7 @@
     "sdl3",
     "devil",
     "assimp",
-    "tracy"
+    "tracy",
+    "imguizmo"
   ]
 }
