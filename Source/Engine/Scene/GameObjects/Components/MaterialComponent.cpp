@@ -14,6 +14,73 @@ std::unique_ptr<Component> MaterialComponent::Clone(GameObject* newOwner) const
 	return clone;
 }
 
+void MaterialComponent::Save(SceneFile& file) const
+{
+	file.SetBool("active", active);
+	file.SetVec4("color", color);
+	file.SetBool("use_texture", useTexture);
+	file.SetBool("use_checkerboard", useCheckerboard);
+	file.SetBool("using_missing_texture", usingMissingTexture);
+
+	std::string texPath = (diffuse != nullptr && diffuse->path.find("(procedural)") == std::string::npos)
+		? diffuse->path
+		: "";
+	file.SetString("texture_path", texPath);
+
+	if (diffuse != nullptr && !texPath.empty())
+	{
+		file.SetInt("min_filter", diffuse->importSettings.minFilter);
+		file.SetInt("mag_filter", diffuse->importSettings.magFilter);
+		file.SetInt("wrap_mode", diffuse->importSettings.wrapMode);
+		file.SetBool("flip_x", diffuse->importSettings.flipX);
+		file.SetBool("flip_y", diffuse->importSettings.flipY);
+	}
+}
+
+void MaterialComponent::Load(const SceneFile& file)
+{
+	active = file.GetBool("active", true);
+	color = file.GetVec4("color", glm::vec4(1.0f));
+	useTexture = file.GetBool("use_texture", false);
+	useCheckerboard = file.GetBool("use_checkerboard", false);
+	bool savedMissing = file.GetBool("using_missing_texture", false);
+	std::string texPath = file.GetString("texture_path", "");
+
+	if (!texPath.empty() && texPath.find("(procedural)") == std::string::npos)
+	{
+		std::string resolvedTex = SceneFile::ResolveExistingPath(texPath);
+		if (file.HasKey("min_filter"))
+		{
+			TextureSettings ts;
+			ts.minFilter = file.GetInt("min_filter", 0);
+			ts.magFilter = file.GetInt("mag_filter", 0);
+			ts.wrapMode = file.GetInt("wrap_mode", 0);
+			ts.flipX = file.GetBool("flip_x", false);
+			ts.flipY = file.GetBool("flip_y", false);
+			diffuse = TextureImporter::ImportTexture(resolvedTex, ts, false);
+			usingMissingTexture = (diffuse == nullptr);
+			if (usingMissingTexture && Engine::GetInstance().textures)
+			{
+				diffuse = Engine::GetInstance().textures->GetMissingTexture();
+			}
+		}
+		else
+		{
+			SetTexture(resolvedTex);
+		}
+	}
+	else if (savedMissing && Engine::GetInstance().textures)
+	{
+		usingMissingTexture = true;
+		diffuse = Engine::GetInstance().textures->GetMissingTexture();
+	}
+	else
+	{
+		diffuse = nullptr;
+		usingMissingTexture = false;
+	}
+}
+
 bool MaterialComponent::SetTexture(const std::string& filePath)
 {
 	const TextureInfo* loaded = TextureImporter::ImportTexture(filePath);
@@ -25,6 +92,7 @@ bool MaterialComponent::SetTexture(const std::string& filePath)
 	}
 	usingMissingTexture = false;
 	diffuse = loaded;
+	NotifyOwnerModified();
 	return true;
 }
 

@@ -160,6 +160,8 @@ public:
 	// El root y objetos que no pertenezcan a la escena se rechazan.
 	void SetSelected(GameObject* object);
 	GameObject* GetSelected() const { return selected; }
+	uint64_t GetSelectionRevision() const { return selectionRevision; }
+	void NotifySelectionHierarchyChanged() { selectionRevision++; }
 
 	// Comprueba si un puntero a GameObject es propiedad viva de esta escena
 	bool OwnsObject(const GameObject* object) const;
@@ -176,6 +178,21 @@ public:
 	int GetTreeMaxObjects() const { return treeMaxObjectsPerNode; }
 	int GetTreeMaxDepth() const { return treeMaxDepth; }
 	void SetTreeParameters(int maxObjectsPerNode, int maxDepth);
+
+	// Serialización de Escena: Save(file) y Load(file) en formato JSON + Custom File Format (.mesh)
+	bool Save(const std::string& filePath) const;
+	bool Load(const std::string& filePath);
+	void NewScene();
+
+	const std::string& GetCurrentScenePath() const { return currentScenePath; }
+	void SetCurrentScenePath(const std::string& path);
+	bool HasSavedScenePath() const { return !currentScenePath.empty(); }
+	std::string GetSceneDisplayName() const;
+
+	bool IsSceneDirty() const { return sceneDirty; }
+	void MarkSceneDirty();
+	void ClearSceneDirty();
+	void UpdateWindowTitle() const;
 
 	// Guardado y restauración de escena temporal (Play / Stop)
 	bool SaveTemporaryScene(const std::string& filePath) const;
@@ -199,4 +216,10 @@ private:
 	GameObject* mainCameraPtr = nullptr;
 	GameObject* gameCameraPtr = nullptr;
 	GameObject* selected = nullptr;
+	uint64_t selectionRevision = 0;
+	mutable std::string currentScenePath;
+	mutable bool sceneDirty = false;
+	mutable bool isLoadingOrInitializing = false;
+	mutable std::string prePlayScenePath;
+	mutable bool prePlaySceneDirty = false;
 };

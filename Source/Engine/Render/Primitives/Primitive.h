@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <string>
 #include <glm/glm.hpp>
 #include "Vertex.h"
 
@@ -40,6 +41,17 @@ public:
     glm::vec3 GetBoundsMin() const { return boundsMin; }
     glm::vec3 GetBoundsMax() const { return boundsMax; }
 
+    void SetSourceInfo(const std::string& path, int subIndex = -1)
+    {
+        sourcePath = path;
+        subMeshIndex = subIndex;
+    }
+    const std::string& GetSourcePath() const { return sourcePath; }
+    int GetSubMeshIndex() const { return subMeshIndex; }
+
+    void SetCustomMeshPath(const std::string& path) { customMeshPath = path; }
+    const std::string& GetCustomMeshPath() const { return customMeshPath; }
+
 private:
     unsigned int VAO = 0, VBO = 0, EBO = 0;
     unsigned int indexCount = 0;
@@ -48,4 +60,8 @@ private:
     std::vector<FaceData> faces;
     glm::vec3 boundsMin = glm::vec3(0.0f);
     glm::vec3 boundsMax = glm::vec3(0.0f);
+
+    std::string sourcePath;
+    int subMeshIndex = -1;
+    std::string customMeshPath;
 };

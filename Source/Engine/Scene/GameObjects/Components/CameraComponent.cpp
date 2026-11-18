@@ -33,8 +33,40 @@ std::unique_ptr<Component> CameraComponent::Clone(GameObject* newOwner) const
     return clone;
 }
 
+void CameraComponent::Save(SceneFile& file) const
+{
+    file.SetBool("active", active);
+    file.SetFloat("fov", fov);
+    file.SetFloat("near_plane", nearPlane);
+    file.SetFloat("far_plane", farPlane);
+    file.SetFloat("movement_speed", movementSpeed);
+    file.SetFloat("mouse_sensitivity", mouseSensitivity);
+    file.SetFloat("orbit_distance", orbitDistance);
+    file.SetFloat("yaw", yaw);
+    file.SetFloat("pitch", pitch);
+}
+
+void CameraComponent::Load(const SceneFile& file)
+{
+    active = file.GetBool("active", true);
+    fov = file.GetFloat("fov", 45.0f);
+    nearPlane = file.GetFloat("near_plane", 0.1f);
+    farPlane = file.GetFloat("far_plane", 100.0f);
+    movementSpeed = file.GetFloat("movement_speed", 5.0f);
+    mouseSensitivity = file.GetFloat("mouse_sensitivity", 0.1f);
+    orbitDistance = file.GetFloat("orbit_distance", 5.0f);
+    yaw = file.GetFloat("yaw", -90.0f);
+    pitch = file.GetFloat("pitch", 0.0f);
+    transform = owner ? owner->GetComponent<TransformComponent>() : nullptr;
+    UpdateCameraVectors();
+}
+
 void CameraComponent::Update(float dt)
 {
+    if (!transform && owner)
+    {
+        transform = owner->GetComponent<TransformComponent>();
+    }
     if (!transform) return;
 
     Input* input = Engine::GetInstance().input.get();
@@ -172,6 +204,10 @@ void CameraComponent::UpdateCameraVectors()
 
 glm::mat4 CameraComponent::GetViewMatrix()
 {
+    if (!transform && owner)
+    {
+        transform = owner->GetComponent<TransformComponent>();
+    }
     if (!transform) return glm::mat4(1.0f);
 
     Scene* scene = Engine::GetInstance().scene.get();

@@ -40,6 +40,7 @@ class TransformComponent;
 class MeshComponent;
 class MaterialComponent;
 class CameraComponent;
+class SceneFile;
 
 class GameObject
 {
@@ -55,6 +56,10 @@ public:
 	// Duplicar el GameObject (clonado profundo de todos sus componentes y nuevo UUID generado)
 	std::unique_ptr<GameObject> Duplicate(const std::string& newName = "") const;
 	std::unique_ptr<GameObject> Clone(const std::string& newName = "") const;
+
+	// Serialización del GameObject: se propaga a sus componentes y a sus hijos
+	void Save(SceneFile& file) const;
+	void Load(const SceneFile& file);
 
 	GameUUID GetUUID() const { return uuid; }
 
@@ -101,15 +106,17 @@ public:
 	GameObject* GetParent() const { return parent; }
 	const std::vector<GameObject*>& GetChildren() const { return children; }
 
-	void SetName(const std::string& n) { name = n; }
+	void SetName(const std::string& n) { if (name != n) { name = n; NotifySceneModified(); } }
 	const std::string& GetName() const { return name; }
 
 	bool IsActive() const { return active; }
-	void Enable() { this->active = true; }
-	void Disable() { this->active = false; }
+	void Enable() { if (!this->active) { this->active = true; NotifySceneModified(); } }
+	void Disable() { if (this->active) { this->active = false; NotifySceneModified(); } }
 
 	bool IsStatic() const { return isStatic; }
 	void SetStatic(bool value, bool applyToChildren = false);
+
+	void NotifySceneModified() const;
 
 	bool HasWorldAABB() const;
 	AABB GetWorldAABB() const;

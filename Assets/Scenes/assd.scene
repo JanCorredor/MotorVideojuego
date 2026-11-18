@@ -1,0 +1,639 @@
+{
+    "scene_name": "assd",
+    "version": 1,
+    "space_partitioning": {
+        "max_objects_per_node": 1,
+        "max_depth": 5
+    },
+    "selected_uuid": 2883327846832202962,
+    "game_camera_uuid": 5715714264056947979,
+    "editor_camera": {
+        "uuid": 15650940334517079946,
+        "parent_uuid": 0,
+        "name": "EditorCamera",
+        "active": true,
+        "static": false,
+        "components": [
+            {
+                "type": 0,
+                "active": true,
+                "position": [
+                    0.0,
+                    1.0,
+                    5.0
+                ],
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            {
+                "type": 3,
+                "active": true,
+                "fov": 45.0,
+                "near_plane": 0.10000000149011612,
+                "far_plane": 100.0,
+                "movement_speed": 5.0,
+                "mouse_sensitivity": 0.10000000149011612,
+                "orbit_distance": 5.0,
+                "yaw": -90.0,
+                "pitch": 0.0
+            }
+        ],
+        "children": []
+    },
+    "game_objects": [
+        {
+            "uuid": 5715714264056947979,
+            "parent_uuid": 0,
+            "name": "Main Camera",
+            "active": true,
+            "static": false,
+            "components": [
+                {
+                    "type": 0,
+                    "active": true,
+                    "position": [
+                        0.0,
+                        2.0,
+                        7.0
+                    ],
+                    "rotation": [
+                        -10.000000953674316,
+                        0.0,
+                        -0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        0.9999999403953552,
+                        0.9999999403953552
+                    ]
+                },
+                {
+                    "type": 3,
+                    "active": true,
+                    "fov": 45.0,
+                    "near_plane": 0.10000000149011612,
+                    "far_plane": 100.0,
+                    "movement_speed": 5.0,
+                    "mouse_sensitivity": 0.10000000149011612,
+                    "orbit_distance": 5.0,
+                    "yaw": -90.0,
+                    "pitch": 0.0
+                }
+            ],
+            "children": []
+        },
+        {
+            "uuid": 68825235766743536,
+            "parent_uuid": 0,
+            "name": "Cube",
+            "active": true,
+            "static": true,
+            "components": [
+                {
+                    "type": 0,
+                    "active": true,
+                    "position": [
+                        -2.0,
+                        0.0,
+                        0.0
+                    ],
+                    "rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                {
+                    "type": 1,
+                    "active": true,
+                    "has_primitive": true,
+                    "source_path": "Primitive:Cube",
+                    "submesh_index": -1,
+                    "custom_mesh_path": "../Library/Meshes/Primitive_Cube.mesh"
+                },
+                {
+                    "type": 2,
+                    "active": true,
+                    "color": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "use_texture": true,
+                    "use_checkerboard": false,
+                    "using_missing_texture": false,
+                    "texture_path": "../Assets/water.jpg",
+                    "min_filter": 0,
+                    "mag_filter": 0,
+                    "wrap_mode": 0,
+                    "flip_x": false,
+                    "flip_y": false
+                }
+            ],
+            "children": [
+                {
+                    "uuid": 6829235802349708839,
+                    "parent_uuid": 68825235766743536,
+                    "name": "Sphere",
+                    "active": true,
+                    "static": true,
+                    "components": [
+                        {
+                            "type": 0,
+                            "active": true,
+                            "position": [
+                                4.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "scale": [
+                                1.0,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        {
+                            "type": 1,
+                            "active": true,
+                            "has_primitive": true,
+                            "source_path": "Primitive:Sphere",
+                            "submesh_index": -1,
+                            "custom_mesh_path": "../Library/Meshes/Primitive_Sphere.mesh"
+                        },
+                        {
+                            "type": 2,
+                            "active": true,
+                            "color": [
+                                1.0,
+                                1.0,
+                                1.0,
+                                1.0
+                            ],
+                            "use_texture": true,
+                            "use_checkerboard": false,
+                            "using_missing_texture": false,
+                            "texture_path": "../Assets/lava.jpg",
+                            "min_filter": 0,
+                            "mag_filter": 0,
+                            "wrap_mode": 0,
+                            "flip_x": false,
+                            "flip_y": false
+                        }
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "uuid": 16086557923589709020,
+            "parent_uuid": 0,
+            "name": "BakerHouse",
+            "active": true,
+            "static": true,
+            "components": [
+                {
+                    "type": 0,
+                    "active": true,
+                    "position": [
+                        0.0,
+                        0.0,
+                        -3.0
+                    ],
+                    "rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                }
+            ],
+            "children": [
+                {
+                    "uuid": 9331135389123063335,
+                    "parent_uuid": 16086557923589709020,
+                    "name": "Chimney",
+                    "active": true,
+                    "static": true,
+                    "components": [
+                        {
+                            "type": 0,
+                            "active": true,
+                            "position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "scale": [
+                                1.0,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        {
+                            "type": 1,
+                            "active": true,
+                            "has_primitive": true,
+                            "source_path": "../Assets/BakerHouse.fbx",
+                            "submesh_index": 0,
+                            "custom_mesh_path": "../Library/Meshes/BakerHouse_sub0.mesh"
+                        },
+                        {
+                            "type": 2,
+                            "active": true,
+                            "color": [
+                                1.0,
+                                1.0,
+                                1.0,
+                                1.0
+                            ],
+                            "use_texture": true,
+                            "use_checkerboard": false,
+                            "using_missing_texture": false,
+                            "texture_path": "../Assets/Baker_house.png",
+                            "min_filter": 0,
+                            "mag_filter": 0,
+                            "wrap_mode": 0,
+                            "flip_x": false,
+                            "flip_y": false
+                        }
+                    ],
+                    "children": []
+                },
+                {
+                    "uuid": 2883327846832202962,
+                    "parent_uuid": 16086557923589709020,
+                    "name": "Baker_house",
+                    "active": true,
+                    "static": false,
+                    "components": [
+                        {
+                            "type": 0,
+                            "active": true,
+                            "position": [
+                                -1.5,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                39.0,
+                                0.0
+                            ],
+                            "scale": [
+                                1.0,
+                                1.600000023841858,
+                                1.0
+                            ]
+                        },
+                        {
+                            "type": 1,
+                            "active": true,
+                            "has_primitive": true,
+                            "source_path": "../Assets/BakerHouse.fbx",
+                            "submesh_index": 1,
+                            "custom_mesh_path": "../Library/Meshes/BakerHouse_sub1.mesh"
+                        },
+                        {
+                            "type": 2,
+                            "active": true,
+                            "color": [
+                                1.0,
+                                1.0,
+                                1.0,
+                                1.0
+                            ],
+                            "use_texture": true,
+                            "use_checkerboard": false,
+                            "using_missing_texture": false,
+                            "texture_path": "../Assets/Baker_house.png",
+                            "min_filter": 0,
+                            "mag_filter": 0,
+                            "wrap_mode": 0,
+                            "flip_x": false,
+                            "flip_y": false
+                        }
+                    ],
+                    "children": []
+                }
+            ]
+        },
+        {
+            "uuid": 17908692024144130715,
+            "parent_uuid": 0,
+            "name": "SM_Candle_Fundida",
+            "active": true,
+            "static": true,
+            "components": [
+                {
+                    "type": 0,
+                    "active": true,
+                    "position": [
+                        3.0,
+                        0.0,
+                        0.0
+                    ],
+                    "rotation": [
+                        -90.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        0.05000000074505806,
+                        0.05000000074505806,
+                        0.05000000074505806
+                    ]
+                },
+                {
+                    "type": 1,
+                    "active": true,
+                    "has_primitive": true,
+                    "source_path": "../Assets/SM_Candle_Fundida.fbx",
+                    "submesh_index": 0,
+                    "custom_mesh_path": "../Library/Meshes/SM_Candle_Fundida_sub0.mesh"
+                },
+                {
+                    "type": 2,
+                    "active": true,
+                    "color": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "use_texture": true,
+                    "use_checkerboard": false,
+                    "using_missing_texture": false,
+                    "texture_path": "../Assets/T_Candle_D.tga",
+                    "min_filter": 0,
+                    "mag_filter": 0,
+                    "wrap_mode": 0,
+                    "flip_x": false,
+                    "flip_y": false
+                }
+            ],
+            "children": []
+        },
+        {
+            "uuid": 9937638632769176237,
+            "parent_uuid": 0,
+            "name": "HeavyTF2_2018",
+            "active": true,
+            "static": true,
+            "components": [
+                {
+                    "type": 0,
+                    "active": true,
+                    "position": [
+                        -3.0,
+                        0.0,
+                        -2.0
+                    ],
+                    "rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        0.019999999552965164,
+                        0.019999999552965164,
+                        0.019999999552965164
+                    ]
+                }
+            ],
+            "children": [
+                {
+                    "uuid": 10678694564107960012,
+                    "parent_uuid": 9937638632769176237,
+                    "name": "HEAVY_TF2",
+                    "active": true,
+                    "static": true,
+                    "components": [
+                        {
+                            "type": 0,
+                            "active": true,
+                            "position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "scale": [
+                                1.0,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        {
+                            "type": 1,
+                            "active": true,
+                            "has_primitive": true,
+                            "source_path": "../Assets/HeavyTF2_2018.fbx",
+                            "submesh_index": 0,
+                            "custom_mesh_path": "../Library/Meshes/HeavyTF2_2018_sub0.mesh"
+                        },
+                        {
+                            "type": 2,
+                            "active": true,
+                            "color": [
+                                1.0,
+                                1.0,
+                                1.0,
+                                1.0
+                            ],
+                            "use_texture": false,
+                            "use_checkerboard": false,
+                            "using_missing_texture": false,
+                            "texture_path": ""
+                        }
+                    ],
+                    "children": []
+                },
+                {
+                    "uuid": 15123188058486699028,
+                    "parent_uuid": 9937638632769176237,
+                    "name": "HEAVY_TF2 (1)",
+                    "active": true,
+                    "static": true,
+                    "components": [
+                        {
+                            "type": 0,
+                            "active": true,
+                            "position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "scale": [
+                                1.0,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        {
+                            "type": 1,
+                            "active": true,
+                            "has_primitive": true,
+                            "source_path": "../Assets/HeavyTF2_2018.fbx",
+                            "submesh_index": 1,
+                            "custom_mesh_path": "../Library/Meshes/HeavyTF2_2018_sub1.mesh"
+                        },
+                        {
+                            "type": 2,
+                            "active": true,
+                            "color": [
+                                1.0,
+                                1.0,
+                                1.0,
+                                1.0
+                            ],
+                            "use_texture": false,
+                            "use_checkerboard": false,
+                            "using_missing_texture": false,
+                            "texture_path": ""
+                        }
+                    ],
+                    "children": []
+                },
+                {
+                    "uuid": 7009360365712995431,
+                    "parent_uuid": 9937638632769176237,
+                    "name": "HEAVY_TF2 (2)",
+                    "active": true,
+                    "static": true,
+                    "components": [
+                        {
+                            "type": 0,
+                            "active": true,
+                            "position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "scale": [
+                                1.0,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        {
+                            "type": 1,
+                            "active": true,
+                            "has_primitive": true,
+                            "source_path": "../Assets/HeavyTF2_2018.fbx",
+                            "submesh_index": 2,
+                            "custom_mesh_path": "../Library/Meshes/HeavyTF2_2018_sub2.mesh"
+                        },
+                        {
+                            "type": 2,
+                            "active": true,
+                            "color": [
+                                1.0,
+                                1.0,
+                                1.0,
+                                1.0
+                            ],
+                            "use_texture": false,
+                            "use_checkerboard": false,
+                            "using_missing_texture": false,
+                            "texture_path": ""
+                        }
+                    ],
+                    "children": []
+                },
+                {
+                    "uuid": 12331579706000040528,
+                    "parent_uuid": 9937638632769176237,
+                    "name": "HEAVY_TF2 (3)",
+                    "active": true,
+                    "static": true,
+                    "components": [
+                        {
+                            "type": 0,
+                            "active": true,
+                            "position": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "scale": [
+                                1.0,
+                                1.0,
+                                1.0
+                            ]
+                        },
+                        {
+                            "type": 1,
+                            "active": true,
+                            "has_primitive": true,
+                            "source_path": "../Assets/HeavyTF2_2018.fbx",
+                            "submesh_index": 3,
+                            "custom_mesh_path": "../Library/Meshes/HeavyTF2_2018_sub3.mesh"
+                        },
+                        {
+                            "type": 2,
+                            "active": true,
+                            "color": [
+                                1.0,
+                                1.0,
+                                1.0,
+                                1.0
+                            ],
+                            "use_texture": false,
+                            "use_checkerboard": false,
+                            "using_missing_texture": false,
+                            "texture_path": ""
+                        }
+                    ],
+                    "children": []
+                }
+            ]
+        }
+    ]
+}

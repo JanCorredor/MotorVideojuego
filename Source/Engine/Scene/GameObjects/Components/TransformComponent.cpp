@@ -13,6 +13,22 @@ std::unique_ptr<Component> TransformComponent::Clone(GameObject* newOwner) const
 	return clone;
 }
 
+void TransformComponent::Save(SceneFile& file) const
+{
+	file.SetBool("active", active);
+	file.SetVec3("position", position);
+	file.SetVec3("rotation", rotation);
+	file.SetVec3("scale", scale);
+}
+
+void TransformComponent::Load(const SceneFile& file)
+{
+	active = file.GetBool("active", true);
+	SetPosition(file.GetVec3("position", glm::vec3(0.0f)));
+	SetRotation(file.GetVec3("rotation", glm::vec3(0.0f)));
+	SetScale(file.GetVec3("scale", glm::vec3(1.0f)));
+}
+
 const glm::mat4& TransformComponent::GetWorldMatrix() const
 {
 	if (worldDirty)

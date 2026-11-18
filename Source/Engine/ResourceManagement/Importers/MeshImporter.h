@@ -2,6 +2,7 @@
 
 #include <string>
 #include <memory>
+#include <cstdint>
 #include "../../Render/Primitives/Primitive.h"
 
 class GameObject;
@@ -17,4 +18,12 @@ public:
 
     // Importa el archivo y lo instancia directamente como GameObject en la Scene
     static GameObject* ImportToScene(const std::string& filePath, GameObject* parent = nullptr);
+
+    // ========================================================================
+    // Custom File Format (.mesh en Library/Meshes/)
+    // ========================================================================
+    static std::string BuildCustomMeshPath(const std::string& sourcePath, int subMeshIndex = -1, uint64_t fallbackId = 0);
+    static bool SaveMeshToCustomFormat(const Primitive* primitive, const std::string& customFilePath);
+    static std::unique_ptr<Primitive> LoadMeshFromCustomFormat(const std::string& customFilePath);
+    static std::unique_ptr<Primitive> ResolveOrLoadPrimitive(const std::string& sourcePath, int subMeshIndex, const std::string& customMeshPath);
 };

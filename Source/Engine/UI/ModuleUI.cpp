@@ -101,6 +101,35 @@ namespace
 			LOG("[UI] Abriendo navegador en: %s", url);
 		}
 	}
+
+	std::string ResolveProjectRootDirectory()
+	{
+		std::error_code ec;
+		std::filesystem::path assetsPath(SceneFile::ResolveAssetsDirectory());
+		std::filesystem::path absAssets = std::filesystem::weakly_canonical(assetsPath, ec);
+		if (!ec && absAssets.has_parent_path())
+		{
+			return absAssets.parent_path().string();
+		}
+		std::filesystem::path cwd = std::filesystem::current_path(ec);
+		return cwd.string();
+	}
+
+	void OpenFolderInFileExplorer(const std::string& folderPath)
+	{
+		std::error_code ec;
+		std::filesystem::path absPath = std::filesystem::weakly_canonical(folderPath, ec);
+		std::string target = (!ec && !absPath.empty()) ? absPath.string() : folderPath;
+
+		if (!SDL_OpenURL(target.c_str()))
+		{
+			LOG_ERROR("[UI] No se pudo abrir el explorador de archivos en '%s': %s", target.c_str(), SDL_GetError());
+		}
+		else
+		{
+			LOG("[UI] Abriendo explorador de archivos en: %s", target.c_str());
+		}
+	}
 }
 
 ModuleUI::ModuleUI() : Module()
@@ -234,7 +263,40 @@ bool ModuleUI::Update(float dt)
 	DrawConsolePanel();
 	DrawDepthBufferPanel();
 	DrawAboutPanel();
+	DrawSceneFileModals();
 
+	// Atajos de teclado globales para Escena (Ctrl+N, Ctrl+S, Ctrl+Shift+S, Ctrl+O)
+	if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl)
+	{
+		Scene* scene = Engine::GetInstance().scene.get();
+		if (ImGui::IsKeyPressed(ImGuiKey_S, false))
+		{
+			if (ImGui::GetIO().KeyShift)
+			{
+				TriggerSaveSceneAs();
+			}
+			else
+			{
+				TriggerSaveScene();
+			}
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_O, false))
+		{
+			openLoadScenePopup = true;
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_N, false))
+		{
+			if (scene)
+			{
+				if (!Engine::GetInstance().IsStopped())
+				{
+					Engine::GetInstance().Stop();
+				}
+				scene->NewScene();
+				saveSceneFileNameBuffer[0] = '\0';
+			}
+		}
+	}
 
 	// Atajo de teclado: Ctrl+D para duplicar el GameObject seleccionado si Scene o Hierarchy tienen el foco
 	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false))
@@ -271,6 +333,96 @@ bool ModuleUI::DrawMainMenuBar()
 	{
 		if (ImGui::BeginMenu("File"))
 		{
+			Scene* scene = Engine::GetInstance().scene.get();
+
+			if (ImGui::MenuItem("New Scene", "Ctrl+N"))
+			{
+				if (scene)
+				{
+					if (!Engine::GetInstance().IsStopped())
+					{
+						Engine::GetInstance().Stop();
+					}
+					scene->NewScene();
+					saveSceneFileNameBuffer[0] = '\0';
+				}
+			}
+
+			ImGui::Separator();
+
+			if (ImGui::MenuItem("Save Scene", "Ctrl+S"))
+			{
+				TriggerSaveScene();
+			}
+			if (ImGui::IsItemHovered() && scene)
+			{
+				if (scene->HasSavedScenePath())
+				{
+					ImGui::SetTooltip("Guardar cambios en: %s", scene->GetCurrentScenePath().c_str());
+				}
+				else
+				{
+					ImGui::SetTooltip("Escena aún sin guardar: se pedirá un nombre de archivo");
+				}
+			}
+
+			if (ImGui::MenuItem("Save Scene As...", "Ctrl+Shift+S"))
+			{
+				TriggerSaveSceneAs();
+			}
+
+			if (ImGui::MenuItem("Load Scene...", "Ctrl+O"))
+			{
+				if (scene && !scene->GetCurrentScenePath().empty())
+				{
+					strncpy_s(loadSceneFilePathBuffer, sizeof(loadSceneFilePathBuffer), scene->GetCurrentScenePath().c_str(), _TRUNCATE);
+				}
+				openLoadScenePopup = true;
+			}
+
+			if (ImGui::BeginMenu("Load Saved Scene"))
+			{
+				std::vector<std::string> savedScenes = SceneFile::ListSavedSceneFiles();
+				if (savedScenes.empty())
+				{
+					ImGui::TextDisabled("No hay escenas guardadas en Assets/Scenes");
+				}
+				else
+				{
+					for (size_t i = 0; i < savedScenes.size(); ++i)
+					{
+						std::filesystem::path sp(savedScenes[i]);
+						std::string label = sp.filename().string();
+						bool isCurrent = (scene && scene->GetCurrentScenePath() == savedScenes[i]);
+						if (ImGui::MenuItem(label.c_str(), nullptr, isCurrent))
+						{
+							if (scene)
+							{
+								if (!Engine::GetInstance().IsStopped())
+								{
+									Engine::GetInstance().Stop();
+								}
+								scene->Load(savedScenes[i]);
+							}
+						}
+					}
+				}
+				ImGui::EndMenu();
+			}
+
+			ImGui::Separator();
+
+			if (ImGui::MenuItem("Open Project in Explorer"))
+			{
+				OpenFolderInFileExplorer(ResolveProjectRootDirectory());
+			}
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("Abrir la carpeta raíz del proyecto en el Explorador de Archivos");
+			}
+
+			ImGui::Separator();
+
 			if (ImGui::MenuItem("Exit", "Alt+F4"))
 			{
 				LOG("[UI] Solicitud de salida desde el menú File -> Exit");
@@ -442,6 +594,21 @@ bool ModuleUI::DrawMainMenuBar()
 			? ImVec4(0.30f, 1.0f, 0.45f, 1.0f)
 			: ((simState == SimulationState::Paused) ? ImVec4(1.0f, 0.85f, 0.25f, 1.0f) : ImVec4(0.65f, 0.65f, 0.65f, 1.0f));
 		ImGui::TextColored(gameTimerColor, "| Game: %.2f s", eng.GetGameTimeSec());
+
+		if (Scene* activeScene = eng.scene.get())
+		{
+			ImGui::SameLine();
+			std::string sceneBadge = "| Scene: " + activeScene->GetSceneDisplayName();
+			if (activeScene->IsSceneDirty())
+			{
+				sceneBadge += "*";
+				ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.28f, 1.0f), "%s", sceneBadge.c_str());
+			}
+			else
+			{
+				ImGui::TextColored(ImVec4(0.65f, 0.90f, 0.65f, 1.0f), "%s", sceneBadge.c_str());
+			}
+		}
 
 		ImGui::EndMainMenuBar();
 	}
@@ -631,6 +798,14 @@ void ModuleUI::DrawHierarchyPanel()
 
 		if (scene)
 		{
+			const uint64_t currentSelectionRev = scene->GetSelectionRevision();
+			if (currentSelectionRev != lastHierarchySelectionRevision)
+			{
+				lastHierarchySelectionRevision = currentSelectionRev;
+				expandToSelectedInHierarchy = (selected != nullptr);
+				scrollToSelectedInHierarchy = (selected != nullptr);
+			}
+
 			GameObject* root = scene->GetRoot();
 			if (root)
 			{
@@ -683,6 +858,9 @@ void ModuleUI::DrawHierarchyPanel()
 					}
 				}
 			}
+
+			expandToSelectedInHierarchy = false;
+			scrollToSelectedInHierarchy = false;
 		}
 
 		// Zona vacía inferior: soltar aquí reemparenta al nodo raíz de la escena
@@ -726,6 +904,12 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 		flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 	}
 
+	// Si el objeto seleccionado es descendiente de este nodo (hijo, nieto, etc.), desplegar automáticamente esta rama
+	if (expandToSelectedInHierarchy && selected != nullptr && hasChildren && selected->IsDescendantOf(node))
+	{
+		ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+	}
+
 	if (!node->IsActive())
 	{
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
@@ -738,12 +922,25 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 		ImGui::PopStyleColor();
 	}
 
-	// 1. Selección con clic izquierdo
-	if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+	// Si acabamos de seleccionar este objeto (por ejemplo haciendo clic en él en la vista 3D Scene), asegurar que sea visible en Hierarchy
+	if (scrollToSelectedInHierarchy && selected == node)
+	{
+		if (!ImGui::IsItemVisible())
+		{
+			ImGui::SetScrollHereY(0.5f);
+		}
+		scrollToSelectedInHierarchy = false;
+	}
+
+	// 1. Selección con clic izquierdo (si no se ha pulsado únicamente la flecha para plegar/desplegar)
+	if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
 	{
 		if (Engine::GetInstance().scene)
 		{
 			Engine::GetInstance().scene->SetSelected(node);
+			lastHierarchySelectionRevision = Engine::GetInstance().scene->GetSelectionRevision();
+			expandToSelectedInHierarchy = false;
+			scrollToSelectedInHierarchy = false;
 		}
 	}
 
@@ -1439,6 +1636,7 @@ void ModuleUI::DrawInspectorPanel()
 									if (TextureManager* texMgr = Engine::GetInstance().textures.get())
 									{
 										texMgr->ImportWithSettings(texInfo->path, importOpts, true);
+										selectedGameObject->NotifySceneModified();
 									}
 								}
 							}
@@ -1464,14 +1662,20 @@ void ModuleUI::DrawInspectorPanel()
 						CameraComponent* cam = selectedGameObject->GetComponent<CameraComponent>();
 						if (cam)
 						{
-							ImGui::SliderFloat("FOV (Grados)", &cam->fov, 10.0f, 120.0f, "%.1f");
-							ImGui::DragFloat("Near Plane", &cam->nearPlane, 0.01f, 0.01f, 10.0f, "%.2f");
-							ImGui::DragFloat("Far Plane", &cam->farPlane, 1.0f, 10.0f, 1000.0f, "%.1f");
+							bool camModified = false;
+							camModified |= ImGui::SliderFloat("FOV (Grados)", &cam->fov, 10.0f, 120.0f, "%.1f");
+							camModified |= ImGui::DragFloat("Near Plane", &cam->nearPlane, 0.01f, 0.01f, 10.0f, "%.2f");
+							camModified |= ImGui::DragFloat("Far Plane", &cam->farPlane, 1.0f, 10.0f, 1000.0f, "%.1f");
 
 							float speed = cam->GetMovementSpeed();
 							if (ImGui::SliderFloat("Velocidad", &speed, 0.5f, 30.0f, "%.1f"))
 							{
 								cam->SetMovementSpeed(speed);
+								camModified = true;
+							}
+							if (camModified)
+							{
+								selectedGameObject->NotifySceneModified();
 							}
 
 							if (Render* render = Engine::GetInstance().render.get())
@@ -2545,5 +2749,273 @@ void ModuleUI::DrawDepthBufferPanel()
 	{
 		rs.showDepthBuffer = false;
 		render->SetSettings(rs);
+	}
+}
+
+void ModuleUI::TriggerSaveScene()
+{
+	Scene* scene = Engine::GetInstance().scene.get();
+	if (!scene) return;
+
+	if (scene->HasSavedScenePath())
+	{
+		scene->Save(scene->GetCurrentScenePath());
+	}
+	else
+	{
+		// La escena no ha sido guardada previamente: pedir obligatoriamente un nombre nuevo
+		saveSceneFileNameBuffer[0] = '\0';
+		openSaveSceneAsPopup = true;
+	}
+}
+
+void ModuleUI::TriggerSaveSceneAs()
+{
+	Scene* scene = Engine::GetInstance().scene.get();
+	if (scene && scene->HasSavedScenePath())
+	{
+		std::filesystem::path p(scene->GetCurrentScenePath());
+		std::string fname = p.filename().string();
+		strncpy_s(saveSceneFileNameBuffer, sizeof(saveSceneFileNameBuffer), fname.c_str(), _TRUNCATE);
+	}
+	else
+	{
+		saveSceneFileNameBuffer[0] = '\0';
+	}
+	openSaveSceneAsPopup = true;
+}
+
+void ModuleUI::DrawSceneFileModals()
+{
+#ifdef _DEBUG
+	ZoneScoped;
+#endif
+
+	Scene* scene = Engine::GetInstance().scene.get();
+
+	if (openSaveSceneAsPopup)
+	{
+		ImGui::OpenPopup("Save Scene As");
+		openSaveSceneAsPopup = false;
+	}
+
+	if (openLoadScenePopup)
+	{
+		ImGui::OpenPopup("Load Scene");
+		openLoadScenePopup = false;
+	}
+
+	// =========================================================================
+	// MODAL: SAVE SCENE AS
+	// =========================================================================
+	ImGui::SetNextWindowSize(ImVec2(480, 350), ImGuiCond_FirstUseEver);
+	if (ImGui::BeginPopupModal("Save Scene As", nullptr, ImGuiWindowFlags_None))
+	{
+		std::string scenesDir = SceneFile::ResolveScenesDirectory();
+		ImGui::TextDisabled("Carpeta de destino: %s", scenesDir.c_str());
+		ImGui::Spacing();
+
+		ImGui::TextUnformatted("Escenas existentes (clic para seleccionar):");
+		ImGui::BeginChild("ExistingScenesSaveList", ImVec2(0, 140), true);
+		std::vector<std::string> existingScenes = SceneFile::ListSavedSceneFiles();
+		if (existingScenes.empty())
+		{
+			ImGui::TextDisabled("No hay archivos .scene o .json guardados todavía.");
+		}
+		else
+		{
+			for (size_t i = 0; i < existingScenes.size(); ++i)
+			{
+				std::filesystem::path sp(existingScenes[i]);
+				std::string fname = sp.filename().string();
+				bool isSelected = (fname == saveSceneFileNameBuffer);
+				if (ImGui::Selectable(fname.c_str(), isSelected))
+				{
+					strncpy_s(saveSceneFileNameBuffer, sizeof(saveSceneFileNameBuffer), fname.c_str(), _TRUNCATE);
+				}
+			}
+		}
+		ImGui::EndChild();
+
+		ImGui::Spacing();
+		ImGui::TextUnformatted("Nombre del archivo (.scene o .json):");
+		if (ImGui::IsWindowAppearing())
+		{
+			ImGui::SetKeyboardFocusHere();
+		}
+		ImGui::SetNextItemWidth(-1.0f);
+		bool enterPressed = ImGui::InputTextWithHint("##SaveSceneFileName", "Introduce un nombre para la escena...", saveSceneFileNameBuffer, sizeof(saveSceneFileNameBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
+
+		std::string trimmedName = saveSceneFileNameBuffer;
+		while (!trimmedName.empty() && std::isspace(static_cast<unsigned char>(trimmedName.front())))
+		{
+			trimmedName.erase(trimmedName.begin());
+		}
+		while (!trimmedName.empty() && std::isspace(static_cast<unsigned char>(trimmedName.back())))
+		{
+			trimmedName.pop_back();
+		}
+		const bool hasValidName = !trimmedName.empty();
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		ImGui::BeginDisabled(!hasValidName);
+		bool saveClicked = ImGui::Button("Guardar (Save)", ImVec2(140, 0));
+		ImGui::EndDisabled();
+
+		if ((saveClicked || enterPressed) && hasValidName)
+		{
+			std::string rawName = trimmedName;
+			std::filesystem::path p(rawName);
+			std::string ext = p.extension().string();
+			std::transform(ext.begin(), ext.end(), ext.begin(),
+				[](unsigned char c) { return (char)std::tolower(c); });
+
+			if (ext != ".scene" && ext != ".json")
+			{
+				rawName += ".scene";
+			}
+
+			std::string fullPath = rawName;
+			if (!p.has_parent_path())
+			{
+				fullPath = scenesDir + "/" + rawName;
+			}
+
+			std::error_code ec;
+			if (std::filesystem::exists(fullPath, ec))
+			{
+				pendingOverwriteScenePath = fullPath;
+				ImGui::OpenPopup("Confirm Overwrite");
+			}
+			else
+			{
+				if (scene)
+				{
+					scene->Save(fullPath);
+				}
+				ImGui::CloseCurrentPopup();
+			}
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Cancelar", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		// Sub-modal de confirmación al intentar sobrescribir una escena existente
+		bool closeSaveAsModal = false;
+		if (ImGui::BeginPopupModal("Confirm Overwrite", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			std::filesystem::path overwriteFile(pendingOverwriteScenePath);
+			ImGui::TextWrapped("Ya existe una escena con el nombre '%s'.\n¿Estás seguro de que quieres sobrescribirla?",
+				overwriteFile.filename().string().c_str());
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.22f, 0.22f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f, 0.30f, 0.30f, 1.0f));
+			if (ImGui::Button("Sobrescribir (Overwrite)", ImVec2(175, 0)))
+			{
+				if (scene && !pendingOverwriteScenePath.empty())
+				{
+					scene->Save(pendingOverwriteScenePath);
+				}
+				pendingOverwriteScenePath.clear();
+				ImGui::CloseCurrentPopup();
+				closeSaveAsModal = true;
+			}
+			ImGui::PopStyleColor(2);
+
+			ImGui::SameLine();
+			if (ImGui::Button("Cancelar", ImVec2(120, 0)))
+			{
+				pendingOverwriteScenePath.clear();
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
+
+		if (closeSaveAsModal)
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
+	// =========================================================================
+	// MODAL: LOAD SCENE
+	// =========================================================================
+	ImGui::SetNextWindowSize(ImVec2(500, 360), ImGuiCond_FirstUseEver);
+	if (ImGui::BeginPopupModal("Load Scene", nullptr, ImGuiWindowFlags_None))
+	{
+		std::string scenesDir = SceneFile::ResolveScenesDirectory();
+		ImGui::TextDisabled("Carpeta de escenas: %s", scenesDir.c_str());
+		ImGui::Spacing();
+
+		ImGui::TextUnformatted("Selecciona una escena para cargar (doble clic para cargar directamente):");
+		ImGui::BeginChild("ExistingScenesLoadList", ImVec2(0, 160), true);
+		std::vector<std::string> savedScenes = SceneFile::ListSavedSceneFiles();
+		bool doubleClickLoad = false;
+
+		if (savedScenes.empty())
+		{
+			ImGui::TextDisabled("No se encontraron archivos .scene o .json en Assets/Scenes.");
+		}
+		else
+		{
+			for (size_t i = 0; i < savedScenes.size(); ++i)
+			{
+				std::filesystem::path sp(savedScenes[i]);
+				std::string fname = sp.filename().string();
+				bool isSelected = (savedScenes[i] == loadSceneFilePathBuffer || fname == loadSceneFilePathBuffer);
+				if (ImGui::Selectable(fname.c_str(), isSelected, ImGuiSelectableFlags_AllowDoubleClick))
+				{
+					strncpy_s(loadSceneFilePathBuffer, sizeof(loadSceneFilePathBuffer), savedScenes[i].c_str(), _TRUNCATE);
+					if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+					{
+						doubleClickLoad = true;
+					}
+				}
+			}
+		}
+		ImGui::EndChild();
+
+		ImGui::Spacing();
+		ImGui::TextUnformatted("Ruta del archivo de escena:");
+		ImGui::SetNextItemWidth(-1.0f);
+		bool enterPressed = ImGui::InputText("##LoadSceneFilePath", loadSceneFilePathBuffer, sizeof(loadSceneFilePathBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		if ((ImGui::Button("Cargar (Load)", ImVec2(140, 0)) || enterPressed || doubleClickLoad) && loadSceneFilePathBuffer[0] != '\0')
+		{
+			if (scene)
+			{
+				if (!Engine::GetInstance().IsStopped())
+				{
+					Engine::GetInstance().Stop();
+				}
+				std::string resolved = SceneFile::ResolveExistingPath(loadSceneFilePathBuffer);
+				scene->Load(resolved);
+			}
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Cancelar", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
 	}
 }

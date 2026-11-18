@@ -27,6 +27,10 @@ public:
 	void SetTitle(const std::string& newTitle);
 	const std::string& GetTitle() const { return title; }
 
+	// Sufijo dinámico de la escena activa en la barra de título (ej. " - SinGuardar*" o " - MiEscena")
+	void SetSceneTitleInfo(const std::string& suffix);
+	const std::string& GetSceneTitleInfo() const { return sceneTitleSuffix; }
+
 	//Get window
 	SDL_Window* GetWindow() { return window;}
 
@@ -66,6 +70,8 @@ private:
 	SDL_GLContext glContext = nullptr;
 
 	std::string title = "Motor Videojuego";
+	std::string sceneTitleSuffix = " - Untitled";
+	std::string lastAppliedWindowTitle;
 	int windowWidth = 1280;
 	int windowHeight = 780;
 	int windowScale = 1;

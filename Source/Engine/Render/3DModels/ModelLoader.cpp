@@ -76,6 +76,7 @@ std::unique_ptr<Primitive> ModelLoader::LoadFBX(const std::string& path)
 
     auto primitive = std::make_unique<Primitive>();
     primitive->Init(std::move(vertices), std::move(indices));
+    primitive->SetSourceInfo(path, -1);
     return primitive;
 }
 
@@ -179,6 +180,7 @@ std::vector<SubMeshData> ModelLoader::LoadFBXMeshes(const std::string& path)
 
         auto primitive = std::make_unique<Primitive>();
         primitive->Init(std::move(vertices), std::move(indices));
+        primitive->SetSourceInfo(path, (int)i);
 
         SubMeshData subMesh;
         subMesh.name = partName;

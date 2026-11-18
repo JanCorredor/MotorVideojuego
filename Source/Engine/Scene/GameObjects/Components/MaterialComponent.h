@@ -21,11 +21,14 @@ public:
 
 	std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
+	void Save(SceneFile& file) const override;
+	void Load(const SceneFile& file) override;
+
 	glm::vec4 GetColor() const { return color; }
-	void SetColor(glm::vec4 newColor) { color = newColor; }
+	void SetColor(glm::vec4 newColor) { if (color != newColor) { color = newColor; NotifyOwnerModified(); } }
 
 	bool GetUseTexture() const { return useTexture; }
-	void SetUseTexture(bool _useTexture) { useTexture = _useTexture; }
+	void SetUseTexture(bool _useTexture) { if (useTexture != _useTexture) { useTexture = _useTexture; NotifyOwnerModified(); } }
 
 	// Textura difusa original (nullptr si no hay). Incluye path y tamaño.
 	const TextureInfo* GetTexture() const { return diffuse; }
@@ -41,10 +44,10 @@ public:
 
 	// Alterna la checkerboard encima de la textura original, sin descartarla
 	bool GetUseCheckerboard() const { return useCheckerboard; }
-	void SetUseCheckerboard(bool enabled) { useCheckerboard = enabled; }
+	void SetUseCheckerboard(bool enabled) { if (useCheckerboard != enabled) { useCheckerboard = enabled; NotifyOwnerModified(); } }
 
 	bool GetUsingMissingTexture() const { return usingMissingTexture; }
-	void SetUsingMissingTexture(bool enabled) { usingMissingTexture = enabled; } //Debug
+	void SetUsingMissingTexture(bool enabled) { if (usingMissingTexture != enabled) { usingMissingTexture = enabled; NotifyOwnerModified(); } } //Debug
 
 	// ID GL que debe usarse al dibujar (0 = sin textura)
 	unsigned int GetActiveTextureID() const;

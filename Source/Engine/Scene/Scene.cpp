@@ -1,4 +1,5 @@
 #include "../Engine.h"
+#include "../Window/Window.h"
 #include "../Render/Render.h"
 #include "../Render/3DModels/ModelLoader.h"
 #include "../Input/Input.h"
@@ -14,11 +15,22 @@
 #include "../ResourceManagement/Importers/MeshImporter.h"
 #include "../ResourceManagement/Importers/TextureImporter.h"
 
+#ifdef GetObject
+#undef GetObject
+#endif
+
+#include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/error/en.h>
+
 #include <unordered_set>
 #include <unordered_map>
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <utility>
 #include <stack>
 #include <cfloat>
 #include <cmath>
@@ -46,6 +58,7 @@ bool Scene::Awake()
 bool Scene::Start()
 {
 	LOG("[Scene] Configurando escena por defecto...");
+	isLoadingOrInitializing = true;
 
 	// Instance Editor Camera
 	editorCameraObj = std::make_unique<GameObject>("EditorCamera");
@@ -158,6 +171,13 @@ bool Scene::Start()
 	}
 
 	RebuildSpacePartitioning();
+	SetSelected(nullptr);
+
+	currentScenePath.clear();
+	sceneDirty = false;
+	isLoadingOrInitializing = false;
+	UpdateWindowTitle();
+
 	LOG("[Scene] Escena inicial cargada con éxito (%zu entidades registradas)", sceneEntities.size());
 
 	return true;
@@ -280,16 +300,22 @@ void Scene::SetSelected(GameObject* object)
 {
 	if (object == nullptr)
 	{
-		selected = nullptr;
+		if (selected != nullptr)
+		{
+			selected = nullptr;
+			selectionRevision++;
+		}
 		return;
 	}
 	if (OwnsObject(object))
 	{
 		selected = object;
+		selectionRevision++;
 	}
 	else
 	{
 		selected = nullptr;
+		selectionRevision++;
 	}
 }
 
@@ -306,6 +332,10 @@ GameObject* Scene::Register(std::unique_ptr<GameObject> newObj, GameObject* pare
 	}
 	sceneEntities.push_back(std::move(newObj));
 	spacePartitioningDirty = true;
+	if (!isLoadingOrInitializing)
+	{
+		MarkSceneDirty();
+	}
 	return ptr;
 }
 
@@ -451,6 +481,7 @@ void Scene::DestroyGameObject(GameObject* target)
 
 	LOG("[Scene] GameObject '%s' y %zu descendiente(s) marcados para eliminación segura",
 		target->GetName().c_str(), toDestroy.size() - 1);
+	MarkSceneDirty();
 }
 
 void Scene::ProcessPendingDestructions()
@@ -569,6 +600,7 @@ void Scene::SetTreeParameters(int maxObjectsPerNode, int maxDepth)
 		treeMaxObjectsPerNode = maxObjectsPerNode;
 		treeMaxDepth = maxDepth;
 		RebuildSpacePartitioning();
+		MarkSceneDirty();
 	}
 }
 
@@ -623,223 +655,175 @@ void Scene::RebuildSpacePartitioning()
 		staticEntries.size(), quadtree.GetNodeCount(), octree.GetNodeCount());
 }
 
-bool Scene::SaveTemporaryScene(const std::string& filePath) const
+void Scene::SetCurrentScenePath(const std::string& path)
 {
-	std::ofstream out(filePath, std::ios::binary | std::ios::trunc);
-	if (!out.is_open())
+	currentScenePath = path;
+	UpdateWindowTitle();
+}
+
+std::string Scene::GetSceneDisplayName() const
+{
+	if (currentScenePath.empty())
 	{
-		LOG_ERROR("[Scene] No se pudo crear el archivo temporal de escena: '%s'", filePath.c_str());
+		return "Untitled";
+	}
+	std::filesystem::path p(currentScenePath);
+	std::string stem = p.stem().string();
+	return stem.empty() ? "Untitled" : stem;
+}
+
+void Scene::MarkSceneDirty()
+{
+	if (isLoadingOrInitializing) return;
+	if (!sceneDirty)
+	{
+		sceneDirty = true;
+		UpdateWindowTitle();
+	}
+}
+
+void Scene::ClearSceneDirty()
+{
+	if (sceneDirty)
+	{
+		sceneDirty = false;
+		UpdateWindowTitle();
+	}
+}
+
+void Scene::UpdateWindowTitle() const
+{
+	if (Engine::GetInstance().window)
+	{
+		std::string suffix = " - " + GetSceneDisplayName();
+		if (sceneDirty)
+		{
+			suffix += "*";
+		}
+		Engine::GetInstance().window->SetSceneTitleInfo(suffix);
+	}
+}
+
+void Scene::NewScene()
+{
+	isLoadingOrInitializing = true;
+	pendingDestruction.clear();
+	selected = nullptr;
+	gameCameraPtr = nullptr;
+
+	while (!sceneRoot.GetChildren().empty())
+	{
+		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
+	}
+	sceneEntities.clear();
+
+	// Instanciar Main Camera por defecto en la nueva escena
+	auto gameCamObj = std::make_unique<GameObject>("Main Camera");
+	auto gameCamTrans = std::make_unique<TransformComponent>(gameCamObj.get());
+	gameCamTrans->SetPosition(glm::vec3(0.0f, 2.0f, 7.0f));
+	gameCamTrans->SetRotation(glm::vec3(-10.0f, 0.0f, 0.0f));
+	gameCamObj->AddComponent(std::move(gameCamTrans));
+
+	auto gameCamComp = std::make_unique<CameraComponent>(gameCamObj.get());
+	gameCamObj->AddComponent(std::move(gameCamComp));
+
+	gameCameraPtr = Register(std::move(gameCamObj), &sceneRoot);
+	selectionRevision++;
+	RebuildSpacePartitioning();
+
+	currentScenePath.clear();
+	sceneDirty = false;
+	isLoadingOrInitializing = false;
+	UpdateWindowTitle();
+
+	LOG("[Scene] Nueva escena creada ('Untitled', 1 entidad: 'Main Camera').");
+}
+
+bool Scene::Save(const std::string& filePath) const
+{
+	if (filePath.empty())
+	{
+		LOG_ERROR("[Scene] No se puede guardar la escena: ruta vacía.");
 		return false;
 	}
 
-	auto writeString = [&out](const std::string& s)
+	SceneFile file;
+	std::filesystem::path p(filePath);
+	std::string sceneName = p.stem().string();
+	if (sceneName.empty()) sceneName = "Scene";
+
+	file.SetString("scene_name", sceneName);
+	file.SetInt("version", 1);
+
+	SceneFile spNode = file.AddObject("space_partitioning");
+	spNode.SetInt("max_objects_per_node", treeMaxObjectsPerNode);
+	spNode.SetInt("max_depth", treeMaxDepth);
+
+	file.SetUInt64("selected_uuid", selected ? (uint64_t)selected->GetUUID() : 0);
+	file.SetUInt64("game_camera_uuid", gameCameraPtr ? (uint64_t)gameCameraPtr->GetUUID() : 0);
+
+	if (editorCameraObj)
 	{
-		uint32_t len = (uint32_t)s.size();
-		out.write(reinterpret_cast<const char*>(&len), sizeof(len));
-		if (len > 0)
-		{
-			out.write(s.data(), len);
-		}
-	};
+		SceneFile editorCamNode = file.AddObject("editor_camera");
+		editorCameraObj->Save(editorCamNode);
+	}
 
-	const char magic[8] = { 'M', 'V', 'S', 'C', 'E', 'N', 'E', '1' };
-	out.write(magic, sizeof(magic));
-	out.write(reinterpret_cast<const char*>(&treeMaxObjectsPerNode), sizeof(treeMaxObjectsPerNode));
-	out.write(reinterpret_cast<const char*>(&treeMaxDepth), sizeof(treeMaxDepth));
-
-	// Recolectar los GameObjects en pre-orden usando std::stack para que todo padre preceda a sus hijos
-	std::vector<const GameObject*> orderedObjects;
-	std::stack<const GameObject*> stack;
+	// Pasar Save(file) a los hijos raíz de la escena (cada GameObject se la pasa a sus componentes y a sus hijos)
+	SceneFile objectsArray = file.AddArray("game_objects");
 	const std::vector<GameObject*>& rootChildren = sceneRoot.GetChildren();
-	for (size_t i = rootChildren.size(); i > 0; --i)
+	for (size_t i = 0; i < rootChildren.size(); ++i)
 	{
-		if (rootChildren[i - 1])
+		GameObject* child = rootChildren[i];
+		if (child)
 		{
-			stack.push(rootChildren[i - 1]);
+			SceneFile childFile = objectsArray.PushObject();
+			child->Save(childFile);
 		}
 	}
 
-	while (!stack.empty())
+	if (!file.SaveToFile(filePath))
 	{
-		const GameObject* current = stack.top();
-		stack.pop();
-		if (!current) continue;
-
-		orderedObjects.push_back(current);
-
-		const std::vector<GameObject*>& children = current->GetChildren();
-		for (size_t i = children.size(); i > 0; --i)
-		{
-			if (children[i - 1])
-			{
-				stack.push(children[i - 1]);
-			}
-		}
+		LOG_ERROR("[Scene] Error al guardar la escena en: '%s'", filePath.c_str());
+		return false;
 	}
 
-	uint32_t objectCount = (uint32_t)orderedObjects.size();
-	out.write(reinterpret_cast<const char*>(&objectCount), sizeof(objectCount));
-
-	for (size_t idx = 0; idx < orderedObjects.size(); ++idx)
+	if (filePath != Engine::GetInstance().GetTempSceneFilePath())
 	{
-		const GameObject* go = orderedObjects[idx];
-		uint64_t uuid = (uint64_t)go->GetUUID();
-		uint64_t parentUuid = 0;
-		if (go->GetParent() != nullptr && go->GetParent() != &sceneRoot)
-		{
-			parentUuid = (uint64_t)go->GetParent()->GetUUID();
-		}
-
-		out.write(reinterpret_cast<const char*>(&uuid), sizeof(uuid));
-		out.write(reinterpret_cast<const char*>(&parentUuid), sizeof(parentUuid));
-		writeString(go->GetName());
-
-		uint8_t flags = 0;
-		if (go->IsActive())         flags |= (1 << 0);
-		if (go->IsStatic())         flags |= (1 << 1);
-		if (go == gameCameraPtr)    flags |= (1 << 2);
-		if (go == selected)         flags |= (1 << 3);
-		out.write(reinterpret_cast<const char*>(&flags), sizeof(flags));
-
-		const std::array<ComponentType, COMPONENT_COUNT>& order = go->GetComponentOrder();
-		for (size_t c = 0; c < COMPONENT_COUNT; ++c)
-		{
-			int32_t cType = (int32_t)order[c];
-			out.write(reinterpret_cast<const char*>(&cType), sizeof(cType));
-		}
-
-		// 1. TransformComponent
-		const TransformComponent* trans = go->GetComponent<TransformComponent>();
-		uint8_t hasTrans = (trans != nullptr) ? 1 : 0;
-		out.write(reinterpret_cast<const char*>(&hasTrans), sizeof(hasTrans));
-		if (trans)
-		{
-			uint8_t cActive = trans->IsActive() ? 1 : 0;
-			glm::vec3 pos = trans->GetPosition();
-			glm::vec3 rot = trans->GetRotation();
-			glm::vec3 scl = trans->GetScale();
-			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
-			out.write(reinterpret_cast<const char*>(&pos), sizeof(pos));
-			out.write(reinterpret_cast<const char*>(&rot), sizeof(rot));
-			out.write(reinterpret_cast<const char*>(&scl), sizeof(scl));
-		}
-
-		// 2. MeshComponent
-		const MeshComponent* mesh = go->GetComponent<MeshComponent>();
-		uint8_t hasMesh = (mesh != nullptr) ? 1 : 0;
-		out.write(reinterpret_cast<const char*>(&hasMesh), sizeof(hasMesh));
-		if (mesh)
-		{
-			uint8_t cActive = mesh->IsActive() ? 1 : 0;
-			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
-			const Primitive* prim = mesh->GetPrimitive();
-			uint8_t hasPrim = (prim != nullptr) ? 1 : 0;
-			out.write(reinterpret_cast<const char*>(&hasPrim), sizeof(hasPrim));
-			if (prim)
-			{
-				const std::vector<Vertex>& verts = prim->GetVertices();
-				const std::vector<unsigned int>& inds = prim->GetIndices();
-				uint32_t vCount = (uint32_t)verts.size();
-				uint32_t iCount = (uint32_t)inds.size();
-				out.write(reinterpret_cast<const char*>(&vCount), sizeof(vCount));
-				if (vCount > 0)
-				{
-					out.write(reinterpret_cast<const char*>(verts.data()), vCount * sizeof(Vertex));
-				}
-				out.write(reinterpret_cast<const char*>(&iCount), sizeof(iCount));
-				if (iCount > 0)
-				{
-					out.write(reinterpret_cast<const char*>(inds.data()), iCount * sizeof(unsigned int));
-				}
-			}
-		}
-
-		// 3. MaterialComponent
-		const MaterialComponent* mat = go->GetComponent<MaterialComponent>();
-		uint8_t hasMat = (mat != nullptr) ? 1 : 0;
-		out.write(reinterpret_cast<const char*>(&hasMat), sizeof(hasMat));
-		if (mat)
-		{
-			uint8_t cActive = mat->IsActive() ? 1 : 0;
-			glm::vec4 col = mat->GetColor();
-			uint8_t useTex = mat->GetUseTexture() ? 1 : 0;
-			uint8_t useCheck = mat->GetUseCheckerboard() ? 1 : 0;
-			uint8_t useMissing = mat->GetUsingMissingTexture() ? 1 : 0;
-			std::string texPath = (mat->GetTexture() != nullptr) ? mat->GetTexture()->path : "";
-
-			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
-			out.write(reinterpret_cast<const char*>(&col), sizeof(col));
-			out.write(reinterpret_cast<const char*>(&useTex), sizeof(useTex));
-			out.write(reinterpret_cast<const char*>(&useCheck), sizeof(useCheck));
-			out.write(reinterpret_cast<const char*>(&useMissing), sizeof(useMissing));
-			writeString(texPath);
-		}
-
-		// 4. CameraComponent
-		const CameraComponent* cam = go->GetComponent<CameraComponent>();
-		uint8_t hasCam = (cam != nullptr) ? 1 : 0;
-		out.write(reinterpret_cast<const char*>(&hasCam), sizeof(hasCam));
-		if (cam)
-		{
-			uint8_t cActive = cam->IsActive() ? 1 : 0;
-			float fov = cam->fov;
-			float nearP = cam->nearPlane;
-			float farP = cam->farPlane;
-			float speed = cam->GetMovementSpeed();
-			float sens = cam->GetMouseSensitivity();
-			float orbit = cam->GetOrbitDistance();
-
-			out.write(reinterpret_cast<const char*>(&cActive), sizeof(cActive));
-			out.write(reinterpret_cast<const char*>(&fov), sizeof(fov));
-			out.write(reinterpret_cast<const char*>(&nearP), sizeof(nearP));
-			out.write(reinterpret_cast<const char*>(&farP), sizeof(farP));
-			out.write(reinterpret_cast<const char*>(&speed), sizeof(speed));
-			out.write(reinterpret_cast<const char*>(&sens), sizeof(sens));
-			out.write(reinterpret_cast<const char*>(&orbit), sizeof(orbit));
-		}
+		currentScenePath = filePath;
+		sceneDirty = false;
+		UpdateWindowTitle();
 	}
 
-	out.close();
-	LOG("[Scene] Archivo temporal de escena guardado con éxito: '%s' (%u GameObjects)", filePath.c_str(), objectCount);
+	LOG("[Scene] Escena guardada con éxito en '%s' (%zu GameObjects totales)", filePath.c_str(), sceneEntities.size());
 	return true;
 }
 
-bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad)
+bool Scene::Load(const std::string& filePath)
 {
-	std::ifstream in(filePath, std::ios::binary);
-	if (!in.is_open())
+	if (filePath.empty())
 	{
-		LOG_ERROR("[Scene] No se pudo abrir el archivo temporal de escena: '%s'", filePath.c_str());
+		LOG_ERROR("[Scene] No se puede cargar la escena: ruta vacía.");
 		return false;
 	}
 
-	auto readString = [&in]() -> std::string
+	SceneFile file;
+	if (!file.LoadFromFile(filePath))
 	{
-		uint32_t len = 0;
-		in.read(reinterpret_cast<char*>(&len), sizeof(len));
-		if (!in || len == 0) return "";
-		std::string s(len, '\0');
-		in.read(&s[0], len);
-		return s;
-	};
-
-	char magic[8] = {};
-	in.read(magic, sizeof(magic));
-	const char expectedMagic[8] = { 'M', 'V', 'S', 'C', 'E', 'N', 'E', '1' };
-	for (int i = 0; i < 8; ++i)
-	{
-		if (magic[i] != expectedMagic[i])
-		{
-			LOG_ERROR("[Scene] Formato inválido en archivo temporal de escena: '%s'", filePath.c_str());
-			return false;
-		}
+		LOG_ERROR("[Scene] No se pudo cargar el archivo de escena: '%s'", filePath.c_str());
+		return false;
 	}
 
-	in.read(reinterpret_cast<char*>(&treeMaxObjectsPerNode), sizeof(treeMaxObjectsPerNode));
-	in.read(reinterpret_cast<char*>(&treeMaxDepth), sizeof(treeMaxDepth));
+	isLoadingOrInitializing = true;
 
-	uint32_t objectCount = 0;
-	in.read(reinterpret_cast<char*>(&objectCount), sizeof(objectCount));
+	SceneFile spNode = file.GetObjectNode("space_partitioning");
+	if (spNode.IsValid())
+	{
+		treeMaxObjectsPerNode = std::max(1, spNode.GetInt("max_objects_per_node", treeMaxObjectsPerNode));
+		treeMaxDepth = std::max(1, spNode.GetInt("max_depth", treeMaxDepth));
+	}
+
+	uint64_t savedSelectedUuid = file.GetUInt64("selected_uuid", 0);
+	uint64_t savedGameCameraUuid = file.GetUInt64("game_camera_uuid", 0);
 
 	// Limpiar escena actual antes de reconstruir
 	pendingDestruction.clear();
@@ -852,183 +836,93 @@ bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfter
 	}
 	sceneEntities.clear();
 
-	std::unordered_map<uint64_t, GameObject*> uuidMap;
-	GameObject* restoredSelected = nullptr;
-
-	for (uint32_t idx = 0; idx < objectCount; ++idx)
+	SceneFile editorCamNode = file.GetObjectNode("editor_camera");
+	if (editorCamNode.IsValid() && editorCameraObj)
 	{
-		uint64_t uuid = 0;
-		uint64_t parentUuid = 0;
-		in.read(reinterpret_cast<char*>(&uuid), sizeof(uuid));
-		in.read(reinterpret_cast<char*>(&parentUuid), sizeof(parentUuid));
-		std::string objName = readString();
-
-		uint8_t flags = 0;
-		in.read(reinterpret_cast<char*>(&flags), sizeof(flags));
-
-		std::array<ComponentType, COMPONENT_COUNT> savedOrder = {
-			COMPONENT_TRANSFORM, COMPONENT_MESH, COMPONENT_MATERIAL, COMPONENT_CAMERA
-		};
-		for (size_t c = 0; c < COMPONENT_COUNT; ++c)
-		{
-			int32_t cType = 0;
-			in.read(reinterpret_cast<char*>(&cType), sizeof(cType));
-			if (cType >= 0 && cType < COMPONENT_COUNT)
-			{
-				savedOrder[c] = (ComponentType)cType;
-			}
-		}
-
-		auto newObj = std::make_unique<GameObject>(objName, GameUUID(uuid));
-		if (flags & (1 << 0)) newObj->Enable();
-		else newObj->Disable();
-		newObj->SetStatic((flags & (1 << 1)) != 0, false);
-
-		GameObject* parentPtr = &sceneRoot;
-		if (parentUuid != 0)
-		{
-			std::unordered_map<uint64_t, GameObject*>::iterator it = uuidMap.find(parentUuid);
-			if (it != uuidMap.end() && it->second != nullptr)
-			{
-				parentPtr = it->second;
-			}
-		}
-
-		// Registrar primero en el padre antes de asignar el Transform local para evitar recomposición de matriz
-		GameObject* regObj = Register(std::move(newObj), parentPtr);
-		uuidMap[uuid] = regObj;
-
-		if (flags & (1 << 2)) gameCameraPtr = regObj;
-		if (flags & (1 << 3)) restoredSelected = regObj;
-
-		// 1. TransformComponent
-		uint8_t hasTrans = 0;
-		in.read(reinterpret_cast<char*>(&hasTrans), sizeof(hasTrans));
-		if (hasTrans)
-		{
-			uint8_t cActive = 1;
-			glm::vec3 pos(0.0f), rot(0.0f), scl(1.0f);
-			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
-			in.read(reinterpret_cast<char*>(&pos), sizeof(pos));
-			in.read(reinterpret_cast<char*>(&rot), sizeof(rot));
-			in.read(reinterpret_cast<char*>(&scl), sizeof(scl));
-
-			auto trans = std::make_unique<TransformComponent>(regObj);
-			trans->SetPosition(pos);
-			trans->SetRotation(rot);
-			trans->SetScale(scl);
-			if (!cActive) trans->Disable();
-			regObj->AddComponent(std::move(trans));
-		}
-
-		// 2. MeshComponent
-		uint8_t hasMesh = 0;
-		in.read(reinterpret_cast<char*>(&hasMesh), sizeof(hasMesh));
-		if (hasMesh)
-		{
-			uint8_t cActive = 1;
-			uint8_t hasPrim = 0;
-			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
-			in.read(reinterpret_cast<char*>(&hasPrim), sizeof(hasPrim));
-
-			std::unique_ptr<Primitive> prim = nullptr;
-			if (hasPrim)
-			{
-				uint32_t vCount = 0;
-				uint32_t iCount = 0;
-				in.read(reinterpret_cast<char*>(&vCount), sizeof(vCount));
-				std::vector<Vertex> verts(vCount);
-				if (vCount > 0)
-				{
-					in.read(reinterpret_cast<char*>(verts.data()), vCount * sizeof(Vertex));
-				}
-				in.read(reinterpret_cast<char*>(&iCount), sizeof(iCount));
-				std::vector<unsigned int> inds(iCount);
-				if (iCount > 0)
-				{
-					in.read(reinterpret_cast<char*>(inds.data()), iCount * sizeof(unsigned int));
-				}
-				prim = std::make_unique<Primitive>();
-				prim->Init(std::move(verts), std::move(inds));
-			}
-
-			auto mesh = std::make_unique<MeshComponent>(regObj, std::move(prim));
-			if (!cActive) mesh->Disable();
-			regObj->AddComponent(std::move(mesh));
-		}
-
-		// 3. MaterialComponent
-		uint8_t hasMat = 0;
-		in.read(reinterpret_cast<char*>(&hasMat), sizeof(hasMat));
-		if (hasMat)
-		{
-			uint8_t cActive = 1;
-			glm::vec4 col(1.0f);
-			uint8_t useTex = 0, useCheck = 0, useMissing = 0;
-			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
-			in.read(reinterpret_cast<char*>(&col), sizeof(col));
-			in.read(reinterpret_cast<char*>(&useTex), sizeof(useTex));
-			in.read(reinterpret_cast<char*>(&useCheck), sizeof(useCheck));
-			in.read(reinterpret_cast<char*>(&useMissing), sizeof(useMissing));
-			std::string texPath = readString();
-
-			auto mat = std::make_unique<MaterialComponent>(regObj);
-			mat->SetColor(col);
-			if (!texPath.empty() && texPath.find("(procedural)") == std::string::npos)
-			{
-				mat->SetTexture(texPath);
-			}
-			mat->SetUseTexture(useTex != 0);
-			mat->SetUseCheckerboard(useCheck != 0);
-			mat->SetUsingMissingTexture(useMissing != 0);
-			if (!cActive) mat->Disable();
-			regObj->AddComponent(std::move(mat));
-		}
-
-		// 4. CameraComponent
-		uint8_t hasCam = 0;
-		in.read(reinterpret_cast<char*>(&hasCam), sizeof(hasCam));
-		if (hasCam)
-		{
-			uint8_t cActive = 1;
-			float fov = 45.0f, nearP = 0.1f, farP = 100.0f, speed = 5.0f, sens = 0.1f, orbit = 5.0f;
-			in.read(reinterpret_cast<char*>(&cActive), sizeof(cActive));
-			in.read(reinterpret_cast<char*>(&fov), sizeof(fov));
-			in.read(reinterpret_cast<char*>(&nearP), sizeof(nearP));
-			in.read(reinterpret_cast<char*>(&farP), sizeof(farP));
-			in.read(reinterpret_cast<char*>(&speed), sizeof(speed));
-			in.read(reinterpret_cast<char*>(&sens), sizeof(sens));
-			in.read(reinterpret_cast<char*>(&orbit), sizeof(orbit));
-
-			auto cam = std::make_unique<CameraComponent>(regObj);
-			cam->fov = fov;
-			cam->nearPlane = nearP;
-			cam->farPlane = farP;
-			cam->SetMovementSpeed(speed);
-			cam->SetMouseSensitivity(sens);
-			cam->SetOrbitDistance(orbit);
-			if (!cActive) cam->Disable();
-			regObj->AddComponent(std::move(cam));
-		}
-
-		regObj->SetComponentOrder(savedOrder);
+		editorCameraObj->Load(editorCamNode);
+		mainCameraPtr = editorCameraObj.get();
 	}
 
-	in.close();
+	// Cargar GameObjects raíz pasando Load(file) a cada uno (ellos se la pasan a sus componentes y a sus hijos)
+	SceneFile objectsArray = file.GetArray("game_objects");
+	for (size_t i = 0; i < objectsArray.Size(); ++i)
+	{
+		SceneFile objFile = objectsArray.GetElement(i);
+		uint64_t objUuid = objFile.GetUInt64("uuid", 0);
+		std::string objName = objFile.GetString("name", "GameObject");
+
+		auto newObj = std::make_unique<GameObject>(objName, objUuid != 0 ? GameUUID(objUuid) : GameUUID());
+		GameObject* regObj = Register(std::move(newObj), &sceneRoot);
+		regObj->Load(objFile);
+	}
+
+	// Restaurar punteros a Main Camera (vista Game) y al GameObject seleccionado por UUID
+	GameObject* restoredSelected = nullptr;
+	GameObject* fallbackCamera = nullptr;
+	for (size_t i = 0; i < sceneEntities.size(); ++i)
+	{
+		GameObject* ent = sceneEntities[i].get();
+		if (!ent) continue;
+
+		uint64_t entUuid = (uint64_t)ent->GetUUID();
+		if (savedGameCameraUuid != 0 && entUuid == savedGameCameraUuid)
+		{
+			gameCameraPtr = ent;
+		}
+		if (savedSelectedUuid != 0 && entUuid == savedSelectedUuid)
+		{
+			restoredSelected = ent;
+		}
+		if (fallbackCamera == nullptr && ent->GetComponent<CameraComponent>() != nullptr)
+		{
+			fallbackCamera = ent;
+		}
+	}
+
+	if (gameCameraPtr == nullptr)
+	{
+		gameCameraPtr = fallbackCamera;
+	}
+
+	SetSelected(restoredSelected);
+	RebuildSpacePartitioning();
+	isLoadingOrInitializing = false;
+
+	if (filePath != Engine::GetInstance().GetTempSceneFilePath())
+	{
+		currentScenePath = filePath;
+		sceneDirty = false;
+		UpdateWindowTitle();
+	}
+
+	LOG("[Scene] Escena cargada con éxito desde '%s' (%zu GameObjects totales)", filePath.c_str(), sceneEntities.size());
+	return true;
+}
+
+bool Scene::SaveTemporaryScene(const std::string& filePath) const
+{
+	prePlayScenePath = currentScenePath;
+	prePlaySceneDirty = sceneDirty;
+	return Save(filePath);
+}
+
+bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad)
+{
+	if (!Load(filePath))
+	{
+		return false;
+	}
+
+	currentScenePath = prePlayScenePath;
+	sceneDirty = prePlaySceneDirty;
+	UpdateWindowTitle();
 
 	if (deleteFileAfterLoad)
 	{
 		std::error_code ec;
 		std::filesystem::remove(filePath, ec);
-		LOG("[Scene] Archivo temporal '%s' restaurado (%u objetos) y eliminado del disco", filePath.c_str(), objectCount);
+		LOG("[Scene] Archivo temporal '%s' restaurado (%zu objetos) y eliminado del disco", filePath.c_str(), sceneEntities.size());
 	}
-	else
-	{
-		LOG("[Scene] Archivo temporal '%s' restaurado (%u objetos)", filePath.c_str(), objectCount);
-	}
-
-	selected = restoredSelected;
-	RebuildSpacePartitioning();
 	return true;
 }
 
@@ -1729,4 +1623,571 @@ void Octree::CollectNodeBounds(std::vector<AABB>& outBoxes) const
 			}
 		}
 	}
+}
+
+// ============================================================================
+// SCENEFILE (Serialización de Escena en JSON con RapidJSON)
+// ============================================================================
+struct SceneFile::Node
+{
+	enum class Type
+	{
+		Null,
+		Bool,
+		Int,
+		UInt64,
+		Float,
+		String,
+		Object,
+		Array
+	};
+
+	Type type = Type::Object;
+	bool boolVal = false;
+	int intVal = 0;
+	uint64_t uint64Val = 0;
+	double floatVal = 0.0;
+	std::string stringVal;
+
+	std::vector<std::pair<std::string, std::shared_ptr<Node>>> members;
+	std::vector<std::shared_ptr<Node>> elements;
+
+	std::shared_ptr<Node> FindMember(const char* key) const
+	{
+		if (!key) return nullptr;
+		for (size_t i = 0; i < members.size(); ++i)
+		{
+			if (members[i].first == key)
+			{
+				return members[i].second;
+			}
+		}
+		return nullptr;
+	}
+
+	std::shared_ptr<Node> SetOrCreateMember(const char* key, Type memberType)
+	{
+		if (type != Type::Object)
+		{
+			type = Type::Object;
+		}
+		for (size_t i = 0; i < members.size(); ++i)
+		{
+			if (members[i].first == key)
+			{
+				members[i].second = std::make_shared<Node>();
+				members[i].second->type = memberType;
+				return members[i].second;
+			}
+		}
+		std::shared_ptr<Node> child = std::make_shared<Node>();
+		child->type = memberType;
+		members.push_back(std::make_pair(std::string(key ? key : ""), child));
+		return child;
+	}
+};
+
+namespace
+{
+	void WriteNodeToRapidJson(const SceneFile::Node* n, rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer)
+	{
+		if (!n)
+		{
+			writer.Null();
+			return;
+		}
+
+		switch (n->type)
+		{
+		case SceneFile::Node::Type::Null:
+			writer.Null();
+			break;
+		case SceneFile::Node::Type::Bool:
+			writer.Bool(n->boolVal);
+			break;
+		case SceneFile::Node::Type::Int:
+			writer.Int(n->intVal);
+			break;
+		case SceneFile::Node::Type::UInt64:
+			writer.Uint64(n->uint64Val);
+			break;
+		case SceneFile::Node::Type::Float:
+			writer.Double(n->floatVal);
+			break;
+		case SceneFile::Node::Type::String:
+			writer.String(n->stringVal.c_str(), (rapidjson::SizeType)n->stringVal.size());
+			break;
+		case SceneFile::Node::Type::Object:
+			writer.StartObject();
+			for (size_t i = 0; i < n->members.size(); ++i)
+			{
+				const std::string& k = n->members[i].first;
+				writer.Key(k.c_str(), (rapidjson::SizeType)k.size());
+				WriteNodeToRapidJson(n->members[i].second.get(), writer);
+			}
+			writer.EndObject();
+			break;
+		case SceneFile::Node::Type::Array:
+			writer.StartArray();
+			for (size_t i = 0; i < n->elements.size(); ++i)
+			{
+				WriteNodeToRapidJson(n->elements[i].get(), writer);
+			}
+			writer.EndArray();
+			break;
+		}
+	}
+
+	std::shared_ptr<SceneFile::Node> ReadNodeFromRapidJson(const rapidjson::Value& val)
+	{
+		std::shared_ptr<SceneFile::Node> n = std::make_shared<SceneFile::Node>();
+		if (val.IsNull())
+		{
+			n->type = SceneFile::Node::Type::Null;
+		}
+		else if (val.IsBool())
+		{
+			n->type = SceneFile::Node::Type::Bool;
+			n->boolVal = val.GetBool();
+		}
+		else if (val.IsInt())
+		{
+			n->type = SceneFile::Node::Type::Int;
+			n->intVal = val.GetInt();
+			n->uint64Val = (uint64_t)(n->intVal >= 0 ? n->intVal : 0);
+			n->floatVal = (double)n->intVal;
+		}
+		else if (val.IsUint64())
+		{
+			n->type = SceneFile::Node::Type::UInt64;
+			n->uint64Val = val.GetUint64();
+			n->intVal = (int)n->uint64Val;
+			n->floatVal = (double)n->uint64Val;
+		}
+		else if (val.IsInt64())
+		{
+			int64_t v = val.GetInt64();
+			n->type = SceneFile::Node::Type::Int;
+			n->intVal = (int)v;
+			n->uint64Val = (uint64_t)v;
+			n->floatVal = (double)v;
+		}
+		else if (val.IsNumber())
+		{
+			n->type = SceneFile::Node::Type::Float;
+			n->floatVal = val.GetDouble();
+			n->intVal = (int)n->floatVal;
+		}
+		else if (val.IsString())
+		{
+			n->type = SceneFile::Node::Type::String;
+			n->stringVal = std::string(val.GetString(), val.GetStringLength());
+		}
+		else if (val.IsObject())
+		{
+			n->type = SceneFile::Node::Type::Object;
+			for (rapidjson::Value::ConstMemberIterator it = val.MemberBegin(); it != val.MemberEnd(); ++it)
+			{
+				std::string k(it->name.GetString(), it->name.GetStringLength());
+				n->members.push_back(std::make_pair(k, ReadNodeFromRapidJson(it->value)));
+			}
+		}
+		else if (val.IsArray())
+		{
+			n->type = SceneFile::Node::Type::Array;
+			n->elements.reserve(val.Size());
+			for (rapidjson::SizeType i = 0; i < val.Size(); ++i)
+			{
+				n->elements.push_back(ReadNodeFromRapidJson(val[i]));
+			}
+		}
+		return n;
+	}
+}
+
+SceneFile::SceneFile()
+	: node(std::make_shared<Node>())
+{
+	node->type = Node::Type::Object;
+}
+
+SceneFile::SceneFile(std::shared_ptr<Node> n)
+	: node(std::move(n))
+{
+}
+
+SceneFile::~SceneFile() = default;
+
+SceneFile::SceneFile(const SceneFile& other) = default;
+SceneFile& SceneFile::operator=(const SceneFile& other) = default;
+
+bool SceneFile::IsValid() const
+{
+	return node != nullptr && node->type != Node::Type::Null;
+}
+
+bool SceneFile::LoadFromFile(const std::string& filePath)
+{
+	std::string resolvedPath = ResolveExistingPath(filePath);
+	std::ifstream in(resolvedPath, std::ios::binary);
+	if (!in.is_open())
+	{
+		LOG_ERROR("[SceneFile] No se pudo abrir el archivo de escena: '%s'", filePath.c_str());
+		return false;
+	}
+
+	std::ostringstream ss;
+	ss << in.rdbuf();
+	std::string content = ss.str();
+	in.close();
+
+	if (content.empty())
+	{
+		LOG_ERROR("[SceneFile] El archivo de escena está vacío: '%s'", filePath.c_str());
+		return false;
+	}
+
+	rapidjson::Document doc;
+	doc.Parse(content.c_str(), content.size());
+	if (doc.HasParseError() || !doc.IsObject())
+	{
+		LOG_ERROR("[SceneFile] Error al parsear JSON en '%s' (offset %zu): %s",
+			filePath.c_str(), doc.GetErrorOffset(), rapidjson::GetParseError_En(doc.GetParseError()));
+		return false;
+	}
+
+	node = ReadNodeFromRapidJson(doc);
+	return true;
+}
+
+bool SceneFile::SaveToFile(const std::string& filePath) const
+{
+	if (!node) return false;
+
+	std::filesystem::path targetPath(filePath);
+	if (targetPath.has_parent_path())
+	{
+		std::error_code ec;
+		std::filesystem::create_directories(targetPath.parent_path(), ec);
+	}
+
+	rapidjson::StringBuffer buffer;
+	rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+	writer.SetIndent(' ', 4);
+
+	WriteNodeToRapidJson(node.get(), writer);
+
+	std::ofstream out(filePath, std::ios::binary | std::ios::trunc);
+	if (!out.is_open())
+	{
+		LOG_ERROR("[SceneFile] No se pudo escribir el archivo de escena: '%s'", filePath.c_str());
+		return false;
+	}
+
+	out.write(buffer.GetString(), (std::streamsize)buffer.GetSize());
+	out.close();
+	return true;
+}
+
+void SceneFile::SetBool(const char* key, bool value)
+{
+	if (!node) return;
+	std::shared_ptr<Node> child = node->SetOrCreateMember(key, Node::Type::Bool);
+	child->boolVal = value;
+}
+
+void SceneFile::SetInt(const char* key, int value)
+{
+	if (!node) return;
+	std::shared_ptr<Node> child = node->SetOrCreateMember(key, Node::Type::Int);
+	child->intVal = value;
+	child->uint64Val = (uint64_t)(value >= 0 ? value : 0);
+	child->floatVal = (double)value;
+}
+
+void SceneFile::SetUInt64(const char* key, uint64_t value)
+{
+	if (!node) return;
+	std::shared_ptr<Node> child = node->SetOrCreateMember(key, Node::Type::UInt64);
+	child->uint64Val = value;
+	child->intVal = (int)value;
+	child->floatVal = (double)value;
+}
+
+void SceneFile::SetFloat(const char* key, float value)
+{
+	if (!node) return;
+	std::shared_ptr<Node> child = node->SetOrCreateMember(key, Node::Type::Float);
+	child->floatVal = (double)value;
+	child->intVal = (int)value;
+}
+
+void SceneFile::SetString(const char* key, const std::string& value)
+{
+	if (!node) return;
+	std::shared_ptr<Node> child = node->SetOrCreateMember(key, Node::Type::String);
+	child->stringVal = value;
+}
+
+void SceneFile::SetVec3(const char* key, const glm::vec3& value)
+{
+	if (!node) return;
+	std::shared_ptr<Node> arr = node->SetOrCreateMember(key, Node::Type::Array);
+	arr->elements.clear();
+	for (int i = 0; i < 3; ++i)
+	{
+		std::shared_ptr<Node> elem = std::make_shared<Node>();
+		elem->type = Node::Type::Float;
+		elem->floatVal = (double)value[i];
+		arr->elements.push_back(elem);
+	}
+}
+
+void SceneFile::SetVec4(const char* key, const glm::vec4& value)
+{
+	if (!node) return;
+	std::shared_ptr<Node> arr = node->SetOrCreateMember(key, Node::Type::Array);
+	arr->elements.clear();
+	for (int i = 0; i < 4; ++i)
+	{
+		std::shared_ptr<Node> elem = std::make_shared<Node>();
+		elem->type = Node::Type::Float;
+		elem->floatVal = (double)value[i];
+		arr->elements.push_back(elem);
+	}
+}
+
+bool SceneFile::HasKey(const char* key) const
+{
+	if (!node) return false;
+	return node->FindMember(key) != nullptr;
+}
+
+bool SceneFile::GetBool(const char* key, bool defaultVal) const
+{
+	if (!node) return defaultVal;
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child || child->type != Node::Type::Bool) return defaultVal;
+	return child->boolVal;
+}
+
+int SceneFile::GetInt(const char* key, int defaultVal) const
+{
+	if (!node) return defaultVal;
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child) return defaultVal;
+	if (child->type == Node::Type::Int || child->type == Node::Type::UInt64 || child->type == Node::Type::Float)
+	{
+		return child->intVal;
+	}
+	return defaultVal;
+}
+
+uint64_t SceneFile::GetUInt64(const char* key, uint64_t defaultVal) const
+{
+	if (!node) return defaultVal;
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child) return defaultVal;
+	if (child->type == Node::Type::UInt64 || child->type == Node::Type::Int)
+	{
+		return child->uint64Val;
+	}
+	return defaultVal;
+}
+
+float SceneFile::GetFloat(const char* key, float defaultVal) const
+{
+	if (!node) return defaultVal;
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child) return defaultVal;
+	if (child->type == Node::Type::Float || child->type == Node::Type::Int || child->type == Node::Type::UInt64)
+	{
+		return (float)child->floatVal;
+	}
+	return defaultVal;
+}
+
+std::string SceneFile::GetString(const char* key, const std::string& defaultVal) const
+{
+	if (!node) return defaultVal;
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child || child->type != Node::Type::String) return defaultVal;
+	return child->stringVal;
+}
+
+glm::vec3 SceneFile::GetVec3(const char* key, const glm::vec3& defaultVal) const
+{
+	if (!node) return defaultVal;
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child || child->type != Node::Type::Array || child->elements.size() < 3) return defaultVal;
+	return glm::vec3(
+		(float)child->elements[0]->floatVal,
+		(float)child->elements[1]->floatVal,
+		(float)child->elements[2]->floatVal
+	);
+}
+
+glm::vec4 SceneFile::GetVec4(const char* key, const glm::vec4& defaultVal) const
+{
+	if (!node) return defaultVal;
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child || child->type != Node::Type::Array || child->elements.size() < 4) return defaultVal;
+	return glm::vec4(
+		(float)child->elements[0]->floatVal,
+		(float)child->elements[1]->floatVal,
+		(float)child->elements[2]->floatVal,
+		(float)child->elements[3]->floatVal
+	);
+}
+
+SceneFile SceneFile::AddObject(const char* key)
+{
+	if (!node) return SceneFile(nullptr);
+	std::shared_ptr<Node> child = node->SetOrCreateMember(key, Node::Type::Object);
+	return SceneFile(child);
+}
+
+SceneFile SceneFile::GetObjectNode(const char* key) const
+{
+	if (!node) return SceneFile(nullptr);
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child || child->type != Node::Type::Object) return SceneFile(nullptr);
+	return SceneFile(child);
+}
+
+SceneFile SceneFile::AddArray(const char* key)
+{
+	if (!node) return SceneFile(nullptr);
+	std::shared_ptr<Node> child = node->SetOrCreateMember(key, Node::Type::Array);
+	return SceneFile(child);
+}
+
+SceneFile SceneFile::GetArray(const char* key) const
+{
+	if (!node) return SceneFile(nullptr);
+	std::shared_ptr<Node> child = node->FindMember(key);
+	if (!child || child->type != Node::Type::Array) return SceneFile(nullptr);
+	return SceneFile(child);
+}
+
+SceneFile SceneFile::PushObject()
+{
+	if (!node) return SceneFile(nullptr);
+	if (node->type != Node::Type::Array)
+	{
+		node->type = Node::Type::Array;
+	}
+	std::shared_ptr<Node> elem = std::make_shared<Node>();
+	elem->type = Node::Type::Object;
+	node->elements.push_back(elem);
+	return SceneFile(elem);
+}
+
+size_t SceneFile::Size() const
+{
+	if (!node || node->type != Node::Type::Array) return 0;
+	return node->elements.size();
+}
+
+SceneFile SceneFile::GetElement(size_t index) const
+{
+	if (!node || node->type != Node::Type::Array || index >= node->elements.size())
+	{
+		return SceneFile(nullptr);
+	}
+	return SceneFile(node->elements[index]);
+}
+
+std::string SceneFile::ResolveAssetsDirectory()
+{
+	std::error_code ec;
+	if (std::filesystem::exists("../Assets", ec)) return "../Assets";
+	if (std::filesystem::exists("Assets", ec)) return "Assets";
+	if (std::filesystem::exists("../../Assets", ec)) return "../../Assets";
+	return "../Assets";
+}
+
+std::string SceneFile::ResolveScenesDirectory()
+{
+	std::string assetsDir = ResolveAssetsDirectory();
+	std::string scenesDir = assetsDir + "/Scenes";
+	std::error_code ec;
+	if (!std::filesystem::exists(scenesDir, ec))
+	{
+		std::filesystem::create_directories(scenesDir, ec);
+	}
+	return scenesDir;
+}
+
+std::string SceneFile::ResolveLibraryMeshesDirectory()
+{
+	std::error_code ec;
+	std::string libDir = "../Library/Meshes";
+	if (std::filesystem::exists("Assets", ec) && !std::filesystem::exists("../Assets", ec))
+	{
+		libDir = "Library/Meshes";
+	}
+	else if (std::filesystem::exists("../../Assets", ec) && !std::filesystem::exists("../Assets", ec))
+	{
+		libDir = "../../Library/Meshes";
+	}
+	if (!std::filesystem::exists(libDir, ec))
+	{
+		std::filesystem::create_directories(libDir, ec);
+	}
+	return libDir;
+}
+
+std::string SceneFile::ResolveExistingPath(const std::string& storedPath)
+{
+	if (storedPath.empty()) return storedPath;
+	std::error_code ec;
+	if (std::filesystem::exists(storedPath, ec)) return storedPath;
+
+	std::filesystem::path p(storedPath);
+	std::string filename = p.filename().string();
+
+	// Probar en Library/Meshes si es un .mesh
+	if (p.extension() == ".mesh")
+	{
+		std::string candidate = ResolveLibraryMeshesDirectory() + "/" + filename;
+		if (std::filesystem::exists(candidate, ec)) return candidate;
+	}
+
+	// Probar en Assets/Scenes si es un .scene o .json
+	if (p.extension() == ".scene" || p.extension() == ".json")
+	{
+		std::string candidate = ResolveScenesDirectory() + "/" + filename;
+		if (std::filesystem::exists(candidate, ec)) return candidate;
+	}
+
+	// Probar en Assets
+	std::string assetCandidate = ResolveAssetsDirectory() + "/" + filename;
+	if (std::filesystem::exists(assetCandidate, ec)) return assetCandidate;
+
+	return storedPath;
+}
+
+std::vector<std::string> SceneFile::ListSavedSceneFiles()
+{
+	std::vector<std::string> results;
+	std::string scenesDir = ResolveScenesDirectory();
+	std::error_code ec;
+	if (!std::filesystem::exists(scenesDir, ec)) return results;
+
+	for (std::filesystem::directory_iterator it(scenesDir, ec), end; it != end; it.increment(ec))
+	{
+		if (ec) break;
+		if (!it->is_regular_file(ec)) continue;
+		std::filesystem::path path = it->path();
+		std::string ext = path.extension().string();
+		std::transform(ext.begin(), ext.end(), ext.begin(),
+			[](unsigned char c) { return (char)std::tolower(c); });
+		if (ext == ".scene" || ext == ".json")
+		{
+			results.push_back(scenesDir + "/" + path.filename().string());
+		}
+	}
+	std::sort(results.begin(), results.end());
+	return results;
 }

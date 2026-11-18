@@ -16,6 +16,9 @@ public:
 
 	std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
+	void Save(SceneFile& file) const override;
+	void Load(const SceneFile& file) override;
+
 	// Los setters solo invalidan la matriz si el valor cambia realmente
 	void SetPosition(const glm::vec3& pos) { if (pos != position) { position = pos; MarkDirty(); } }
 	void SetRotation(const glm::vec3& rot) { if (rot != rotation) { rotation = rot; MarkDirty(); } }
@@ -45,7 +48,7 @@ public:
 	const glm::mat4& GetWorldMatrix() const;
 
 	// Invalida la matriz local y la global (este nodo y todos sus descendientes)
-	void MarkDirty() { dirty = true; InvalidateWorld(); }
+	void MarkDirty() { dirty = true; InvalidateWorld(); NotifyOwnerModified(); }
 
 	// Invalida solo la matriz global de este nodo y sus descendientes 
 	void InvalidateWorld();

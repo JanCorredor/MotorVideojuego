@@ -36,8 +36,23 @@ private:
 	void DrawConfigurationPanel();
 	void DrawAboutPanel();
 	void DrawDepthBufferPanel();
+	void DrawSceneFileModals();
+	void TriggerSaveScene();
+	void TriggerSaveSceneAs();
 
 	bool resetLayout = false;
+
+	// Estado de modales de serialización de escena (Save As / Load)
+	bool openSaveSceneAsPopup = false;
+	bool openLoadScenePopup = false;
+	char saveSceneFileNameBuffer[256] = "";
+	char loadSceneFilePathBuffer[512] = "";
+	std::string pendingOverwriteScenePath;
+
+	// Estado de sincronización de selección para desplegar automáticamente padres en Hierarchy
+	uint64_t lastHierarchySelectionRevision = 0;
+	bool expandToSelectedInHierarchy = false;
+	bool scrollToSelectedInHierarchy = false;
 
 	// Visibilidad de ventanas del Editor
 	bool showScene = true;

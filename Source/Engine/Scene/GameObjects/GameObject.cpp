@@ -1,7 +1,11 @@
 #include "GameObject.h"
+#include "../Scene.h"
+#include "../../Engine.h"
 #include "./Components/Component.h"
 #include "./Components/TransformComponent.h"
 #include "./Components/MeshComponent.h"
+#include "./Components/MaterialComponent.h"
+#include "./Components/CameraComponent.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -66,6 +70,132 @@ std::unique_ptr<GameObject> GameObject::Duplicate(const std::string& newName) co
     return clone;
 }
 
+void GameObject::Save(SceneFile& file) const
+{
+    file.SetUInt64("uuid", (uint64_t)uuid);
+    uint64_t parentUuid = (parent != nullptr && parent->GetParent() != nullptr) ? (uint64_t)parent->GetUUID() : 0;
+    file.SetUInt64("parent_uuid", parentUuid);
+    file.SetString("name", name);
+    file.SetBool("active", active);
+    file.SetBool("static", isStatic);
+
+    // 1. Pasar Save(file) a todos sus componentes en su orden actual
+    SceneFile componentsArray = file.AddArray("components");
+    for (size_t i = 0; i < COMPONENT_COUNT; ++i)
+    {
+        ComponentType type = componentOrder[i];
+        const std::unique_ptr<Component>& comp = components[type];
+        if (comp)
+        {
+            SceneFile compFile = componentsArray.PushObject();
+            compFile.SetInt("type", (int)type);
+            comp->Save(compFile);
+        }
+    }
+
+    // 2. Pasar Save(file) a todos sus hijos
+    SceneFile childrenArray = file.AddArray("children");
+    for (size_t i = 0; i < children.size(); ++i)
+    {
+        GameObject* child = children[i];
+        if (child)
+        {
+            SceneFile childFile = childrenArray.PushObject();
+            child->Save(childFile);
+        }
+    }
+}
+
+void GameObject::Load(const SceneFile& file)
+{
+    uuid = GameUUID(file.GetUInt64("uuid", (uint64_t)uuid));
+    name = file.GetString("name", name);
+    active = file.GetBool("active", true);
+    isStatic = file.GetBool("static", false);
+
+    for (size_t i = 0; i < COMPONENT_COUNT; ++i)
+    {
+        components[i].reset();
+    }
+
+    // 1. Cargar todos sus componentes pasando Load(file) a cada uno
+    SceneFile componentsArray = file.GetArray("components");
+    std::array<ComponentType, COMPONENT_COUNT> loadedOrder = {
+        COMPONENT_TRANSFORM, COMPONENT_MESH, COMPONENT_MATERIAL, COMPONENT_CAMERA
+    };
+    std::array<bool, COMPONENT_COUNT> usedInOrder = { false, false, false, false };
+    size_t orderIdx = 0;
+
+    for (size_t i = 0; i < componentsArray.Size(); ++i)
+    {
+        SceneFile compFile = componentsArray.GetElement(i);
+        int typeInt = compFile.GetInt("type", -1);
+        if (typeInt < 0 || typeInt >= COMPONENT_COUNT) continue;
+        ComponentType type = static_cast<ComponentType>(typeInt);
+
+        std::unique_ptr<Component> comp = nullptr;
+        switch (type)
+        {
+        case COMPONENT_TRANSFORM:
+            comp = std::make_unique<TransformComponent>(this);
+            break;
+        case COMPONENT_MESH:
+            comp = std::make_unique<MeshComponent>(this);
+            break;
+        case COMPONENT_MATERIAL:
+            comp = std::make_unique<MaterialComponent>(this);
+            break;
+        case COMPONENT_CAMERA:
+            comp = std::make_unique<CameraComponent>(this);
+            break;
+        default:
+            break;
+        }
+
+        if (comp)
+        {
+            comp->Load(compFile);
+            AddComponent(std::move(comp));
+            if (!usedInOrder[type] && orderIdx < COMPONENT_COUNT)
+            {
+                loadedOrder[orderIdx++] = type;
+                usedInOrder[type] = true;
+            }
+        }
+    }
+
+    for (int t = 0; t < COMPONENT_COUNT; ++t)
+    {
+        if (!usedInOrder[t] && orderIdx < COMPONENT_COUNT)
+        {
+            loadedOrder[orderIdx++] = static_cast<ComponentType>(t);
+        }
+    }
+    componentOrder = loadedOrder;
+
+    // 2. Cargar todos sus hijos pasando Load(file) a cada hijo
+    Scene* scene = Engine::GetInstance().scene.get();
+    SceneFile childrenArray = file.GetArray("children");
+    for (size_t i = 0; i < childrenArray.Size(); ++i)
+    {
+        SceneFile childFile = childrenArray.GetElement(i);
+        uint64_t childUuid = childFile.GetUInt64("uuid", 0);
+        std::string childName = childFile.GetString("name", "GameObject");
+
+        auto childObj = std::make_unique<GameObject>(childName, childUuid != 0 ? GameUUID(childUuid) : GameUUID());
+        GameObject* childPtr = childObj.get();
+        if (scene)
+        {
+            scene->Register(std::move(childObj), this);
+        }
+        else
+        {
+            AddChild(childPtr);
+        }
+        childPtr->Load(childFile);
+    }
+}
+
 void GameObject::Update(float dt)
 {
 #ifdef _DEBUG
@@ -121,10 +251,12 @@ void GameObject::AddComponent(std::unique_ptr<Component> component)
         existingTrans->SetScale(incomingTrans->GetScale());
         if (incomingTrans->IsActive()) existingTrans->Enable();
         else existingTrans->Disable();
+        NotifySceneModified();
         return;
     }
 
     components[type] = std::move(component);
+    NotifySceneModified();
 }
 
 bool GameObject::RemoveComponent(ComponentType type)
@@ -140,6 +272,7 @@ bool GameObject::RemoveComponent(ComponentType type)
     }
 
     components[type].reset();
+    NotifySceneModified();
     return true;
 }
 
@@ -171,6 +304,7 @@ bool GameObject::SwapComponentOrder(ComponentType typeA, ComponentType typeB)
     if (idxA < COMPONENT_COUNT && idxB < COMPONENT_COUNT)
     {
         std::swap(componentOrder[idxA], componentOrder[idxB]);
+        NotifySceneModified();
         return true;
     }
     return false;
@@ -195,6 +329,7 @@ bool GameObject::MoveComponentUp(ComponentType type)
         if (components[prevType] != nullptr)
         {
             std::swap(componentOrder[idx], componentOrder[i - 1]);
+            NotifySceneModified();
             return true;
         }
     }
@@ -220,6 +355,7 @@ bool GameObject::MoveComponentDown(ComponentType type)
         if (components[nextType] != nullptr)
         {
             std::swap(componentOrder[idx], componentOrder[i]);
+            NotifySceneModified();
             return true;
         }
     }
@@ -284,6 +420,16 @@ bool GameObject::SetParent(GameObject* newParent)
     }
 
     InvalidateWorldTransform();
+
+    if (Scene* scene = Engine::GetInstance().scene.get())
+    {
+        GameObject* sel = scene->GetSelected();
+        if (sel != nullptr && (sel == this || sel->IsDescendantOf(this)))
+        {
+            scene->NotifySelectionHierarchyChanged();
+        }
+    }
+    NotifySceneModified();
     return true;
 }
 
@@ -312,8 +458,13 @@ bool GameObject::IsDescendantOf(const GameObject* ancestor) const
 
 void GameObject::SetStatic(bool value, bool applyToChildren)
 {
+    bool changed = (isStatic != value);
     isStatic = value;
-    if (!applyToChildren) return;
+    if (!applyToChildren)
+    {
+        if (changed) NotifySceneModified();
+        return;
+    }
 
     std::stack<GameObject*> stack;
     for (size_t i = children.size(); i > 0; --i)
@@ -327,12 +478,31 @@ void GameObject::SetStatic(bool value, bool applyToChildren)
         stack.pop();
         if (!current) continue;
 
+        if (current->isStatic != value) changed = true;
         current->isStatic = value;
         const std::vector<GameObject*>& currentChildren = current->GetChildren();
         for (size_t i = currentChildren.size(); i > 0; --i)
         {
             stack.push(currentChildren[i - 1]);
         }
+    }
+    if (changed) NotifySceneModified();
+}
+
+void GameObject::NotifySceneModified() const
+{
+    Scene* scene = Engine::GetInstance().scene.get();
+    if (scene && scene->OwnsObject(this))
+    {
+        scene->MarkSceneDirty();
+    }
+}
+
+void Component::NotifyOwnerModified() const
+{
+    if (owner)
+    {
+        owner->NotifySceneModified();
     }
 }
 

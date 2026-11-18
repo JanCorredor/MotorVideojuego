@@ -1,6 +1,8 @@
 #include "ImporterManager.h"
 #include "MeshImporter.h"
 #include "TextureImporter.h"
+#include "../../Engine.h"
+#include "../../Scene/Scene.h"
 #include "../../../Utils/Log.h"
 
 #include <filesystem>
@@ -12,7 +14,19 @@ bool ImporterManager::ImportFile(const std::string& filePath, GameObject* select
     std::string ext = p.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-    if (MeshImporter::IsSupportedExtension(ext))
+    if (ext == ".scene" || ext == ".json")
+    {
+        if (Engine::GetInstance().scene)
+        {
+            if (!Engine::GetInstance().IsStopped())
+            {
+                Engine::GetInstance().Stop();
+            }
+            return Engine::GetInstance().scene->Load(filePath);
+        }
+        return false;
+    }
+    else if (MeshImporter::IsSupportedExtension(ext))
     {
         return MeshImporter::ImportToScene(filePath) != nullptr;
     }

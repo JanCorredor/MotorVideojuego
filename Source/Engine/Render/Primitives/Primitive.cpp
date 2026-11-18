@@ -88,16 +88,21 @@ Primitive::Primitive(Primitive&& other) noexcept
     VAO = other.VAO;
     VBO = other.VBO;
     EBO = other.EBO;
+    indexCount = other.indexCount;
     vertices = std::move(other.vertices);
     indices = std::move(other.indices);
     faces = std::move(other.faces);
     boundsMin = other.boundsMin;
     boundsMax = other.boundsMax;
+    sourcePath = std::move(other.sourcePath);
+    subMeshIndex = other.subMeshIndex;
+    customMeshPath = std::move(other.customMeshPath);
 
     // Anulamos los IDs del objeto origen para que su destructor no los borre de la GPU
     other.VAO = 0;
     other.VBO = 0;
     other.EBO = 0;
+    other.indexCount = 0;
 }
 
 Primitive& Primitive::operator=(Primitive&& other) noexcept
@@ -113,16 +118,21 @@ Primitive& Primitive::operator=(Primitive&& other) noexcept
         VAO = other.VAO;
         VBO = other.VBO;
         EBO = other.EBO;
+        indexCount = other.indexCount;
         vertices = std::move(other.vertices);
         indices = std::move(other.indices);
         faces = std::move(other.faces);
         boundsMin = other.boundsMin;
         boundsMax = other.boundsMax;
+        sourcePath = std::move(other.sourcePath);
+        subMeshIndex = other.subMeshIndex;
+        customMeshPath = std::move(other.customMeshPath);
 
         // Resetear el origen
         other.VAO = 0;
         other.VBO = 0;
         other.EBO = 0;
+        other.indexCount = 0;
     }
     return *this;
 }
@@ -132,5 +142,7 @@ std::unique_ptr<Primitive> Primitive::Clone() const
     std::vector<Vertex> vCopy = vertices;
     std::vector<unsigned int> iCopy = indices;
     clone->Init(std::move(vCopy), std::move(iCopy));
+    clone->SetSourceInfo(sourcePath, subMeshIndex);
+    clone->SetCustomMeshPath(customMeshPath);
     return clone;
 }

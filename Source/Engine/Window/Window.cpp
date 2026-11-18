@@ -49,7 +49,8 @@ bool Window::Awake()
 
 	flags |= SDL_WINDOW_RESIZABLE;
 
-	window = SDL_CreateWindow(title.c_str(), windowWidth, windowHeight, flags);
+	lastAppliedWindowTitle = title + sceneTitleSuffix;
+	window = SDL_CreateWindow(lastAppliedWindowTitle.c_str(), windowWidth, windowHeight, flags);
 
 	if (window == NULL)
 	{
@@ -134,9 +135,22 @@ bool Window::CleanUp()
 void Window::SetTitle(const std::string& newTitle)
 {
 	title = newTitle;
-	if (window != nullptr)
+	std::string fullTitle = title + sceneTitleSuffix;
+	if (window != nullptr && fullTitle != lastAppliedWindowTitle)
 	{
-		SDL_SetWindowTitle(window, title.c_str());
+		lastAppliedWindowTitle = fullTitle;
+		SDL_SetWindowTitle(window, lastAppliedWindowTitle.c_str());
+	}
+}
+
+void Window::SetSceneTitleInfo(const std::string& suffix)
+{
+	sceneTitleSuffix = suffix;
+	std::string fullTitle = title + sceneTitleSuffix;
+	if (window != nullptr && fullTitle != lastAppliedWindowTitle)
+	{
+		lastAppliedWindowTitle = fullTitle;
+		SDL_SetWindowTitle(window, lastAppliedWindowTitle.c_str());
 	}
 }
 

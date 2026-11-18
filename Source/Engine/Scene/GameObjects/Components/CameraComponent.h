@@ -15,6 +15,9 @@ public:
 
     std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
+    void Save(SceneFile& file) const override;
+    void Load(const SceneFile& file) override;
+
     void Update(float dt) override;
 
     glm::mat4 GetViewMatrix();
