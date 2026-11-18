@@ -14,6 +14,9 @@ public:
     // Importa la textura a través del TextureManager (con caché en GPU)
     static const TextureInfo* ImportTexture(const std::string& filePath);
 
+    // Importa o reimporta la textura con opciones explícitas (filtrado, wrapping, flip X/Y)
+    static const TextureInfo* ImportTexture(const std::string& filePath, const TextureSettings& settings, bool forceReload = false);
+
     // Importa la textura y la asigna al MaterialComponent del GameObject indicado
     static bool ImportAndAssignToGameObject(const std::string& filePath, GameObject* target);
 };

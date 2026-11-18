@@ -6,6 +6,16 @@
 #include <string>
 #include <unordered_map>
 
+// Parámetros por defecto de las texturas. Los valores son índices (los traduce a GL el TextureManager).
+struct TextureSettings
+{
+	int minFilter = 0; // 0 LINEAR_MIPMAP_LINEAR, 1 LINEAR, 2 NEAREST
+	int magFilter = 0; // 0 LINEAR, 1 NEAREST
+	int wrapMode = 0;  // 0 REPEAT, 1 CLAMP_TO_EDGE, 2 MIRRORED_REPEAT
+	bool flipX = false;
+	bool flipY = false;
+};
+
 // Datos de una textura residente en GPU. La propiedad es del TextureManager.
 struct TextureInfo
 {
@@ -13,15 +23,10 @@ struct TextureInfo
 	int width = 0;
 	int height = 0;
 	std::string path;
+	TextureSettings importSettings;
 };
 
-// Parámetros por defecto de las texturas. Los valores son índices (los traduce a GL el TextureManager).
-struct TextureSettings
-{
-	int minFilter = 0; // 0 LINEAR_MIPMAP_LINEAR, 1 LINEAR, 2 NEAREST
-	int magFilter = 0; // 0 LINEAR, 1 NEAREST
-	int wrapMode = 0;  // 0 REPEAT, 1 CLAMP_TO_EDGE, 2 MIRRORED_REPEAT
-};
+
 
 // Único dueño de las texturas GL y de DevIL: carga con caché por ruta, textura
 // checkerboard procedural (se crea una sola vez) y liberación garantizada en CleanUp.
@@ -38,20 +43,23 @@ public:
 	// Devuelve nullptr si la carga falla. Si la ruta ya estaba cargada reutiliza la textura.
 	const TextureInfo* Load(const std::string& path);
 
+	//Load or Import applying Custom TextureSetting
+	const TextureInfo* ImportWithSettings(const std::string& path, const TextureSettings& customSettings, bool forceReload = false);
+
 	// Textura 64x64 con casillas blancas/negras (siempre disponible tras Start)
 	const TextureInfo* GetCheckerboard() const { return checkerboard.get(); }
 	const TextureInfo* GetMissingTexture() const { return missingTexture.get(); }
 
 
 	const TextureSettings& GetSettings() const { return settings; }
+
 	// Aplica los parámetros a las texturas ya cargadas y a las futuras
 	void SetSettings(const TextureSettings& newSettings);
 
 	size_t GetLoadedCount() const { return cache.size(); }
 
 private:
-	void ApplyParameters(unsigned int textureId, bool hasMipmaps) const;
-	
+	void ApplyParameters(unsigned int textureId, const TextureSettings& texSettings, bool hasMipmaps) const;
 	void CreateCheckerboard();
 	std::unique_ptr<TextureInfo> checkerboard;
 

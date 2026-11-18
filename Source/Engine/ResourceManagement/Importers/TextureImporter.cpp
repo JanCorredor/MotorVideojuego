@@ -32,6 +32,26 @@ const TextureInfo* TextureImporter::ImportTexture(const std::string& filePath)
     return texInfo;
 }
 
+const TextureInfo* TextureImporter::ImportTexture(const std::string& filePath, const TextureSettings& settings, bool forceReload)
+{
+    if (!Engine::GetInstance().textures)
+    {
+        LOG_ERROR("[TextureImporter] TextureManager no está inicializado.");
+        return nullptr;
+    }
+
+    LOG("[TextureImporter] Importando textura '%s' (min=%d, mag=%d, wrap=%d, flipX=%d, flipY=%d)",
+        filePath.c_str(), settings.minFilter, settings.magFilter, settings.wrapMode,
+        (int)settings.flipX, (int)settings.flipY);
+
+    const TextureInfo* texInfo = Engine::GetInstance().textures->ImportWithSettings(filePath, settings, forceReload);
+    if (!texInfo)
+    {
+        LOG_ERROR("[TextureImporter] Falló la importación de la textura: %s", filePath.c_str());
+    }
+    return texInfo;
+}
+
 bool TextureImporter::ImportAndAssignToGameObject(const std::string& filePath, GameObject* target)
 {
     if (target == nullptr)

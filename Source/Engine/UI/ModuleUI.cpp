@@ -1401,6 +1401,47 @@ void ModuleUI::DrawInspectorPanel()
 							ImGui::BulletText("Path: %s", texInfo->path.c_str());
 							ImGui::BulletText("Tamaño: %d x %d px", texInfo->width, texInfo->height);
 							ImGui::BulletText("OpenGL Texture ID: %u", texInfo->id);
+
+							if (texInfo->path.find("(procedural)") == std::string::npos)
+							{
+								ImGui::Spacing();
+								ImGui::SeparatorText("Opciones de Importado (Textura)");
+
+								TextureSettings importOpts = texInfo->importSettings;
+								bool importChanged = false;
+
+								static const char* minFilters[] = {
+									"GL_LINEAR_MIPMAP_LINEAR (Trilineal)",
+									"GL_LINEAR (Bilineal)",
+									"GL_NEAREST (Vecino más cercano)"
+								};
+								importChanged |= ImGui::Combo("Filtro Minificación", &importOpts.minFilter, minFilters, IM_ARRAYSIZE(minFilters));
+
+								static const char* magFilters[] = {
+									"GL_LINEAR (Suave)",
+									"GL_NEAREST (Pixelado)"
+								};
+								importChanged |= ImGui::Combo("Filtro Magnificación", &importOpts.magFilter, magFilters, IM_ARRAYSIZE(magFilters));
+
+								static const char* wrapModes[] = {
+									"GL_REPEAT (Repetición)",
+									"GL_CLAMP_TO_EDGE (Abrazar bordes)",
+									"GL_MIRRORED_REPEAT (Espejado)"
+								};
+								importChanged |= ImGui::Combo("Modo Wrap (S/T)", &importOpts.wrapMode, wrapModes, IM_ARRAYSIZE(wrapModes));
+
+								importChanged |= ImGui::Checkbox("Flip Horizontal (X)", &importOpts.flipX);
+								ImGui::SameLine();
+								importChanged |= ImGui::Checkbox("Flip Vertical (Y)", &importOpts.flipY);
+
+								if (importChanged)
+								{
+									if (TextureManager* texMgr = Engine::GetInstance().textures.get())
+									{
+										texMgr->ImportWithSettings(texInfo->path, importOpts, true);
+									}
+								}
+							}
 						}
 						else
 						{
@@ -2286,6 +2327,10 @@ void ModuleUI::DrawConfigurationPanel()
 						"GL_MIRRORED_REPEAT (Espejado)"
 					};
 					texChanged |= ImGui::Combo("Modo Wrap (S/T)", &ts.wrapMode, wrapModes, IM_ARRAYSIZE(wrapModes));
+
+					texChanged |= ImGui::Checkbox("Flip Horizontal por defecto (X)", &ts.flipX);
+					ImGui::SameLine();
+					texChanged |= ImGui::Checkbox("Flip Vertical por defecto (Y)", &ts.flipY);
 
 					if (texChanged)
 					{
