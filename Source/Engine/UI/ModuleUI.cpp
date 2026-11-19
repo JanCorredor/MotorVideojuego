@@ -2,15 +2,20 @@
 #include "../Engine.h"
 #include "../Window/Window.h"
 #include "../Input/Input.h"
+
 #include "../Render/Render.h"
 #include "../Render/Texture/TextureManager.h"
 #include "../Render/Primitives/GeometryGenerator.h"
+
 #include "../Scene/Scene.h"
 #include "../Scene/GameObjects/GameObject.h"
 #include "../Scene/GameObjects/Components/TransformComponent.h"
 #include "../Scene/GameObjects/Components/MeshComponent.h"
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
 #include "../Scene/GameObjects/Components/CameraComponent.h"
+
+#include "../ResourceManagement/Importers/MeshImporter.h"
+
 #include "../Audio/Audio.h"
 
 #include <glm/gtc/type_ptr.hpp>
@@ -1522,6 +1527,50 @@ void ModuleUI::DrawInspectorPanel()
 						ImGui::BulletText("Índices: %zu", totalIndices);
 						ImGui::BulletText("AABB Min: (%.2f, %.2f, %.2f)", bMin.x, bMin.y, bMin.z);
 						ImGui::BulletText("AABB Max: (%.2f, %.2f, %.2f)", bMax.x, bMax.y, bMax.z);
+
+						const Primitive* primaryPrim = meshesToInspect[0]->GetPrimitive();
+						if (primaryPrim && !primaryPrim->GetSourcePath().empty() &&
+							primaryPrim->GetSourcePath().rfind("Primitive:", 0) != 0)
+						{
+							ImGui::Spacing();
+							ImGui::SeparatorText("Opciones de Importado (Malla)");
+
+							static MeshImportSettings editMeshOpts;
+							static const Primitive* lastInspectedPrim = nullptr;
+							if (lastInspectedPrim != primaryPrim)
+							{
+								editMeshOpts = primaryPrim->GetImportSettings();
+								lastInspectedPrim = primaryPrim;
+							}
+
+							ImGui::DragFloat("Escala Global", &editMeshOpts.globalScale, 0.01f, 0.001f, 100.0f, "%.3f");
+
+							static const char* axisPresets[] = {
+								"Estandar (+X, +Y, +Z)",
+								"Z-Up a Y-Up (+X, +Z, -Y)",
+								"Invertir Eje Z (+X, +Y, -Z)",
+								"Invertir Eje X (-X, +Y, +Z)"
+							};
+							ImGui::Combo("Ejes (Coordenadas)", &editMeshOpts.axisPreset, axisPresets, IM_ARRAYSIZE(axisPresets));
+
+							ImGui::Checkbox("Ignorar Camaras", &editMeshOpts.ignoreCameras);
+							ImGui::SameLine();
+							ImGui::Checkbox("Ignorar Luces", &editMeshOpts.ignoreLights);
+
+							if (ImGui::Button("Reimportar Malla"))
+							{
+								for (MeshComponent* m : meshesToInspect)
+								{
+									if (std::unique_ptr<Primitive> newPrim = MeshImporter::ReimportPrimitive(m->GetPrimitive(), editMeshOpts))
+									{
+										m->SetPrimitive(std::move(newPrim));
+									}
+								}
+								lastInspectedPrim = meshesToInspect[0]->GetPrimitive();
+								if (scene) scene->MarkSpacePartitioningDirty();
+								selectedGameObject->NotifySceneModified();
+							}
+						}
 
 						ImGui::Spacing();
 						ImGui::SeparatorText("Visualización de Normales");

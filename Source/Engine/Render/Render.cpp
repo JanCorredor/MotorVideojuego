@@ -198,16 +198,26 @@ bool Render::Start() {
 	const char* singleColorVS = 
 		"#version 460 core\n"
 		"layout (location = 0) in vec3 aPos;\n"
-		"\n"
+		"layout (location = 1) in vec3 aNormal;\n"
 		"uniform mat4 model;\n"
 		"uniform mat4 view;\n"
 		"uniform mat4 projection;\n"
-		"uniform float scaleFactor;\n" // Scale
+		"uniform float outlineWidth;\n"
 		"\n"
 		"void main()\n"
 		"{\n"
-		"   vec3 scaledPos = aPos * scaleFactor;\n"
-		"   gl_Position = projection * view * model * vec4(scaledPos, 1.0);\n"
+		"   vec4 clipPos = projection * view * model * vec4(aPos, 1.0);\n"
+		"   if (length(aNormal) > 1e-5)\n"
+		"   {\n"
+		"       vec3 worldNormal = normalize(mat3(transpose(inverse(model))) * aNormal);\n"
+		"       vec4 clipNormal = projection * view * vec4(worldNormal, 0.0);\n"
+		"       float len = length(clipNormal.xy);\n"
+		"       if (len > 1e-5)\n"
+		"       {\n"
+		"           clipPos.xy += (clipNormal.xy / len) * outlineWidth * clipPos.w;\n"
+		"       }\n"
+		"   }\n"
+		"   gl_Position = clipPos;\n"
 		"}\0";
 
 	const char* singleColorFS = 
@@ -302,7 +312,7 @@ bool Render::Start() {
 	scu.view = glGetUniformLocation(singleColorShaderProgram, "view");
 	scu.projection = glGetUniformLocation(singleColorShaderProgram, "projection");
 	scu.color = glGetUniformLocation(singleColorShaderProgram, "uColor");
-	scu.scaleFactor = glGetUniformLocation(singleColorShaderProgram, "scaleFactor");
+	scu.outlineWidth = glGetUniformLocation(singleColorShaderProgram, "outlineWidth");
 
 	// Buffers persistentes para el dibujo de depuración
 	glGenVertexArrays(1, &debugVAO);
@@ -1414,7 +1424,7 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	glUseProgram(singleColorShaderProgram);
 	glUniformMatrix4fv(scu.view, 1, GL_FALSE, glm::value_ptr(view));
 	glUniformMatrix4fv(scu.projection, 1, GL_FALSE, glm::value_ptr(projection));
-	glUniform1f(scu.scaleFactor, 1.03f);
+	glUniform1f(scu.outlineWidth, 0.007f); // Grosor constante en pantalla (ajustable)
 	glUniform3fv(scu.color, 1, glm::value_ptr(settings.outlineColor));
 
 	std::stack<GameObject*> stack;
@@ -1441,7 +1451,9 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 		}
 	}
 
-	glEnable(GL_DEPTH_TEST);
+	// Restaurar estados previos de OpenGL
+	if (settings.cullFace) glEnable(GL_CULL_FACE);
+	if (settings.depthTest) glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
 	glStencilMask(0xFF);

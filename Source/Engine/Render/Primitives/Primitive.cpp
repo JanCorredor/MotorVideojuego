@@ -97,7 +97,7 @@ Primitive::Primitive(Primitive&& other) noexcept
     sourcePath = std::move(other.sourcePath);
     subMeshIndex = other.subMeshIndex;
     customMeshPath = std::move(other.customMeshPath);
-
+    importSettings = other.importSettings;
     // Anulamos los IDs del objeto origen para que su destructor no los borre de la GPU
     other.VAO = 0;
     other.VBO = 0;
@@ -127,6 +127,7 @@ Primitive& Primitive::operator=(Primitive&& other) noexcept
         sourcePath = std::move(other.sourcePath);
         subMeshIndex = other.subMeshIndex;
         customMeshPath = std::move(other.customMeshPath);
+        importSettings = other.importSettings;
 
         // Resetear el origen
         other.VAO = 0;
@@ -144,5 +145,6 @@ std::unique_ptr<Primitive> Primitive::Clone() const
     clone->Init(std::move(vCopy), std::move(iCopy));
     clone->SetSourceInfo(sourcePath, subMeshIndex);
     clone->SetCustomMeshPath(customMeshPath);
+    clone->SetImportSettings(this->importSettings);
     return clone;
 }

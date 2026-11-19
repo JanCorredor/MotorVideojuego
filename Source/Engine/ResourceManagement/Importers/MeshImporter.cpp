@@ -320,3 +320,63 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
     LOG("[MeshImporter] Modelo compuesto '%s' importado con %zu partes hijas (Custom Format: Library/Meshes)", uniqueRootName.c_str(), subMeshes.size());
     return registeredRoot;
 }
+
+
+///////////////////////////////////////
+// Importers
+///////////////////////////////////////
+static MeshImportSettings g_defaultMeshImportSettings;
+
+MeshImportSettings& MeshImporter::GetDefaultSettings()
+{
+    return g_defaultMeshImportSettings;
+}
+
+void MeshImporter::SetDefaultSettings(const MeshImportSettings& newSettings)
+{
+    g_defaultMeshImportSettings = newSettings;
+}
+
+std::unique_ptr<Primitive> MeshImporter::ReimportPrimitive(const Primitive* existingPrim, const MeshImportSettings& newSettings)
+{
+    if (!existingPrim) return nullptr;
+
+    const std::string& sourcePath = existingPrim->GetSourcePath();
+    const int subMeshIndex = existingPrim->GetSubMeshIndex();
+    if (sourcePath.empty() || sourcePath.rfind("Primitive:", 0) == 0)
+    {
+        return nullptr;
+    }
+
+    std::string resolvedSource = SceneFile::ResolveExistingPath(sourcePath);
+    std::unique_ptr<Primitive> reimported = nullptr;
+
+    if (subMeshIndex >= 0)
+    {
+        std::vector<SubMeshData> subMeshes = ModelLoader::LoadFBXMeshes(resolvedSource, newSettings);
+        if (static_cast<size_t>(subMeshIndex) < subMeshes.size())
+        {
+            reimported = std::move(subMeshes[subMeshIndex].primitive);
+        }
+    }
+    else
+    {
+        reimported = ModelLoader::LoadFBX(resolvedSource, newSettings);
+    }
+
+    if (reimported)
+    {
+        std::string customPath = existingPrim->GetCustomMeshPath().empty()
+            ? BuildCustomMeshPath(sourcePath, subMeshIndex)
+            : existingPrim->GetCustomMeshPath();
+
+        reimported->SetSourceInfo(sourcePath, subMeshIndex);
+        reimported->SetCustomMeshPath(customPath);
+        reimported->SetImportSettings(newSettings);
+        SaveMeshToCustomFormat(reimported.get(), customPath);
+    }
+
+    return reimported;
+}
+
+

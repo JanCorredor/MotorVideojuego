@@ -5,6 +5,9 @@
 #include <glm/glm.hpp>
 #include "Vertex.h"
 
+#include "../../ResourceManagement/Importers/MeshImportSettings.h"
+
+
 // Datos geométricos de un triángulo (calculados una vez en Init) para visualizar normales por cara
 struct FaceData
 {
@@ -52,6 +55,9 @@ public:
     void SetCustomMeshPath(const std::string& path) { customMeshPath = path; }
     const std::string& GetCustomMeshPath() const { return customMeshPath; }
 
+    void SetImportSettings(const MeshImportSettings& settings) { importSettings = settings; }
+    const MeshImportSettings& GetImportSettings() const { return importSettings; }
+
 private:
     unsigned int VAO = 0, VBO = 0, EBO = 0;
     unsigned int indexCount = 0;
@@ -64,4 +70,6 @@ private:
     std::string sourcePath;
     int subMeshIndex = -1;
     std::string customMeshPath;
+
+    MeshImportSettings importSettings;
 };

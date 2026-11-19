@@ -19,6 +19,17 @@ public:
     // Importa el archivo y lo instancia directamente como GameObject en la Scene
     static GameObject* ImportToScene(const std::string& filePath, GameObject* parent = nullptr);
 
+    ////////////////////////
+    // Importer
+    ///////////////////////
+
+    // Opciones globales por defecto para nuevas importaciones de mallas
+    static MeshImportSettings& GetDefaultSettings();
+    static void SetDefaultSettings(const MeshImportSettings& newSettings);
+
+    // Reimporta una primitiva desde su archivo fuente original aplicando nuevas opciones
+    static std::unique_ptr<Primitive> ReimportPrimitive(const Primitive* existingPrim, const MeshImportSettings& newSettings);
+
     // ========================================================================
     // Custom File Format (.mesh en Library/Meshes/)
     // ========================================================================
