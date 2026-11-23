@@ -18,6 +18,8 @@ struct SubMeshData
 {
     std::string name;
     std::unique_ptr<Primitive> primitive;
+    glm::vec4 diffuseColor = glm::vec4(1.0f);
+    std::string diffuseTexturePath;
 };
 
 class ModelLoader
@@ -27,7 +29,10 @@ public:
     static std::unique_ptr<Primitive> LoadFBX(const std::string& path, const MeshImportSettings& settings = MeshImportSettings());
 
     // Loads a file FBX / OBJ / DAE divide every SubMesh individually
-    static std::vector<SubMeshData> LoadFBXMeshes(const std::string& path, const MeshImportSettings& settings = MeshImportSettings());
+    static std::vector<SubMeshData> LoadFBXMeshes(
+        const std::string& path,
+        const MeshImportSettings& settings = MeshImportSettings(),
+        const std::string& originalSourceDir = "");
 
 private:
     // Convierte una matriz 4x4 de Assimp (row-major) a formato GLM (column-major)
@@ -49,6 +54,7 @@ private:
         const std::unordered_set<std::string>& ignoredNodes,
         const MeshImportSettings& settings,
         const std::string& path,
+        const std::string& originalSourceDir,
         std::vector<SubMeshData>& outSubMeshes);
 
     // Aplica la conversión de sistema de coordenadas (Z-Up a Y-Up, flips) y la escala global

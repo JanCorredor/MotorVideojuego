@@ -5,6 +5,7 @@
 
 # Class .gitignore
 build
+Library/
 
 # User-specific files
 *.rsuser
@@ -104,6 +105,7 @@ StyleCopReport.xml
 *.ilk
 *.meta
 *.obj
+!Assets/**/*.obj
 *.idb
 *.iobj
 *.pch

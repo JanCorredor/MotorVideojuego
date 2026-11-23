@@ -22,7 +22,8 @@ bool ImporterManager::ImportFile(const std::string& filePath, GameObject* select
             {
                 Engine::GetInstance().Stop();
             }
-            return Engine::GetInstance().scene->Load(filePath);
+            std::string projectScenePath = SceneFile::EnsureAssetInProject(filePath, "Scenes");
+            return Engine::GetInstance().scene->Load(projectScenePath);
         }
         return false;
     }

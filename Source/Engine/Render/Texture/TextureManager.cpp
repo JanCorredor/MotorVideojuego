@@ -1,9 +1,12 @@
 #include "TextureManager.h"
 #include "../../../Utils/Log.h"
+#include "../../Scene/GameObjects/Components/Component.h"
 
 #include <IL/il.h>
 #include <glad/glad.h>
 #include <vector>
+#include <algorithm>
+#include <cstring>
 
 static GLint ToGLMinFilter(int idx)
 {
@@ -147,10 +150,13 @@ const TextureInfo* TextureManager::Load(const std::string& path)
 
 const TextureInfo* TextureManager::ImportWithSettings(const std::string& path, const TextureSettings& customSettings, bool forceReload)
 {
-	auto it = cache.find(path);
+	std::string cacheKey = SceneFile::ToProjectRelativePath(path);
+	std::string diskPath = SceneFile::ResolveExistingPath(cacheKey);
+
+	auto it = cache.find(cacheKey);
 	if (it != cache.end() && !forceReload)
 	{
-		LOG("[Texture] '%s' ya estaba en caché (OpenGL ID: %u)", path.c_str(), it->second->id);
+		LOG("[Texture] '%s' ya estaba en caché (OpenGL ID: %u)", cacheKey.c_str(), it->second->id);
 		return it->second.get();
 	}
 
@@ -162,7 +168,7 @@ const TextureInfo* TextureManager::ImportWithSettings(const std::string& path, c
 		it->second->importSettings = customSettings;
 		ApplyParameters(it->second->id, customSettings, true);
 		LOG("[Texture] Parámetros de muestreo actualizados en GPU para '%s' (min=%d, mag=%d, wrap=%d)",
-			path.c_str(), customSettings.minFilter, customSettings.magFilter, customSettings.wrapMode);
+			cacheKey.c_str(), customSettings.minFilter, customSettings.magFilter, customSettings.wrapMode);
 		return it->second.get();
 	}
 
@@ -212,10 +218,10 @@ const TextureInfo* TextureManager::ImportWithSettings(const std::string& path, c
 	ilGenImages(1, &imageID);
 	ilBindImage(imageID);
 
-	if (!ilLoadImage(path.c_str()))
+	if (!ilLoadImage(diskPath.c_str()))
 	{
 		ILenum err = ilGetError();
-		LOG_ERROR("[DevIL] Error loading texture '%s' (Código de error DevIL: 0x%X)", path.c_str(), (unsigned int)err);
+		LOG_ERROR("[DevIL] Error loading texture '%s' (Código de error DevIL: 0x%X)", diskPath.c_str(), (unsigned int)err);
 		ilDeleteImages(1, &imageID);
 		return nullptr;
 	}
@@ -254,9 +260,10 @@ const TextureInfo* TextureManager::ImportWithSettings(const std::string& path, c
 		it->second->id = textureID;
 		it->second->width = width;
 		it->second->height = height;
+		it->second->path = cacheKey;
 		it->second->importSettings = customSettings;
 		LOG("[DevIL] Texture reimported: %s (%dx%d, flipX=%d, flipY=%d, min=%d, mag=%d, wrap=%d)",
-			path.c_str(), width, height, (int)customSettings.flipX, (int)customSettings.flipY,
+			cacheKey.c_str(), width, height, (int)customSettings.flipX, (int)customSettings.flipY,
 			customSettings.minFilter, customSettings.magFilter, customSettings.wrapMode);
 		return it->second.get();
 	}
@@ -265,13 +272,14 @@ const TextureInfo* TextureManager::ImportWithSettings(const std::string& path, c
 	info->id = textureID;
 	info->width = width;
 	info->height = height;
-	info->path = path;
+	info->path = cacheKey;
 	info->importSettings = customSettings;
 	const TextureInfo* result = info.get();
-	cache[path] = std::move(info);
+	cache[cacheKey] = std::move(info);
 
 	LOG("[DevIL] Loaded Texture successfully: %s (%dx%d, %d bpp, OpenGL ID: %u, flipX=%d, flipY=%d)",
-		path.c_str(), width, height, bpp, textureID, (int)customSettings.flipX, (int)customSettings.flipY);	return result;
+		cacheKey.c_str(), width, height, bpp, textureID, (int)customSettings.flipX, (int)customSettings.flipY);
+	return result;
 }
 
 

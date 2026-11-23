@@ -90,25 +90,28 @@ void CameraComponent::Update(float dt)
 
     bool rmbDown = (input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_DOWN);
     bool rmbHeld = (rmbDown || input->GetMouseButton(SDL_BUTTON_RIGHT) == KEY_REPEAT);
-    bool altHeld = (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT);
+    bool mmbDown = (input->GetMouseButton(SDL_BUTTON_MIDDLE) == KEY_DOWN);
+    bool mmbHeld = (mmbDown || input->GetMouseButton(SDL_BUTTON_MIDDLE) == KEY_REPEAT);
+    bool altHeld = (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT ||
+                    input->GetKey(SDL_SCANCODE_RALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_RALT) == KEY_REPEAT);
     bool lmbDown = (input->GetMouseButton(SDL_BUTTON_LEFT) == KEY_DOWN);
     bool lmbHeld = (lmbDown || input->GetMouseButton(SDL_BUTTON_LEFT) == KEY_REPEAT);
 
     // Solo iniciamos el control de cámara si el clic comienza dentro del viewport de Scene
-    if ((rmbDown || (altHeld && lmbDown && selectedObject != nullptr)) && viewportHovered && !isControllingCamera)
+    if ((rmbDown || (altHeld && lmbDown) || mmbDown) && viewportHovered && !isControllingCamera)
     {
         isControllingCamera = true;
     }
 
-
-    if (!rmbHeld && !(altHeld && lmbHeld))
+    if (!rmbHeld && !(altHeld && lmbHeld) && !mmbHeld)
     {
         isControllingCamera = false;
     }
 
-    bool isFreeLooking = isControllingCamera && rmbHeld;
-    bool isOrbiting = isControllingCamera && altHeld && lmbHeld && selectedObject != nullptr;
-    bool activeControl = isFreeLooking || isOrbiting;
+    bool isPanning = isControllingCamera && mmbHeld; // Alt + MMB (Maya/Unity) o MMB mantenido (Unity)
+    bool isOrbiting = isControllingCamera && !isPanning && altHeld && lmbHeld && selectedObject != nullptr;
+    bool isFreeLooking = isControllingCamera && !isPanning && (rmbHeld || (altHeld && lmbHeld && selectedObject == nullptr));
+    bool activeControl = isFreeLooking || isOrbiting || isPanning;
     isControllingCamera = activeControl;
 
     // Comprobar si la ventana actual sigue teniendo el foco
@@ -128,8 +131,9 @@ void CameraComponent::Update(float dt)
         isControllingCamera = false;
     }
 
+    bool shiftHeld = (input->GetKey(SDL_SCANCODE_LSHIFT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LSHIFT) == KEY_REPEAT);
     float currentSpeed = movementSpeed;
-    if (input->GetKey(SDL_SCANCODE_LSHIFT))
+    if (shiftHeld)
     {
         currentSpeed *= 2.0f;
     }
@@ -145,7 +149,7 @@ void CameraComponent::Update(float dt)
         }
     }
 
-    // Botón derecho: Free look y WASD
+    // Botón derecho o Alt + Click Izquierdo (sin objeto seleccionado): Free look y WASD/QE
     if (isFreeLooking)
     {
         glm::vec2 mouseDelta = input->GetMouseDelta();
@@ -168,7 +172,7 @@ void CameraComponent::Update(float dt)
         transform->SetPosition(pos);
     }
 
-    // Alt + Click Izquierdo: Orbitar objeto seleccionado
+    // Alt + Click Izquierdo (con objeto seleccionado): Orbitar objeto seleccionado
     if (isOrbiting && selectedObject)
     {
         glm::vec2 mouseDelta = input->GetMouseDelta();
@@ -181,6 +185,18 @@ void CameraComponent::Update(float dt)
         glm::vec3 targetPos = glm::vec3(selectedObject->GetWorldMatrix()[3]);
         glm::vec3 newPos = targetPos - (front * orbitDistance);
         transform->SetPosition(newPos);
+    }
+
+    // Alt + Click Rueda del Ratón (o Click Rueda): Pan lateral y vertical (estilo Maya / Unity)
+    if (isPanning)
+    {
+        glm::vec2 mouseDelta = input->GetMouseDelta();
+        float panSpeed = 0.015f * std::max(1.0f, orbitDistance * 0.25f) * (shiftHeld ? 2.0f : 1.0f);
+
+        glm::vec3 pos = transform->GetPosition();
+        pos -= right * (mouseDelta.x * panSpeed);
+        pos += up * (mouseDelta.y * panSpeed);
+        transform->SetPosition(pos);
     }
 
     // Tecla F: Focus en el objeto seleccionado (cuando el viewport está activo)
@@ -233,6 +249,7 @@ glm::mat4 CameraComponent::GetProjectionMatrix(float aspectRatio)
 
 void CameraComponent::FocusOnObject(GameObject* target)
 {
+    if (!transform && owner) transform = owner->GetComponent<TransformComponent>();
     if (!target || !transform) return;
     if (Engine::GetInstance().scene)
     {
@@ -244,6 +261,7 @@ void CameraComponent::FocusOnObject(GameObject* target)
 
 void CameraComponent::ResetCamera()
 {
+    if (!transform && owner) transform = owner->GetComponent<TransformComponent>();
     yaw = -90.0f;
     pitch = 0.0f;
     fov = 45.0f;
@@ -439,10 +457,12 @@ void CameraComponent::CheckRaycastRecursive(GameObject* rootGo, glm::vec3 rayOri
 
 void CameraComponent::PerformRaycast(float mX, float mY, float width, float height)
 {
+    if (!transform && owner) transform = owner->GetComponent<TransformComponent>();
     if (width <= 0.0f || height <= 0.0f || !transform) return;
 
     Input* input = Engine::GetInstance().input.get();
-    if (input && (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT)) return;
+    if (input && (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT ||
+                  input->GetKey(SDL_SCANCODE_RALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_RALT) == KEY_REPEAT)) return;
 
     float x = (2.0f * mX) / width - 1.0f;
     float y = 1.0f - (2.0f * mY) / height;

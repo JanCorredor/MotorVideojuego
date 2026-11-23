@@ -36,5 +36,6 @@ public:
     static std::string BuildCustomMeshPath(const std::string& sourcePath, int subMeshIndex = -1, uint64_t fallbackId = 0);
     static bool SaveMeshToCustomFormat(const Primitive* primitive, const std::string& customFilePath);
     static std::unique_ptr<Primitive> LoadMeshFromCustomFormat(const std::string& customFilePath);
-    static std::unique_ptr<Primitive> ResolveOrLoadPrimitive(const std::string& sourcePath, int subMeshIndex, const std::string& customMeshPath);
+    static std::unique_ptr<Primitive> ResolveOrLoadPrimitive(const std::string& sourcePath, int subMeshIndex, const std::string& customMeshPath,
+        const MeshImportSettings& importSettings = MeshImportSettings(), bool hasExplicitImportSettings = false);
 };

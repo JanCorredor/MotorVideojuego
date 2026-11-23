@@ -12,6 +12,33 @@
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
+
+namespace
+{
+    std::string ResolveCustomMeshDiskPath(const std::string& customFilePath)
+    {
+        if (customFilePath.empty()) return "";
+        std::string norm = customFilePath;
+        std::replace(norm.begin(), norm.end(), '\\', '/');
+        std::filesystem::path p(norm);
+        if (p.is_absolute()) return norm;
+
+        std::string stripped = norm;
+        while (stripped.rfind("../", 0) == 0) stripped = stripped.substr(3);
+        while (stripped.rfind("./", 0) == 0) stripped = stripped.substr(2);
+        return SceneFile::ResolveProjectRoot() + "/" + stripped;
+    }
+
+    bool ImportSettingsEqual(const MeshImportSettings& a, const MeshImportSettings& b)
+    {
+        return std::fabs(a.globalScale - b.globalScale) < 1e-5f &&
+               a.axisPreset == b.axisPreset &&
+               a.ignoreCameras == b.ignoreCameras &&
+               a.ignoreLights == b.ignoreLights;
+    }
+}
 
 bool MeshImporter::IsSupportedExtension(const std::string& extension)
 {
@@ -22,64 +49,77 @@ bool MeshImporter::IsSupportedExtension(const std::string& extension)
 
 std::string MeshImporter::BuildCustomMeshPath(const std::string& sourcePath, int subMeshIndex, uint64_t fallbackId)
 {
-    std::string libDir = SceneFile::ResolveLibraryMeshesDirectory();
+    // Asegurar que la carpeta Library/Meshes existe
+    SceneFile::ResolveLibraryMeshesDirectory();
+    const std::string libRel = "Library/Meshes";
 
     if (sourcePath.rfind("Primitive:", 0) == 0)
     {
         std::string primName = sourcePath.substr(10);
         if (primName.empty()) primName = "Cube";
-        return libDir + "/Primitive_" + primName + ".mesh";
+        return libRel + "/Primitive_" + primName + ".mesh";
     }
 
     if (!sourcePath.empty())
     {
-        std::filesystem::path p(sourcePath);
+        std::string norm = sourcePath;
+        std::replace(norm.begin(), norm.end(), '\\', '/');
+        std::filesystem::path p(norm);
         std::string stem = p.stem().string();
         if (stem.empty()) stem = "ImportedMesh";
         if (subMeshIndex >= 0)
         {
-            return libDir + "/" + stem + "_sub" + std::to_string(subMeshIndex) + ".mesh";
+            return libRel + "/" + stem + "_sub" + std::to_string(subMeshIndex) + ".mesh";
         }
-        return libDir + "/" + stem + ".mesh";
+        return libRel + "/" + stem + ".mesh";
     }
 
-    return libDir + "/CustomMesh_" + std::to_string(fallbackId) + ".mesh";
+    return libRel + "/CustomMesh_" + std::to_string(fallbackId) + ".mesh";
 }
 
 bool MeshImporter::SaveMeshToCustomFormat(const Primitive* primitive, const std::string& customFilePath)
 {
     if (!primitive || customFilePath.empty()) return false;
 
-    std::filesystem::path targetPath(customFilePath);
+    std::string diskPath = ResolveCustomMeshDiskPath(customFilePath);
+    std::filesystem::path targetPath(diskPath);
     if (targetPath.has_parent_path())
     {
         std::error_code ec;
         std::filesystem::create_directories(targetPath.parent_path(), ec);
     }
 
-    std::ofstream out(customFilePath, std::ios::binary | std::ios::trunc);
+    std::ofstream out(diskPath, std::ios::binary | std::ios::trunc);
     if (!out.is_open())
     {
-        LOG_ERROR("[MeshImporter] No se pudo guardar el Custom File Format de malla: '%s'", customFilePath.c_str());
+        LOG_ERROR("[MeshImporter] No se pudo guardar el Custom File Format de malla: '%s'", diskPath.c_str());
         return false;
     }
 
     const std::vector<Vertex>& vertices = primitive->GetVertices();
     const std::vector<unsigned int>& indices = primitive->GetIndices();
 
-    // Header del Custom File Format (.mesh): magic + ranges[2] (numVertices, numIndices) + AABB bounds
-    const char magic[8] = { 'M', 'V', 'M', 'E', 'S', 'H', '0', '1' };
+    // Header del Custom File Format (.mesh v2): magic + ranges[2] + AABB bounds + MeshImportSettings
+    const char magic[8] = { 'M', 'V', 'M', 'E', 'S', 'H', '0', '2' };
     uint32_t ranges[2] = {
         static_cast<uint32_t>(vertices.size()),
         static_cast<uint32_t>(indices.size())
     };
     glm::vec3 bMin = primitive->GetBoundsMin();
     glm::vec3 bMax = primitive->GetBoundsMax();
+    const MeshImportSettings& imp = primitive->GetImportSettings();
+    uint8_t impFlags[2] = {
+        static_cast<uint8_t>(imp.ignoreCameras ? 1 : 0),
+        static_cast<uint8_t>(imp.ignoreLights ? 1 : 0)
+    };
 
     out.write(magic, sizeof(magic));
     out.write(reinterpret_cast<const char*>(ranges), sizeof(ranges));
     out.write(reinterpret_cast<const char*>(&bMin), sizeof(bMin));
     out.write(reinterpret_cast<const char*>(&bMax), sizeof(bMax));
+    out.write(reinterpret_cast<const char*>(&imp.globalScale), sizeof(imp.globalScale));
+    out.write(reinterpret_cast<const char*>(&imp.axisPreset), sizeof(imp.axisPreset));
+    out.write(reinterpret_cast<const char*>(impFlags), sizeof(impFlags));
 
     if (ranges[0] > 0)
     {
@@ -90,8 +130,9 @@ bool MeshImporter::SaveMeshToCustomFormat(const Primitive* primitive, const std:
         out.write(reinterpret_cast<const char*>(indices.data()), ranges[1] * sizeof(unsigned int));
     }
 
+    bool ok = out.good();
     out.close();
-    return true;
+    return ok;
 }
 
 std::unique_ptr<Primitive> MeshImporter::LoadMeshFromCustomFormat(const std::string& customFilePath)
@@ -100,7 +141,7 @@ std::unique_ptr<Primitive> MeshImporter::LoadMeshFromCustomFormat(const std::str
 
     std::string resolvedPath = SceneFile::ResolveExistingPath(customFilePath);
     std::error_code ec;
-    if (!std::filesystem::exists(resolvedPath, ec))
+    if (!std::filesystem::exists(resolvedPath, ec) || !std::filesystem::is_regular_file(resolvedPath, ec))
     {
         return nullptr;
     }
@@ -113,14 +154,17 @@ std::unique_ptr<Primitive> MeshImporter::LoadMeshFromCustomFormat(const std::str
 
     char magic[8] = {};
     in.read(magic, sizeof(magic));
-    const char expectedMagic[8] = { 'M', 'V', 'M', 'E', 'S', 'H', '0', '1' };
-    for (int i = 0; i < 8; ++i)
+    if (!in) return nullptr;
+
+    const char magicV1[8] = { 'M', 'V', 'M', 'E', 'S', 'H', '0', '1' };
+    const char magicV2[8] = { 'M', 'V', 'M', 'E', 'S', 'H', '0', '2' };
+    const bool isV1 = (std::memcmp(magic, magicV1, 8) == 0);
+    const bool isV2 = (std::memcmp(magic, magicV2, 8) == 0);
+
+    if (!isV1 && !isV2)
     {
-        if (magic[i] != expectedMagic[i])
-        {
-            LOG_ERROR("[MeshImporter] Cabecera inválida en archivo Custom File Format: '%s'", resolvedPath.c_str());
-            return nullptr;
-        }
+        LOG_ERROR("[MeshImporter] Cabecera inválida en archivo Custom File Format: '%s'", resolvedPath.c_str());
+        return nullptr;
     }
 
     uint32_t ranges[2] = { 0, 0 };
@@ -130,65 +174,107 @@ std::unique_ptr<Primitive> MeshImporter::LoadMeshFromCustomFormat(const std::str
     in.read(reinterpret_cast<char*>(&bMin), sizeof(bMin));
     in.read(reinterpret_cast<char*>(&bMax), sizeof(bMax));
 
-    if (!in)
+    MeshImportSettings loadedSettings;
+    if (isV2)
+    {
+        uint8_t impFlags[2] = { 1, 1 };
+        in.read(reinterpret_cast<char*>(&loadedSettings.globalScale), sizeof(loadedSettings.globalScale));
+        in.read(reinterpret_cast<char*>(&loadedSettings.axisPreset), sizeof(loadedSettings.axisPreset));
+        in.read(reinterpret_cast<char*>(impFlags), sizeof(impFlags));
+        loadedSettings.ignoreCameras = (impFlags[0] != 0);
+        loadedSettings.ignoreLights = (impFlags[1] != 0);
+    }
+
+    if (!in || ranges[0] == 0 || ranges[1] == 0)
     {
         return nullptr;
     }
 
     std::vector<Vertex> vertices(ranges[0]);
-    if (ranges[0] > 0)
-    {
-        in.read(reinterpret_cast<char*>(vertices.data()), ranges[0] * sizeof(Vertex));
-    }
+    in.read(reinterpret_cast<char*>(vertices.data()), ranges[0] * sizeof(Vertex));
 
     std::vector<unsigned int> indices(ranges[1]);
-    if (ranges[1] > 0)
+    in.read(reinterpret_cast<char*>(indices.data()), ranges[1] * sizeof(unsigned int));
+
+    if (!in)
     {
-        in.read(reinterpret_cast<char*>(indices.data()), ranges[1] * sizeof(unsigned int));
+        LOG_WARNING("[MeshImporter] Archivo Custom File Format corrupto o incompleto: '%s'", resolvedPath.c_str());
+        return nullptr;
     }
     in.close();
 
     auto prim = std::make_unique<Primitive>();
     prim->Init(std::move(vertices), std::move(indices));
-    prim->SetCustomMeshPath(resolvedPath);
+    prim->SetCustomMeshPath(SceneFile::ToProjectRelativePath(resolvedPath));
+    prim->SetImportSettings(loadedSettings);
     return prim;
 }
 
-std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::string& sourcePath, int subMeshIndex, const std::string& customMeshPath)
+std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::string& sourcePath, int subMeshIndex, const std::string& customMeshPath,
+    const MeshImportSettings& importSettings, bool hasExplicitImportSettings)
 {
+    std::string normalizedSource = SceneFile::ToProjectRelativePath(sourcePath);
     std::string targetCustomPath = customMeshPath.empty()
-        ? BuildCustomMeshPath(sourcePath, subMeshIndex)
-        : customMeshPath;
+        ? BuildCustomMeshPath(normalizedSource, subMeshIndex)
+        : SceneFile::ToProjectRelativePath(customMeshPath);
 
     // 1. Intentar cargar directamente desde el Custom File Format (.mesh en Library/Meshes/)
     std::unique_ptr<Primitive> loadedCustom = LoadMeshFromCustomFormat(targetCustomPath);
     if (loadedCustom)
     {
-        loadedCustom->SetSourceInfo(sourcePath, subMeshIndex);
-        loadedCustom->SetCustomMeshPath(targetCustomPath);
-        return loadedCustom;
+        bool settingsMatch = !hasExplicitImportSettings || ImportSettingsEqual(loadedCustom->GetImportSettings(), importSettings);
+        if (settingsMatch)
+        {
+            // Si el archivo fuente existe dentro del proyecto, asegurarnos de guardar su ruta relativa limpia
+            std::string existingSource = SceneFile::ResolveExistingPath(normalizedSource);
+            std::error_code srcEc;
+            if (!normalizedSource.empty() && normalizedSource.rfind("Primitive:", 0) != 0 && std::filesystem::exists(existingSource, srcEc))
+            {
+                normalizedSource = SceneFile::EnsureAssetInProject(existingSource, "Models");
+            }
+            loadedCustom->SetSourceInfo(normalizedSource, subMeshIndex);
+            loadedCustom->SetCustomMeshPath(targetCustomPath);
+            if (hasExplicitImportSettings)
+            {
+                loadedCustom->SetImportSettings(importSettings);
+            }
+            return loadedCustom;
+        }
     }
 
     // 2. Fallback: regenerar desde sourcePath (primitiva procedural o archivo FBX/OBJ/DAE)
     std::unique_ptr<Primitive> fallbackPrim = nullptr;
-    if (sourcePath == "Primitive:Cube")          fallbackPrim = GeometryGenerator::CreateCube(1.0f);
-    else if (sourcePath == "Primitive:Sphere")   fallbackPrim = GeometryGenerator::CreateSphere(0.5f, 20, 20);
-    else if (sourcePath == "Primitive:Plane")    fallbackPrim = GeometryGenerator::CreatePlane(1.0f);
-    else if (sourcePath == "Primitive:Cylinder") fallbackPrim = GeometryGenerator::CreateCylinder(0.5f, 1.0f, 32);
-    else if (sourcePath == "Primitive:Pyramid")  fallbackPrim = GeometryGenerator::CreatePyramid(1.0f, 1.0f);
-    else if (!sourcePath.empty())
+    if (normalizedSource == "Primitive:Cube")          fallbackPrim = GeometryGenerator::CreateCube(1.0f);
+    else if (normalizedSource == "Primitive:Sphere")   fallbackPrim = GeometryGenerator::CreateSphere(0.5f, 20, 20);
+    else if (normalizedSource == "Primitive:Plane")    fallbackPrim = GeometryGenerator::CreatePlane(1.0f);
+    else if (normalizedSource == "Primitive:Cylinder") fallbackPrim = GeometryGenerator::CreateCylinder(0.5f, 1.0f, 32);
+    else if (normalizedSource == "Primitive:Pyramid")  fallbackPrim = GeometryGenerator::CreatePyramid(1.0f, 1.0f);
+    else if (!normalizedSource.empty())
     {
-        std::string resolvedSource = SceneFile::ResolveExistingPath(sourcePath);
+        std::string resolvedSource = SceneFile::ResolveExistingPath(normalizedSource);
+        std::error_code ec;
+        if (!std::filesystem::exists(resolvedSource, ec) || !std::filesystem::is_regular_file(resolvedSource, ec))
+        {
+            LOG_ERROR("[MeshImporter] No se encontró el archivo de malla '%s' (ni en Library/Meshes ni en Assets/Models).", normalizedSource.c_str());
+            return nullptr;
+        }
+
+        // Asegurar que el archivo está copiado dentro de Assets/Models si venía de fuera
+        normalizedSource = SceneFile::EnsureAssetInProject(resolvedSource, "Models");
+        resolvedSource = SceneFile::ResolveExistingPath(normalizedSource);
+        targetCustomPath = BuildCustomMeshPath(normalizedSource, subMeshIndex);
+
         if (subMeshIndex >= 0)
         {
-            std::vector<SubMeshData> subMeshes = ModelLoader::LoadFBXMeshes(resolvedSource);
+            std::vector<SubMeshData> subMeshes = ModelLoader::LoadFBXMeshes(resolvedSource, importSettings);
             for (size_t i = 0; i < subMeshes.size(); ++i)
             {
                 if (subMeshes[i].primitive)
                 {
-                    std::string subCustom = BuildCustomMeshPath(sourcePath, (int)i);
-                    subMeshes[i].primitive->SetSourceInfo(sourcePath, (int)i);
+                    std::string subCustom = BuildCustomMeshPath(normalizedSource, (int)i);
+                    subMeshes[i].primitive->SetSourceInfo(normalizedSource, (int)i);
                     subMeshes[i].primitive->SetCustomMeshPath(subCustom);
+                    subMeshes[i].primitive->SetImportSettings(importSettings);
                     SaveMeshToCustomFormat(subMeshes[i].primitive.get(), subCustom);
                 }
             }
@@ -199,14 +285,15 @@ std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::strin
         }
         else
         {
-            fallbackPrim = ModelLoader::LoadFBX(resolvedSource);
+            fallbackPrim = ModelLoader::LoadFBX(resolvedSource, importSettings);
         }
     }
 
     if (fallbackPrim)
     {
-        fallbackPrim->SetSourceInfo(sourcePath, subMeshIndex);
+        fallbackPrim->SetSourceInfo(normalizedSource, subMeshIndex);
         fallbackPrim->SetCustomMeshPath(targetCustomPath);
+        fallbackPrim->SetImportSettings(importSettings);
         SaveMeshToCustomFormat(fallbackPrim.get(), targetCustomPath);
     }
 
@@ -215,16 +302,20 @@ std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::strin
 
 std::unique_ptr<Primitive> MeshImporter::ImportMesh(const std::string& filePath)
 {
-    LOG("[MeshImporter] Importando malla desde: %s", filePath.c_str());
-    auto loadedMesh = ModelLoader::LoadFBX(filePath);
+    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Models");
+    std::string diskPath = SceneFile::ResolveExistingPath(projectRelPath);
+
+    LOG("[MeshImporter] Importando malla desde: %s", projectRelPath.c_str());
+    auto loadedMesh = ModelLoader::LoadFBX(diskPath, GetDefaultSettings());
     if (!loadedMesh)
     {
-        LOG_ERROR("[MeshImporter] Error al importar la malla: %s", filePath.c_str());
+        LOG_ERROR("[MeshImporter] Error al importar la malla: %s", diskPath.c_str());
         return nullptr;
     }
-    std::string customPath = BuildCustomMeshPath(filePath, -1);
-    loadedMesh->SetSourceInfo(filePath, -1);
+    std::string customPath = BuildCustomMeshPath(projectRelPath, -1);
+    loadedMesh->SetSourceInfo(projectRelPath, -1);
     loadedMesh->SetCustomMeshPath(customPath);
+    loadedMesh->SetImportSettings(GetDefaultSettings());
     SaveMeshToCustomFormat(loadedMesh.get(), customPath);
     return loadedMesh;
 }
@@ -238,10 +329,25 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
         return nullptr;
     }
 
-    std::vector<SubMeshData> subMeshes = ModelLoader::LoadFBXMeshes(filePath);
+    // Conservar la carpeta de origen original (antes de copiar a Assets/Models/) para localizar texturas acompañantes (ej. carpeta Texture/)
+    std::string originalSourceDir;
+    {
+        std::string resolvedInput = SceneFile::ResolveExistingPath(filePath);
+        std::filesystem::path inputPath(resolvedInput);
+        if (inputPath.has_parent_path())
+        {
+            originalSourceDir = inputPath.parent_path().string();
+        }
+    }
+
+    // Copiar automáticamente modelos externos (Descargas, Escritorio, etc.) dentro de Assets/Models/
+    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Models");
+    std::string diskPath = SceneFile::ResolveExistingPath(projectRelPath);
+
+    std::vector<SubMeshData> subMeshes = ModelLoader::LoadFBXMeshes(diskPath, GetDefaultSettings(), originalSourceDir);
     if (subMeshes.empty())
     {
-        LOG_ERROR("[MeshImporter] No se encontraron mallas válidas en: %s", filePath.c_str());
+        LOG_ERROR("[MeshImporter] No se encontraron mallas válidas en: %s", diskPath.c_str());
         return nullptr;
     }
 
@@ -250,14 +356,34 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
     {
         if (subMeshes[i].primitive)
         {
-            std::string customPath = BuildCustomMeshPath(filePath, (int)i);
-            subMeshes[i].primitive->SetSourceInfo(filePath, (int)i);
+            std::string customPath = BuildCustomMeshPath(projectRelPath, (int)i);
+            subMeshes[i].primitive->SetSourceInfo(projectRelPath, (int)i);
             subMeshes[i].primitive->SetCustomMeshPath(customPath);
+            subMeshes[i].primitive->SetImportSettings(GetDefaultSettings());
             SaveMeshToCustomFormat(subMeshes[i].primitive.get(), customPath);
         }
     }
 
-    std::filesystem::path p(filePath);
+    auto applyImportedMaterial = [](MaterialComponent* mat, const SubMeshData& subData) -> bool
+    {
+        if (!mat) return false;
+        if (!subData.diffuseTexturePath.empty())
+        {
+            if (mat->SetTexture(subData.diffuseTexturePath))
+            {
+                mat->SetUseTexture(true);
+                mat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, subData.diffuseColor.a));
+                return true;
+            }
+            // Si la carga de la textura falló, volver limpiamente al color base sin dejar textura "missing"
+            mat->SetUsingMissingTexture(false);
+        }
+        mat->SetColor(subData.diffuseColor);
+        mat->SetUseTexture(false);
+        return false;
+    };
+
+    std::filesystem::path p(projectRelPath);
     std::string stemName = p.stem().string();
     if (stemName.empty()) stemName = "ImportedModel";
     std::string uniqueRootName = scene->MakeUniqueName(stemName);
@@ -275,14 +401,14 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
         newObj->AddComponent(std::move(mesh));
 
         auto mat = std::make_unique<MaterialComponent>(newObj.get());
-        mat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-        mat->SetUseTexture(false);
+        bool texLoaded = applyImportedMaterial(mat.get(), subMeshes[0]);
         newObj->AddComponent(std::move(mat));
 
         GameObject* registered = scene->Register(std::move(newObj), parent);
         scene->SetSelected(registered);
 
-        LOG("[MeshImporter] Modelo simple '%s' importado en la escena (Custom Format: Library/Meshes)", uniqueRootName.c_str());
+        LOG("[MeshImporter] Modelo simple '%s' importado en la escena (Textura automática: %s, Custom Format: Library/Meshes)",
+            uniqueRootName.c_str(), texLoaded ? "Sí" : "No");
         return registered;
     }
 
@@ -293,6 +419,7 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
     rootObj->AddComponent(std::move(rootTrans));
 
     GameObject* registeredRoot = scene->Register(std::move(rootObj), parent);
+    size_t texturedParts = 0;
 
     for (size_t i = 0; i < subMeshes.size(); ++i)
     {
@@ -309,15 +436,18 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
         childObj->AddComponent(std::move(childMesh));
 
         auto childMat = std::make_unique<MaterialComponent>(childObj.get());
-        childMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-        childMat->SetUseTexture(false);
+        if (applyImportedMaterial(childMat.get(), subMeshes[i]))
+        {
+            ++texturedParts;
+        }
         childObj->AddComponent(std::move(childMat));
 
         scene->Register(std::move(childObj), registeredRoot);
     }
 
     scene->SetSelected(registeredRoot);
-    LOG("[MeshImporter] Modelo compuesto '%s' importado con %zu partes hijas (Custom Format: Library/Meshes)", uniqueRootName.c_str(), subMeshes.size());
+    LOG("[MeshImporter] Modelo compuesto '%s' importado con %zu partes hijas (%zu con textura automática, Custom Format: Library/Meshes)",
+        uniqueRootName.c_str(), subMeshes.size(), texturedParts);
     return registeredRoot;
 }
 
@@ -366,11 +496,12 @@ std::unique_ptr<Primitive> MeshImporter::ReimportPrimitive(const Primitive* exis
 
     if (reimported)
     {
+        std::string cleanSource = SceneFile::EnsureAssetInProject(resolvedSource, "Models");
         std::string customPath = existingPrim->GetCustomMeshPath().empty()
-            ? BuildCustomMeshPath(sourcePath, subMeshIndex)
-            : existingPrim->GetCustomMeshPath();
+            ? BuildCustomMeshPath(cleanSource, subMeshIndex)
+            : SceneFile::ToProjectRelativePath(existingPrim->GetCustomMeshPath());
 
-        reimported->SetSourceInfo(sourcePath, subMeshIndex);
+        reimported->SetSourceInfo(cleanSource, subMeshIndex);
         reimported->SetCustomMeshPath(customPath);
         reimported->SetImportSettings(newSettings);
         SaveMeshToCustomFormat(reimported.get(), customPath);

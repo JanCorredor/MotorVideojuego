@@ -701,7 +701,8 @@ void ModuleUI::DrawScenePanel()
 		imageHovered = ImGui::IsItemHovered();
 
 		Input* input = Engine::GetInstance().input.get();
-		bool altHeld = input && (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT);
+		bool altHeld = input && (input->GetKey(SDL_SCANCODE_LALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_LALT) == KEY_REPEAT ||
+			input->GetKey(SDL_SCANCODE_RALT) == KEY_DOWN || input->GetKey(SDL_SCANCODE_RALT) == KEY_REPEAT);
 
 		// Selección por Raycast al hacer clic izquierdo sobre el viewport (sin Alt para no interferir con la órbita)
 		if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !altHeld && camComp)
@@ -2803,6 +2804,12 @@ void ModuleUI::DrawDepthBufferPanel()
 
 void ModuleUI::TriggerSaveScene()
 {
+	if (!Engine::GetInstance().IsStopped())
+	{
+		LOG_WARNING("[UI] Detén el modo Play/Pause antes de guardar la escena para no sobrescribir el estado inicial.");
+		return;
+	}
+
 	Scene* scene = Engine::GetInstance().scene.get();
 	if (!scene) return;
 
@@ -2820,6 +2827,12 @@ void ModuleUI::TriggerSaveScene()
 
 void ModuleUI::TriggerSaveSceneAs()
 {
+	if (!Engine::GetInstance().IsStopped())
+	{
+		LOG_WARNING("[UI] Detén el modo Play/Pause antes de guardar la escena para no sobrescribir el estado inicial.");
+		return;
+	}
+
 	Scene* scene = Engine::GetInstance().scene.get();
 	if (scene && scene->HasSavedScenePath())
 	{
@@ -2917,6 +2930,16 @@ void ModuleUI::DrawSceneFileModals()
 		if ((saveClicked || enterPressed) && hasValidName)
 		{
 			std::string rawName = trimmedName;
+			// Sanitizar caracteres inválidos en nombres de archivo de Windows
+			const char* invalidChars = "<>:\"|?*";
+			for (size_t i = 0; i < rawName.size(); ++i)
+			{
+				if (std::strchr(invalidChars, rawName[i]) != nullptr)
+				{
+					rawName[i] = '_';
+				}
+			}
+
 			std::filesystem::path p(rawName);
 			std::string ext = p.extension().string();
 			std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -2927,11 +2950,7 @@ void ModuleUI::DrawSceneFileModals()
 				rawName += ".scene";
 			}
 
-			std::string fullPath = rawName;
-			if (!p.has_parent_path())
-			{
-				fullPath = scenesDir + "/" + rawName;
-			}
+			std::string fullPath = scenesDir + "/" + std::filesystem::path(rawName).filename().string();
 
 			std::error_code ec;
 			if (std::filesystem::exists(fullPath, ec))
@@ -3053,7 +3072,8 @@ void ModuleUI::DrawSceneFileModals()
 				{
 					Engine::GetInstance().Stop();
 				}
-				std::string resolved = SceneFile::ResolveExistingPath(loadSceneFilePathBuffer);
+				std::string projectScene = SceneFile::EnsureAssetInProject(loadSceneFilePathBuffer, "Scenes");
+				std::string resolved = SceneFile::ResolveExistingPath(projectScene);
 				scene->Load(resolved);
 			}
 			ImGui::CloseCurrentPopup();

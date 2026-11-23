@@ -23,11 +23,12 @@ const TextureInfo* TextureImporter::ImportTexture(const std::string& filePath)
         return nullptr;
     }
 
-    LOG("[TextureImporter] Importando textura desde: %s", filePath.c_str());
-    const TextureInfo* texInfo = Engine::GetInstance().textures->Load(filePath);
+    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Textures");
+    LOG("[TextureImporter] Importando textura desde: %s", projectRelPath.c_str());
+    const TextureInfo* texInfo = Engine::GetInstance().textures->Load(projectRelPath);
     if (!texInfo)
     {
-        LOG_ERROR("[TextureImporter] Falló la importación de la textura: %s", filePath.c_str());
+        LOG_ERROR("[TextureImporter] Falló la importación de la textura: %s", projectRelPath.c_str());
     }
     return texInfo;
 }
@@ -40,14 +41,15 @@ const TextureInfo* TextureImporter::ImportTexture(const std::string& filePath, c
         return nullptr;
     }
 
+    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Textures");
     LOG("[TextureImporter] Importando textura '%s' (min=%d, mag=%d, wrap=%d, flipX=%d, flipY=%d)",
-        filePath.c_str(), settings.minFilter, settings.magFilter, settings.wrapMode,
+        projectRelPath.c_str(), settings.minFilter, settings.magFilter, settings.wrapMode,
         (int)settings.flipX, (int)settings.flipY);
 
-    const TextureInfo* texInfo = Engine::GetInstance().textures->ImportWithSettings(filePath, settings, forceReload);
+    const TextureInfo* texInfo = Engine::GetInstance().textures->ImportWithSettings(projectRelPath, settings, forceReload);
     if (!texInfo)
     {
-        LOG_ERROR("[TextureImporter] Falló la importación de la textura: %s", filePath.c_str());
+        LOG_ERROR("[TextureImporter] Falló la importación de la textura: %s", projectRelPath.c_str());
     }
     return texInfo;
 }

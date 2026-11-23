@@ -23,7 +23,7 @@ void MaterialComponent::Save(SceneFile& file) const
 	file.SetBool("using_missing_texture", usingMissingTexture);
 
 	std::string texPath = (diffuse != nullptr && diffuse->path.find("(procedural)") == std::string::npos)
-		? diffuse->path
+		? SceneFile::EnsureAssetInProject(diffuse->path, "Textures")
 		: "";
 	file.SetString("texture_path", texPath);
 

@@ -34,6 +34,8 @@
 #include <stack>
 #include <cfloat>
 #include <cmath>
+#include <cstring>
+#include <cctype>
 
 #ifdef _DEBUG
 #include <tracy/Tracy.hpp>
@@ -98,7 +100,7 @@ bool Scene::Start()
 
 	auto cubeMat = std::make_unique<MaterialComponent>(cubeObj.get());
 	cubeMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-	cubeMat->SetTexture("../Assets/water.jpg");
+	cubeMat->SetTexture("Assets/water.jpg");
 	cubeMat->SetUseTexture(true);
 	cubeObj->AddComponent(std::move(cubeMat));
 
@@ -113,7 +115,7 @@ bool Scene::Start()
 
 	auto sphereMat = std::make_unique<MaterialComponent>(sphereObj.get());
 	sphereMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-	sphereMat->SetTexture("../Assets/lava.jpg");
+	sphereMat->SetTexture("Assets/lava.jpg");
 	sphereMat->SetUseTexture(true);
 	sphereObj->AddComponent(std::move(sphereMat));
 
@@ -132,10 +134,10 @@ bool Scene::Start()
 	LOG("[Scene] Instanciado 'Sphere' con geometría procedural de esfera y textura");
 
 	// MODELO CASA CON TEXTURA PNG (Soporta múltiples partes)
-	GameObject* bakerHouse = ImportModel("../Assets/BakerHouse.fbx", &sceneRoot);
+	GameObject* bakerHouse = ImportModel("Assets/BakerHouse.fbx", &sceneRoot);
 	if (bakerHouse)
 	{
-		TextureImporter::ImportAndAssignToGameObject("../Assets/Baker_house.png", bakerHouse);
+		TextureImporter::ImportAndAssignToGameObject("Assets/Baker_house.png", bakerHouse);
 		if (TransformComponent* bakerHouseTransform = bakerHouse->GetComponent<TransformComponent>())
 		{
 			bakerHouseTransform->SetPosition(glm::vec3(0.0f, 0.0f, -3.0f));
@@ -144,21 +146,21 @@ bool Scene::Start()
 	}
 
 	// MODELO CON TEXTURA TGA 
-	GameObject* candle = ImportModel("../Assets/SM_Candle_Fundida.fbx", &sceneRoot);
+	GameObject* candle = ImportModel("Assets/SM_Candle_Fundida.FBX", &sceneRoot);
 	if (candle)
 	{
-		TextureImporter::ImportAndAssignToGameObject("../Assets/T_Candle_D.tga", candle);
+		TextureImporter::ImportAndAssignToGameObject("Assets/T_Candle_D.tga", candle);
 		if (TransformComponent* candleTransform = candle->GetComponent<TransformComponent>())
 		{
 			candleTransform->SetPosition(glm::vec3(3.0f, 0.0f, 0.0f));
-			candleTransform->SetRotation(glm::vec3(-90.0f, 0.0f, 0.0f));
+			candleTransform->SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
 			candleTransform->SetScale(glm::vec3(0.05f, 0.05f, 0.05f));
 		}
 		candle->SetStatic(true, true);
 	}
 
 	// MODELO SIN TEXTURA
-	GameObject* character = ImportModel("../Assets/HeavyTF2_2018.fbx", &sceneRoot);
+	GameObject* character = ImportModel("Assets/HeavyTF2_2018.fbx", &sceneRoot);
 	if (character)
 	{
 		TransformComponent* characterTransform = character->GetComponent<TransformComponent>();
@@ -781,20 +783,36 @@ bool Scene::Save(const std::string& filePath) const
 		}
 	}
 
-	if (!file.SaveToFile(filePath))
+	const bool isTempFile = (filePath == Engine::GetInstance().GetTempSceneFilePath());
+	std::string targetSavePath = filePath;
+	if (!isTempFile)
 	{
-		LOG_ERROR("[Scene] Error al guardar la escena en: '%s'", filePath.c_str());
+		std::filesystem::path rawPath(filePath);
+		if (!rawPath.is_absolute())
+		{
+			std::string norm = filePath;
+			std::replace(norm.begin(), norm.end(), '\\', '/');
+			if (norm.rfind("Assets/", 0) == 0 || norm.rfind("Library/", 0) == 0)
+			{
+				targetSavePath = SceneFile::ResolveProjectRoot() + "/" + norm;
+			}
+		}
+	}
+
+	if (!file.SaveToFile(targetSavePath))
+	{
+		LOG_ERROR("[Scene] Error al guardar la escena en: '%s'", targetSavePath.c_str());
 		return false;
 	}
 
-	if (filePath != Engine::GetInstance().GetTempSceneFilePath())
+	if (!isTempFile)
 	{
-		currentScenePath = filePath;
+		currentScenePath = SceneFile::ToProjectRelativePath(targetSavePath);
 		sceneDirty = false;
 		UpdateWindowTitle();
 	}
 
-	LOG("[Scene] Escena guardada con éxito en '%s' (%zu GameObjects totales)", filePath.c_str(), sceneEntities.size());
+	LOG("[Scene] Escena guardada con éxito en '%s' (%zu GameObjects totales)", targetSavePath.c_str(), sceneEntities.size());
 	return true;
 }
 
@@ -806,10 +824,13 @@ bool Scene::Load(const std::string& filePath)
 		return false;
 	}
 
+	const bool isTempFile = (filePath == Engine::GetInstance().GetTempSceneFilePath());
+	std::string resolvedScenePath = isTempFile ? filePath : SceneFile::ResolveExistingPath(filePath);
+
 	SceneFile file;
-	if (!file.LoadFromFile(filePath))
+	if (!file.LoadFromFile(resolvedScenePath))
 	{
-		LOG_ERROR("[Scene] No se pudo cargar el archivo de escena: '%s'", filePath.c_str());
+		LOG_ERROR("[Scene] No se pudo cargar el archivo de escena: '%s'", resolvedScenePath.c_str());
 		return false;
 	}
 
@@ -864,6 +885,11 @@ bool Scene::Load(const std::string& filePath)
 		GameObject* ent = sceneEntities[i].get();
 		if (!ent) continue;
 
+		if (ent->GetComponent<TransformComponent>() == nullptr)
+		{
+			ent->AddComponent(std::make_unique<TransformComponent>(ent));
+		}
+
 		uint64_t entUuid = (uint64_t)ent->GetUUID();
 		if (savedGameCameraUuid != 0 && entUuid == savedGameCameraUuid)
 		{
@@ -888,14 +914,14 @@ bool Scene::Load(const std::string& filePath)
 	RebuildSpacePartitioning();
 	isLoadingOrInitializing = false;
 
-	if (filePath != Engine::GetInstance().GetTempSceneFilePath())
+	if (!isTempFile)
 	{
-		currentScenePath = filePath;
+		currentScenePath = SceneFile::ToProjectRelativePath(resolvedScenePath);
 		sceneDirty = false;
 		UpdateWindowTitle();
 	}
 
-	LOG("[Scene] Escena cargada con éxito desde '%s' (%zu GameObjects totales)", filePath.c_str(), sceneEntities.size());
+	LOG("[Scene] Escena cargada con éxito desde '%s' (%zu GameObjects totales)", resolvedScenePath.c_str(), sceneEntities.size());
 	return true;
 }
 
@@ -2098,19 +2124,175 @@ SceneFile SceneFile::GetElement(size_t index) const
 	return SceneFile(node->elements[index]);
 }
 
-std::string SceneFile::ResolveAssetsDirectory()
+namespace
+{
+	std::string NormalizeSlashes(const std::string& pathStr)
+	{
+		std::string out = pathStr;
+		std::replace(out.begin(), out.end(), '\\', '/');
+		while (out.size() > 1 && out.back() == '/')
+		{
+			out.pop_back();
+		}
+		return out;
+	}
+
+	std::string ToLowerCopy(const std::string& s)
+	{
+		std::string out = s;
+		for (size_t i = 0; i < out.size(); ++i)
+		{
+			out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+		}
+		return out;
+	}
+
+	std::string ExtractFilenamePortable(const std::string& rawPath)
+	{
+		std::string norm = NormalizeSlashes(rawPath);
+		size_t slashPos = norm.find_last_of('/');
+		if (slashPos != std::string::npos)
+		{
+			return norm.substr(slashPos + 1);
+		}
+		return norm;
+	}
+
+	bool AreFilesIdentical(const std::filesystem::path& pathA, const std::filesystem::path& pathB)
+	{
+		std::error_code ec;
+		if (std::filesystem::equivalent(pathA, pathB, ec)) return true;
+
+		uintmax_t sizeA = std::filesystem::file_size(pathA, ec);
+		if (ec) return false;
+		uintmax_t sizeB = std::filesystem::file_size(pathB, ec);
+		if (ec || sizeA != sizeB) return false;
+
+		std::ifstream fa(pathA, std::ios::binary);
+		std::ifstream fb(pathB, std::ios::binary);
+		if (!fa.is_open() || !fb.is_open()) return false;
+
+		char bufA[8192];
+		char bufB[8192];
+		while (fa && fb)
+		{
+			fa.read(bufA, sizeof(bufA));
+			fb.read(bufB, sizeof(bufB));
+			std::streamsize countA = fa.gcount();
+			std::streamsize countB = fb.gcount();
+			if (countA != countB) return false;
+			if (countA > 0 && std::memcmp(bufA, bufB, static_cast<size_t>(countA)) != 0)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// Búsqueda iterativa (con std::stack) en un directorio por nombre de archivo sin distinguir mayúsculas/minúsculas
+	std::string FindFileByNameCaseInsensitive(const std::string& rootDir, const std::string& targetFilename)
+	{
+		if (rootDir.empty() || targetFilename.empty()) return "";
+		std::error_code ec;
+		if (!std::filesystem::exists(rootDir, ec) || !std::filesystem::is_directory(rootDir, ec)) return "";
+
+		const std::string targetLower = ToLowerCopy(targetFilename);
+		std::stack<std::filesystem::path> dirStack;
+		dirStack.push(std::filesystem::path(rootDir));
+
+		while (!dirStack.empty())
+		{
+			std::filesystem::path currentDir = dirStack.top();
+			dirStack.pop();
+
+			for (std::filesystem::directory_iterator it(currentDir, ec), end; !ec && it != end; it.increment(ec))
+			{
+				if (ec) break;
+				std::error_code entryEc;
+				if (it->is_directory(entryEc))
+				{
+					dirStack.push(it->path());
+				}
+				else if (it->is_regular_file(entryEc))
+				{
+					std::string fname = it->path().filename().string();
+					if (ToLowerCopy(fname) == targetLower)
+					{
+						return NormalizeSlashes(it->path().string());
+					}
+				}
+			}
+		}
+		return "";
+	}
+}
+
+std::string SceneFile::ResolveProjectRoot()
 {
 	std::error_code ec;
-	if (std::filesystem::exists("../Assets", ec)) return "../Assets";
-	if (std::filesystem::exists("Assets", ec)) return "Assets";
-	if (std::filesystem::exists("../../Assets", ec)) return "../../Assets";
-	return "../Assets";
+	std::filesystem::path current = std::filesystem::current_path(ec);
+	if (ec || current.empty())
+	{
+		return ".";
+	}
+
+	std::filesystem::path probe = current;
+	for (int depth = 0; depth < 6; ++depth)
+	{
+		if (std::filesystem::exists(probe / "Assets", ec) && std::filesystem::is_directory(probe / "Assets", ec))
+		{
+			return NormalizeSlashes(probe.string());
+		}
+		if (std::filesystem::exists(probe / "CMakeLists.txt", ec))
+		{
+			return NormalizeSlashes(probe.string());
+		}
+		if (!probe.has_parent_path() || probe.parent_path() == probe)
+		{
+			break;
+		}
+		probe = probe.parent_path();
+	}
+
+	return NormalizeSlashes(current.string());
+}
+
+std::string SceneFile::ResolveAssetsDirectory()
+{
+	std::string assetsDir = ResolveProjectRoot() + "/Assets";
+	std::error_code ec;
+	if (!std::filesystem::exists(assetsDir, ec))
+	{
+		std::filesystem::create_directories(assetsDir, ec);
+	}
+	return assetsDir;
+}
+
+std::string SceneFile::ResolveModelsDirectory()
+{
+	std::string modelsDir = ResolveAssetsDirectory() + "/Models";
+	std::error_code ec;
+	if (!std::filesystem::exists(modelsDir, ec))
+	{
+		std::filesystem::create_directories(modelsDir, ec);
+	}
+	return modelsDir;
+}
+
+std::string SceneFile::ResolveTexturesDirectory()
+{
+	std::string texturesDir = ResolveAssetsDirectory() + "/Textures";
+	std::error_code ec;
+	if (!std::filesystem::exists(texturesDir, ec))
+	{
+		std::filesystem::create_directories(texturesDir, ec);
+	}
+	return texturesDir;
 }
 
 std::string SceneFile::ResolveScenesDirectory()
 {
-	std::string assetsDir = ResolveAssetsDirectory();
-	std::string scenesDir = assetsDir + "/Scenes";
+	std::string scenesDir = ResolveAssetsDirectory() + "/Scenes";
 	std::error_code ec;
 	if (!std::filesystem::exists(scenesDir, ec))
 	{
@@ -2121,16 +2303,8 @@ std::string SceneFile::ResolveScenesDirectory()
 
 std::string SceneFile::ResolveLibraryMeshesDirectory()
 {
+	std::string libDir = ResolveProjectRoot() + "/Library/Meshes";
 	std::error_code ec;
-	std::string libDir = "../Library/Meshes";
-	if (std::filesystem::exists("Assets", ec) && !std::filesystem::exists("../Assets", ec))
-	{
-		libDir = "Library/Meshes";
-	}
-	else if (std::filesystem::exists("../../Assets", ec) && !std::filesystem::exists("../Assets", ec))
-	{
-		libDir = "../../Library/Meshes";
-	}
 	if (!std::filesystem::exists(libDir, ec))
 	{
 		std::filesystem::create_directories(libDir, ec);
@@ -2138,32 +2312,220 @@ std::string SceneFile::ResolveLibraryMeshesDirectory()
 	return libDir;
 }
 
+std::string SceneFile::ToProjectRelativePath(const std::string& anyPath)
+{
+	if (anyPath.empty()) return "";
+	if (anyPath.rfind("Primitive:", 0) == 0 || anyPath.find("(procedural)") != std::string::npos)
+	{
+		return anyPath;
+	}
+
+	std::string norm = NormalizeSlashes(anyPath);
+	std::string stripped = norm;
+	while (stripped.rfind("../", 0) == 0)
+	{
+		stripped = stripped.substr(3);
+	}
+	while (stripped.rfind("./", 0) == 0)
+	{
+		stripped = stripped.substr(2);
+	}
+
+	std::string projectRoot = ResolveProjectRoot();
+	std::error_code ec;
+	std::filesystem::path rootCanon = std::filesystem::weakly_canonical(std::filesystem::path(projectRoot), ec);
+	std::string rootStr = NormalizeSlashes((!ec && !rootCanon.empty()) ? rootCanon.string() : projectRoot);
+	std::string rootLower = ToLowerCopy(rootStr);
+
+	// Si ya es una ruta relativa al root tipo "Assets/..." o "Library/..."
+	if (stripped.rfind("Assets/", 0) == 0 || stripped.rfind("Library/", 0) == 0)
+	{
+		return stripped;
+	}
+
+	std::filesystem::path inputPath(norm);
+	std::filesystem::path inputCanon = std::filesystem::weakly_canonical(inputPath, ec);
+	if (!ec && !inputCanon.empty())
+	{
+		std::string canonStr = NormalizeSlashes(inputCanon.string());
+		std::string canonLower = ToLowerCopy(canonStr);
+		if (canonLower.rfind(rootLower + "/", 0) == 0)
+		{
+			return canonStr.substr(rootStr.size() + 1);
+		}
+	}
+
+	return norm;
+}
+
+std::string SceneFile::EnsureAssetInProject(const std::string& sourcePath, const std::string& targetSubfolder)
+{
+	if (sourcePath.empty()) return "";
+	if (sourcePath.rfind("Primitive:", 0) == 0 || sourcePath.find("(procedural)") != std::string::npos)
+	{
+		return sourcePath;
+	}
+
+	std::error_code ec;
+	std::string resolvedSource = ResolveExistingPath(sourcePath);
+	std::filesystem::path srcPathObj(resolvedSource);
+
+	if (!std::filesystem::exists(srcPathObj, ec) || !std::filesystem::is_regular_file(srcPathObj, ec))
+	{
+		// El archivo no existe en disco; devolver ruta normalizada por si se resuelve más tarde
+		return ToProjectRelativePath(sourcePath);
+	}
+
+	std::string assetsDir = ResolveAssetsDirectory();
+	std::filesystem::path assetsCanon = std::filesystem::weakly_canonical(std::filesystem::path(assetsDir), ec);
+	std::string assetsStr = NormalizeSlashes((!ec && !assetsCanon.empty()) ? assetsCanon.string() : assetsDir);
+	std::string assetsLower = ToLowerCopy(assetsStr);
+
+	std::filesystem::path srcCanon = std::filesystem::weakly_canonical(srcPathObj, ec);
+	std::string srcStr = NormalizeSlashes((!ec && !srcCanon.empty()) ? srcCanon.string() : resolvedSource);
+	std::string srcLower = ToLowerCopy(srcStr);
+
+	// Si ya está dentro de Assets/, no duplicamos el archivo: devolvemos su ruta relativa al proyecto
+	if (srcLower.rfind(assetsLower + "/", 0) == 0)
+	{
+		return ToProjectRelativePath(srcStr);
+	}
+
+	// El archivo proviene de fuera del proyecto (ej. Descargas / Escritorio): copiarlo a Assets/<targetSubfolder>/
+	std::string destDirStr = assetsDir;
+	if (!targetSubfolder.empty())
+	{
+		destDirStr += "/" + targetSubfolder;
+	}
+	std::filesystem::create_directories(destDirStr, ec);
+
+	std::string origFilename = ExtractFilenamePortable(resolvedSource);
+	if (origFilename.empty())
+	{
+		return ToProjectRelativePath(resolvedSource);
+	}
+
+	std::filesystem::path origFilePath(origFilename);
+	std::string stem = origFilePath.stem().string();
+	std::string ext = origFilePath.extension().string();
+
+	std::filesystem::path destPath = std::filesystem::path(destDirStr) / origFilename;
+	if (std::filesystem::exists(destPath, ec))
+	{
+		if (AreFilesIdentical(srcPathObj, destPath))
+		{
+			std::string relExisting = ToProjectRelativePath(destPath.string());
+			LOG("[Assets] Archivo externo ya existía en el proyecto (reutilizado): '%s'", relExisting.c_str());
+			return relExisting;
+		}
+
+		// Evitar sobrescribir un asset distinto con el mismo nombre
+		int suffix = 1;
+		while (true)
+		{
+			std::string candidateName = stem + "_" + std::to_string(suffix) + ext;
+			std::filesystem::path candidatePath = std::filesystem::path(destDirStr) / candidateName;
+			if (!std::filesystem::exists(candidatePath, ec))
+			{
+				destPath = candidatePath;
+				break;
+			}
+			if (AreFilesIdentical(srcPathObj, candidatePath))
+			{
+				std::string relExisting = ToProjectRelativePath(candidatePath.string());
+				LOG("[Assets] Archivo externo ya existía en el proyecto (reutilizado): '%s'", relExisting.c_str());
+				return relExisting;
+			}
+			suffix++;
+		}
+	}
+
+	std::filesystem::copy_file(srcPathObj, destPath, std::filesystem::copy_options::overwrite_existing, ec);
+	if (ec)
+	{
+		LOG_ERROR("[Assets] Error al copiar archivo externo '%s' hacia '%s': %s",
+			resolvedSource.c_str(), destPath.string().c_str(), ec.message().c_str());
+		return ToProjectRelativePath(resolvedSource);
+	}
+
+	// Si es un modelo .obj y existe un archivo .mtl hermano, copiarlo también
+	if (ToLowerCopy(ext) == ".obj" && srcPathObj.has_parent_path())
+	{
+		std::filesystem::path mtlSrc = srcPathObj.parent_path() / (stem + ".mtl");
+		if (std::filesystem::exists(mtlSrc, ec) && std::filesystem::is_regular_file(mtlSrc, ec))
+		{
+			std::filesystem::path mtlDest = destPath.parent_path() / (destPath.stem().string() + ".mtl");
+			std::filesystem::copy_file(mtlSrc, mtlDest, std::filesystem::copy_options::overwrite_existing, ec);
+		}
+	}
+
+	std::string relDest = ToProjectRelativePath(destPath.string());
+	LOG("[Assets] Archivo externo copiado al proyecto: '%s' -> '%s'", resolvedSource.c_str(), relDest.c_str());
+	return relDest;
+}
+
 std::string SceneFile::ResolveExistingPath(const std::string& storedPath)
 {
 	if (storedPath.empty()) return storedPath;
+	if (storedPath.rfind("Primitive:", 0) == 0 || storedPath.find("(procedural)") != std::string::npos)
+	{
+		return storedPath;
+	}
+
 	std::error_code ec;
+	std::string norm = NormalizeSlashes(storedPath);
+	std::string projectRoot = ResolveProjectRoot();
+
+	// 1. Probar relativo al root del proyecto (ej. "Assets/BakerHouse.fbx", "Library/Meshes/...")
+	std::string rootCandidate = projectRoot + "/" + norm;
+	if (std::filesystem::exists(rootCandidate, ec)) return rootCandidate;
+
+	// 2. Compatibilidad con rutas relativas antiguas con "../" o "../../"
+	std::string stripped = norm;
+	while (stripped.rfind("../", 0) == 0) stripped = stripped.substr(3);
+	while (stripped.rfind("./", 0) == 0) stripped = stripped.substr(2);
+	if (stripped != norm)
+	{
+		std::string strippedCandidate = projectRoot + "/" + stripped;
+		if (std::filesystem::exists(strippedCandidate, ec)) return strippedCandidate;
+	}
+
+	// 3. Probar la ruta tal cual (ruta absoluta local o relativa al directorio actual)
+	if (std::filesystem::exists(norm, ec)) return norm;
 	if (std::filesystem::exists(storedPath, ec)) return storedPath;
 
-	std::filesystem::path p(storedPath);
-	std::string filename = p.filename().string();
+	// 4. Fallback inteligente por nombre de archivo dentro de las carpetas del proyecto (case-insensitive)
+	std::string filename = ExtractFilenamePortable(norm);
+	if (filename.empty()) return storedPath;
 
-	// Probar en Library/Meshes si es un .mesh
-	if (p.extension() == ".mesh")
+	std::filesystem::path fnPath(filename);
+	std::string extLower = ToLowerCopy(fnPath.extension().string());
+
+	if (extLower == ".mesh")
 	{
-		std::string candidate = ResolveLibraryMeshesDirectory() + "/" + filename;
-		if (std::filesystem::exists(candidate, ec)) return candidate;
+		std::string found = FindFileByNameCaseInsensitive(ResolveLibraryMeshesDirectory(), filename);
+		if (!found.empty()) return found;
+	}
+	else if (extLower == ".scene" || extLower == ".json")
+	{
+		std::string found = FindFileByNameCaseInsensitive(ResolveScenesDirectory(), filename);
+		if (!found.empty()) return found;
+	}
+	else if (extLower == ".fbx" || extLower == ".obj" || extLower == ".dae")
+	{
+		std::string foundModel = FindFileByNameCaseInsensitive(ResolveModelsDirectory(), filename);
+		if (!foundModel.empty()) return foundModel;
+	}
+	else if (extLower == ".png" || extLower == ".jpg" || extLower == ".jpeg" ||
+		     extLower == ".dds" || extLower == ".tga" || extLower == ".bmp")
+	{
+		std::string foundTex = FindFileByNameCaseInsensitive(ResolveTexturesDirectory(), filename);
+		if (!foundTex.empty()) return foundTex;
 	}
 
-	// Probar en Assets/Scenes si es un .scene o .json
-	if (p.extension() == ".scene" || p.extension() == ".json")
-	{
-		std::string candidate = ResolveScenesDirectory() + "/" + filename;
-		if (std::filesystem::exists(candidate, ec)) return candidate;
-	}
-
-	// Probar en Assets
-	std::string assetCandidate = ResolveAssetsDirectory() + "/" + filename;
-	if (std::filesystem::exists(assetCandidate, ec)) return assetCandidate;
+	// Búsqueda general en todo Assets/ (incluye subcarpetas y la raíz Assets/)
+	std::string foundInAssets = FindFileByNameCaseInsensitive(ResolveAssetsDirectory(), filename);
+	if (!foundInAssets.empty()) return foundInAssets;
 
 	return storedPath;
 }
@@ -2180,12 +2542,10 @@ std::vector<std::string> SceneFile::ListSavedSceneFiles()
 		if (ec) break;
 		if (!it->is_regular_file(ec)) continue;
 		std::filesystem::path path = it->path();
-		std::string ext = path.extension().string();
-		std::transform(ext.begin(), ext.end(), ext.begin(),
-			[](unsigned char c) { return (char)std::tolower(c); });
+		std::string ext = ToLowerCopy(path.extension().string());
 		if (ext == ".scene" || ext == ".json")
 		{
-			results.push_back(scenesDir + "/" + path.filename().string());
+			results.push_back(ToProjectRelativePath(scenesDir + "/" + path.filename().string()));
 		}
 	}
 	std::sort(results.begin(), results.end());
