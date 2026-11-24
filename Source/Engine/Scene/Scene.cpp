@@ -1,10 +1,11 @@
+#include "Scene.h"
+
 #include "../Engine.h"
 #include "../Window/Window.h"
 #include "../Render/Render.h"
 #include "../Render/3DModels/ModelLoader.h"
 #include "../Input/Input.h"
 #include "../../Utils/Log.h"
-#include "Scene.h"
 #include "GameObjects/Components/TransformComponent.h"
 #include "GameObjects/Components/MeshComponent.h"
 #include "GameObjects/Components/MaterialComponent.h"
@@ -14,6 +15,9 @@
 #include "../ResourceManagement/Importers/ImporterManager.h"
 #include "../ResourceManagement/Importers/MeshImporter.h"
 #include "../ResourceManagement/Importers/TextureImporter.h"
+
+#include "GameObjects/AABB/AABB.h"
+
 
 #ifdef GetObject
 #undef GetObject
@@ -89,88 +93,7 @@ bool Scene::Start()
 	sceneEntities.push_back(std::move(gameCamObj));
 	LOG("[Scene] Instanciada 'Main Camera' para la vista Game");
 
-	// Create Cube
-	auto cubeObj = std::make_unique<GameObject>("Cube");
-	auto cubeTrans = std::make_unique<TransformComponent>(cubeObj.get());
-	cubeTrans->SetPosition(glm::vec3(-2.0f, 0.0f, 0.0f));
-	cubeObj->AddComponent(std::move(cubeTrans));
 
-	auto cubeMesh = std::make_unique<MeshComponent>(cubeObj.get(), GeometryGenerator::CreateCube(1.0f));
-	cubeObj->AddComponent(std::move(cubeMesh));
-
-	auto cubeMat = std::make_unique<MaterialComponent>(cubeObj.get());
-	cubeMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-	cubeMat->SetTexture("Assets/water.jpg");
-	cubeMat->SetUseTexture(true);
-	cubeObj->AddComponent(std::move(cubeMat));
-
-	// Create Sphere
-	auto sphereObj = std::make_unique<GameObject>("Sphere");
-	auto sphereTrans = std::make_unique<TransformComponent>(sphereObj.get());
-	sphereTrans->SetPosition(glm::vec3(2.0f, 0.0f, 0.0f));
-	sphereObj->AddComponent(std::move(sphereTrans));
-
-	auto sphereMesh = std::make_unique<MeshComponent>(sphereObj.get(), GeometryGenerator::CreateSphere(0.5f, 20, 20));
-	sphereObj->AddComponent(std::move(sphereMesh));
-
-	auto sphereMat = std::make_unique<MaterialComponent>(sphereObj.get());
-	sphereMat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-	sphereMat->SetTexture("Assets/lava.jpg");
-	sphereMat->SetUseTexture(true);
-	sphereObj->AddComponent(std::move(sphereMat));
-
-	cubeObj->SetStatic(true);
-	sphereObj->SetStatic(true);
-
-	cubeObj->AddChild(sphereObj.get());
-	sceneEntities.push_back(std::move(sphereObj));
-
-
-	sceneRoot.AddChild(cubeObj.get());
-	sceneEntities.push_back(std::move(cubeObj));
-	LOG("[Scene] Instanciado 'Cube' con geometría procedural de cubo");
-
-
-	LOG("[Scene] Instanciado 'Sphere' con geometría procedural de esfera y textura");
-
-	// MODELO CASA CON TEXTURA PNG (Soporta múltiples partes)
-	GameObject* bakerHouse = ImportModel("Assets/BakerHouse.fbx", &sceneRoot);
-	if (bakerHouse)
-	{
-		TextureImporter::ImportAndAssignToGameObject("Assets/Baker_house.png", bakerHouse);
-		if (TransformComponent* bakerHouseTransform = bakerHouse->GetComponent<TransformComponent>())
-		{
-			bakerHouseTransform->SetPosition(glm::vec3(0.0f, 0.0f, -3.0f));
-		}
-		bakerHouse->SetStatic(true, true);
-	}
-
-	// MODELO CON TEXTURA TGA 
-	GameObject* candle = ImportModel("Assets/SM_Candle_Fundida.FBX", &sceneRoot);
-	if (candle)
-	{
-		TextureImporter::ImportAndAssignToGameObject("Assets/T_Candle_D.tga", candle);
-		if (TransformComponent* candleTransform = candle->GetComponent<TransformComponent>())
-		{
-			candleTransform->SetPosition(glm::vec3(3.0f, 0.0f, 0.0f));
-			candleTransform->SetRotation(glm::vec3(0.0f, 0.0f, 0.0f));
-			candleTransform->SetScale(glm::vec3(0.05f, 0.05f, 0.05f));
-		}
-		candle->SetStatic(true, true);
-	}
-
-	// MODELO SIN TEXTURA
-	GameObject* character = ImportModel("Assets/HeavyTF2_2018.fbx", &sceneRoot);
-	if (character)
-	{
-		TransformComponent* characterTransform = character->GetComponent<TransformComponent>();
-		if (characterTransform)
-		{
-			characterTransform->SetPosition(glm::vec3(-3.0f, 0.0f, -2.0f));
-			characterTransform->SetScale(glm::vec3(0.02f, 0.02f, 0.02f));
-		}
-		character->SetStatic(true, true);
-	}
 
 	RebuildSpacePartitioning();
 	SetSelected(nullptr);
@@ -950,97 +873,6 @@ bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfter
 		LOG("[Scene] Archivo temporal '%s' restaurado (%zu objetos) y eliminado del disco", filePath.c_str(), sceneEntities.size());
 	}
 	return true;
-}
-
-// ============================================================================
-// AABB
-// ============================================================================
-void AABB::Encapsulate(const glm::vec3& point)
-{
-	minPoint = glm::min(minPoint, point);
-	maxPoint = glm::max(maxPoint, point);
-}
-
-void AABB::Encapsulate(const AABB& other)
-{
-	minPoint = glm::min(minPoint, other.minPoint);
-	maxPoint = glm::max(maxPoint, other.maxPoint);
-}
-
-bool AABB::Intersects(const AABB& other) const
-{
-	return (minPoint.x <= other.maxPoint.x && maxPoint.x >= other.minPoint.x) &&
-		   (minPoint.y <= other.maxPoint.y && maxPoint.y >= other.minPoint.y) &&
-		   (minPoint.z <= other.maxPoint.z && maxPoint.z >= other.minPoint.z);
-}
-
-bool AABB::Intersects2DXZ(const AABB& other) const
-{
-	return (minPoint.x <= other.maxPoint.x && maxPoint.x >= other.minPoint.x) &&
-		   (minPoint.z <= other.maxPoint.z && maxPoint.z >= other.minPoint.z);
-}
-
-bool AABB::IntersectsRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, float& tMinOut) const
-{
-	float tmin = -FLT_MAX;
-	float tmax = FLT_MAX;
-
-	const float eps = 1e-7f;
-	for (int axis = 0; axis < 3; ++axis)
-	{
-		if (std::fabs(rayDir[axis]) < eps)
-		{
-			if (rayOrigin[axis] < minPoint[axis] || rayOrigin[axis] > maxPoint[axis])
-			{
-				return false;
-			}
-		}
-		else
-		{
-			float invD = 1.0f / rayDir[axis];
-			float t0 = (minPoint[axis] - rayOrigin[axis]) * invD;
-			float t1 = (maxPoint[axis] - rayOrigin[axis]) * invD;
-			if (t0 > t1) std::swap(t0, t1);
-
-			tmin = std::max(tmin, t0);
-			tmax = std::min(tmax, t1);
-			if (tmax < tmin) return false;
-		}
-	}
-
-	if (tmax >= 0.0f)
-	{
-		tMinOut = (tmin >= 0.0f) ? tmin : tmax;
-		return true;
-	}
-	return false;
-}
-
-AABB AABB::FromTransformedLocalBox(const glm::vec3& localMin, const glm::vec3& localMax, const glm::mat4& worldMatrix)
-{
-	const glm::vec3 corners[8] = {
-		glm::vec3(localMin.x, localMin.y, localMin.z),
-		glm::vec3(localMax.x, localMin.y, localMin.z),
-		glm::vec3(localMin.x, localMax.y, localMin.z),
-		glm::vec3(localMax.x, localMax.y, localMin.z),
-		glm::vec3(localMin.x, localMin.y, localMax.z),
-		glm::vec3(localMax.x, localMin.y, localMax.z),
-		glm::vec3(localMin.x, localMax.y, localMax.z),
-		glm::vec3(localMax.x, localMax.y, localMax.z)
-	};
-
-	glm::vec3 firstWorld = glm::vec3(worldMatrix * glm::vec4(corners[0], 1.0f));
-	AABB result(firstWorld, firstWorld);
-
-	for (int i = 1; i < 8; ++i)
-	{
-		glm::vec3 worldCorner = glm::vec3(worldMatrix * glm::vec4(corners[i], 1.0f));
-		result.Encapsulate(worldCorner);
-	}
-
-	result.minPoint -= glm::vec3(0.001f);
-	result.maxPoint += glm::vec3(0.001f);
-	return result;
 }
 
 // ============================================================================

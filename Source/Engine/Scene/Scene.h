@@ -8,6 +8,8 @@
 #include <string>
 #include <array>
 
+struct AABB;
+
 // Plano geométrico (normal * X + d = 0) para el Frustum de cámara
 struct FrustumPlane
 {

@@ -20,6 +20,8 @@
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
 #include "../Scene/GameObjects/Components/CameraComponent.h"
 
+#include "../Scene/GameObjects/AABB/AABB.h"
+
 #include <algorithm>
 #include <stack>
 #include <unordered_set>
