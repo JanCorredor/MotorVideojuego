@@ -20,5 +20,12 @@
     "assimp",
     "tracy",
     "imguizmo"
+  ],
+  "overrides": [
+    {
+      "name": "kubazip",
+      "version": "0.3.15",
+      "port-version": 1
+    }
   ]
 }
