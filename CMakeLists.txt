@@ -12,7 +12,31 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_TOOLCHAIN_FILE "${vcpkg_SOURCE_DIR}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "")
 endif()
 
-project(MotorVideojuego)
+project(MotorVideojuego VERSION 0.4.0)
+
+# Genera build/generated/Version.h con nombre, versión y hash de git
+set(ENGINE_NAME "Maruja Engine")
+set(ENGINE_GIT_HASH "unknown")
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE ENGINE_GIT_HASH_OUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE ENGINE_GIT_RESULT
+    )
+    if(ENGINE_GIT_RESULT EQUAL 0 AND ENGINE_GIT_HASH_OUT)
+        set(ENGINE_GIT_HASH "${ENGINE_GIT_HASH_OUT}")
+    endif()
+endif()
+string(TIMESTAMP ENGINE_CONFIGURE_DATE "%Y-%m-%d")
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Engine/Version.h.in
+    ${CMAKE_BINARY_DIR}/generated/Version.h
+    @ONLY
+)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -47,7 +71,8 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
 )
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/Source" PREFIX "Source" FILES ${SOURCES})
 
-add_executable(MotorVideojuego ${SOURCES})
+add_executable(MotorVideojuego ${SOURCES} Source/Engine/Version.h.in)
+target_include_directories(MotorVideojuego PRIVATE ${CMAKE_BINARY_DIR}/generated)
 
 
 target_link_libraries(MotorVideojuego PRIVATE 
