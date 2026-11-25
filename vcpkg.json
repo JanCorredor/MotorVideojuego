@@ -19,7 +19,8 @@
     "devil",
     "assimp",
     "tracy",
-    "imguizmo"
+    "imguizmo",
+    "nlohmann-json"
   ],
   "overrides": [
     {

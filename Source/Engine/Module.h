@@ -13,6 +13,9 @@ public:
 	{
 	}
 
+	// Virtual porque los módulos se guardan como punteros a Module
+	virtual ~Module() = default;
+
 	void Init()
 	{
 		active = true;

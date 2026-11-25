@@ -1,0 +1,18 @@
+#pragma once
+
+// Generado por CMake en build/generated/Version.h. La versión se cambia en project(... VERSION)
+
+#define ENGINE_NAME           "@ENGINE_NAME@"
+#define ENGINE_VERSION_MAJOR  @PROJECT_VERSION_MAJOR@
+#define ENGINE_VERSION_MINOR  @PROJECT_VERSION_MINOR@
+#define ENGINE_VERSION_PATCH  @PROJECT_VERSION_PATCH@
+#define ENGINE_VERSION_STRING "@PROJECT_VERSION@"
+#define ENGINE_GIT_HASH       "@ENGINE_GIT_HASH@" // Solo se actualiza al reconfigurar
+#define ENGINE_CONFIGURE_DATE "@ENGINE_CONFIGURE_DATE@"
+#define ENGINE_BUILD_DATE     __DATE__ " " __TIME__
+
+#if defined(_DEBUG)
+	#define ENGINE_BUILD_CONFIG "Debug"
+#else
+	#define ENGINE_BUILD_CONFIG "Release"
+#endif
