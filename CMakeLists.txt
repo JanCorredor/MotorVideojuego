@@ -25,6 +25,7 @@ find_package(DevIL REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
 find_package(imguizmo CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # imnodes (no tiene port en vcpkg)
 include(FetchContent)
@@ -60,6 +61,7 @@ assimp::assimp
 Tracy::TracyClient
 imguizmo::imguizmo
 imnodes
+nlohmann_json::nlohmann_json
 )
 
 # Copy required DLLs (TracyClient.dll, SDL3.dll, assimp.dll, etc.) to executable directory
