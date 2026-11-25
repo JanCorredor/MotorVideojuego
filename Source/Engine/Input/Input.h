@@ -66,6 +66,12 @@ public:
 	// Keyboard
 	KeyState GetKey(int id) const;
 	bool GetKeyDown(int id) const;
+	// Pulsada este frame o mantenida
+	bool IsKeyHeld(int id) const { const KeyState s = GetKey(id); return s == KEY_DOWN || s == KEY_REPEAT; }
+	// Modificadores: cualquiera de los dos lados
+	bool IsCtrl() const { return IsKeyHeld(SDL_SCANCODE_LCTRL) || IsKeyHeld(SDL_SCANCODE_RCTRL); }
+	bool IsShift() const { return IsKeyHeld(SDL_SCANCODE_LSHIFT) || IsKeyHeld(SDL_SCANCODE_RSHIFT); }
+	bool IsAlt() const { return IsKeyHeld(SDL_SCANCODE_LALT) || IsKeyHeld(SDL_SCANCODE_RALT); }
 
 	// Gamepad
 	KeyState GetGamepadButton(GamepadButton button) const;
@@ -78,6 +84,8 @@ public:
 	// Mouse
 	KeyState GetMouseButtonDown(int id) const;
 	KeyState GetMouseButton(int id) const;
+	bool IsMouseHeld(int id) const { const KeyState s = GetMouseButton(id); return s == KEY_DOWN || s == KEY_REPEAT; }
+	bool IsMouseDown(int id) const { return GetMouseButton(id) == KEY_DOWN; }
 	glm::vec2 GetMouseDelta() const;
 	float GetMouseScrollDelta() const;
 	void ClearMouseInput();

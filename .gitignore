@@ -4,8 +4,14 @@
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
 # Class .gitignore
-build
+# Solo la carpeta de build de la raíz: "build" a secas también ocultaría Source/Engine/Build/
+/build/
+# Se regenera desde Assets/ y los .meta
 Library/
+# Layout del editor de cada usuario dentro del proyecto (fuera de build/)
+ProjectSettings/EditorLayout.ini
+# Builds y releases generadas por el motor
+Builds/
 
 # User-specific files
 *.rsuser
@@ -432,3 +438,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Los .meta de Assets sí se suben: guardan UID y opciones de importación
+!Assets/**/*.meta
