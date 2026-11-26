@@ -9,6 +9,7 @@
 #include "Scene/Scene.h"
 #include "UI/ModuleUI.h"
 #include "System/SystemInfo.h"
+#include "FileSystem/FileSystem.h"
 #include "../Utils/Log.h"
 
 #include <glad/glad.h>
@@ -86,6 +87,12 @@ bool Engine::Awake() {
     Timer timer = Timer();
 
     LOG("Engine::Awake");
+
+    // Antes que cualquier módulo: todas las rutas de proyecto dependen de la raíz que encuentra
+    if (!FileSystem::Init())
+    {
+        LOG_ERROR("[Engine] No se pudieron crear las carpetas del proyecto");
+    }
 
     // Add the LoadConfig() method here
     LoadConfig();
