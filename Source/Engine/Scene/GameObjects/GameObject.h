@@ -8,7 +8,7 @@
 #include <memory>
 #include <array>
 
-#include "AABB/AABB.h"
+#include "../../Geometry/AABB.h"
 
 
 class TransformComponent;

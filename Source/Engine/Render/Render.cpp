@@ -20,7 +20,8 @@
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
 #include "../Scene/GameObjects/Components/CameraComponent.h"
 
-#include "../Scene/GameObjects/AABB/AABB.h"
+#include "../Geometry/AABB.h"
+#include "../Geometry/Frustum.h"
 
 #include <algorithm>
 #include <stack>
@@ -681,7 +682,7 @@ void Render::CollectVisibleRenderItems(Scene* scene, const glm::mat4& cullViewPr
 
 	if (useFrustumCulling)
 	{
-		frustum = Frustum::FromViewProjection(cullViewProj);
+		frustum.Set(cullViewProj);
 
 		if (settings.partitionMode == SpacePartitionMode::Quadtree)
 		{
@@ -738,7 +739,7 @@ void Render::CollectVisibleRenderItems(Scene* scene, const glm::mat4& cullViewPr
 				{
 					const Primitive* prim = meshComp->GetPrimitive();
 					AABB worldBox = AABB::FromTransformedLocalBox(prim->GetBoundsMin(), prim->GetBoundsMax(), globalMatrix);
-					isVisible = frustum.IntersectsAABB(worldBox);
+					isVisible = frustum.IsVisible(worldBox);
 				}
 			}
 
@@ -1175,8 +1176,8 @@ void Render::DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& 
 
 	auto appendBox = [&](std::vector<float>& buffer, const AABB& box)
 	{
-		const glm::vec3& mn = box.minPoint;
-		const glm::vec3& mx = box.maxPoint;
+		const glm::vec3& mn = box.min;
+		const glm::vec3& mx = box.max;
 
 		const glm::vec3 c[8] = {
 			glm::vec3(mn.x, mn.y, mn.z),
@@ -1302,19 +1303,21 @@ void Render::DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& 
 		{
 			float aspect = (gameFboHeight > 0) ? (float)gameFboWidth / (float)gameFboHeight : ((fboHeight > 0) ? (float)fboWidth / (float)fboHeight : 1.0f);
 			glm::mat4 vp = gameCam->GetProjectionMatrix(aspect) * gameCam->GetViewMatrix();
-			std::array<glm::vec3, 8> c = Frustum::ExtractCorners(vp);
+			const Frustum gameFrustum(vp);
+			const std::array<glm::vec3, 8>& c = gameFrustum.GetCorners();
 
+			// Esquinas por bits (X, Y, Z): el rectángulo de cada plano es 0-1-3-2
 			std::vector<float> frustumLines;
 			// Plano Near
 			appendLine(frustumLines, c[0], c[1]);
-			appendLine(frustumLines, c[1], c[2]);
-			appendLine(frustumLines, c[2], c[3]);
-			appendLine(frustumLines, c[3], c[0]);
+			appendLine(frustumLines, c[1], c[3]);
+			appendLine(frustumLines, c[3], c[2]);
+			appendLine(frustumLines, c[2], c[0]);
 			// Plano Far
 			appendLine(frustumLines, c[4], c[5]);
-			appendLine(frustumLines, c[5], c[6]);
-			appendLine(frustumLines, c[6], c[7]);
-			appendLine(frustumLines, c[7], c[4]);
+			appendLine(frustumLines, c[5], c[7]);
+			appendLine(frustumLines, c[7], c[6]);
+			appendLine(frustumLines, c[6], c[4]);
 			// Aristas laterales Near -> Far
 			appendLine(frustumLines, c[0], c[4]);
 			appendLine(frustumLines, c[1], c[5]);

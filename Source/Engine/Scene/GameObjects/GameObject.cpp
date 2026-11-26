@@ -7,7 +7,7 @@
 #include "./Components/MaterialComponent.h"
 #include "./Components/CameraComponent.h"
 
-#include "AABB/AABB.h"
+#include "../../Geometry/AABB.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>

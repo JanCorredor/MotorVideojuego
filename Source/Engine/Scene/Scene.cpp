@@ -16,7 +16,8 @@
 #include "../ResourceManagement/Importers/MeshImporter.h"
 #include "../ResourceManagement/Importers/TextureImporter.h"
 
-#include "GameObjects/AABB/AABB.h"
+#include "../Geometry/AABB.h"
+#include "../Geometry/Ray.h"
 
 
 #ifdef GetObject
@@ -556,7 +557,7 @@ void Scene::RebuildSpacePartitioning()
 			}
 			else
 			{
-				worldBounds.Encapsulate(box);
+				worldBounds.Enclose(box);
 			}
 		}
 
@@ -568,9 +569,9 @@ void Scene::RebuildSpacePartitioning()
 	}
 
 	// Asegurar un volumen mínimo simétrico y un pequeño margen alrededor de los objetos estáticos
-	worldBounds.Encapsulate(AABB(glm::vec3(-6.0f, -1.0f, -6.0f), glm::vec3(6.0f, 6.0f, 6.0f)));
-	worldBounds.minPoint -= glm::vec3(0.5f);
-	worldBounds.maxPoint += glm::vec3(0.5f);
+	worldBounds.Enclose(AABB(glm::vec3(-6.0f, -1.0f, -6.0f), glm::vec3(6.0f, 6.0f, 6.0f)));
+	worldBounds.min -= glm::vec3(0.5f);
+	worldBounds.max += glm::vec3(0.5f);
 
 	quadtree.Build(worldBounds, staticEntries, treeMaxObjectsPerNode, treeMaxDepth);
 	octree.Build(worldBounds, staticEntries, treeMaxObjectsPerNode, treeMaxDepth);
@@ -876,116 +877,6 @@ bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfter
 }
 
 // ============================================================================
-// FrustumPlane & Frustum
-// ============================================================================
-void FrustumPlane::Normalize()
-{
-	float len = glm::length(normal);
-	if (len > 1e-6f)
-	{
-		normal /= len;
-		d /= len;
-	}
-}
-
-Frustum Frustum::FromViewProjection(const glm::mat4& m)
-{
-	Frustum frustum;
-
-	// Left
-	frustum.planes[0].normal.x = m[0][3] + m[0][0];
-	frustum.planes[0].normal.y = m[1][3] + m[1][0];
-	frustum.planes[0].normal.z = m[2][3] + m[2][0];
-	frustum.planes[0].d        = m[3][3] + m[3][0];
-
-	// Right
-	frustum.planes[1].normal.x = m[0][3] - m[0][0];
-	frustum.planes[1].normal.y = m[1][3] - m[1][0];
-	frustum.planes[1].normal.z = m[2][3] - m[2][0];
-	frustum.planes[1].d        = m[3][3] - m[3][0];
-
-	// Bottom
-	frustum.planes[2].normal.x = m[0][3] + m[0][1];
-	frustum.planes[2].normal.y = m[1][3] + m[1][1];
-	frustum.planes[2].normal.z = m[2][3] + m[2][1];
-	frustum.planes[2].d        = m[3][3] + m[3][1];
-
-	// Top
-	frustum.planes[3].normal.x = m[0][3] - m[0][1];
-	frustum.planes[3].normal.y = m[1][3] - m[1][1];
-	frustum.planes[3].normal.z = m[2][3] - m[2][1];
-	frustum.planes[3].d        = m[3][3] - m[3][1];
-
-	// Near
-	frustum.planes[4].normal.x = m[0][3] + m[0][2];
-	frustum.planes[4].normal.y = m[1][3] + m[1][2];
-	frustum.planes[4].normal.z = m[2][3] + m[2][2];
-	frustum.planes[4].d        = m[3][3] + m[3][2];
-
-	// Far
-	frustum.planes[5].normal.x = m[0][3] - m[0][2];
-	frustum.planes[5].normal.y = m[1][3] - m[1][2];
-	frustum.planes[5].normal.z = m[2][3] - m[2][2];
-	frustum.planes[5].d        = m[3][3] - m[3][2];
-
-	for (size_t i = 0; i < frustum.planes.size(); ++i)
-	{
-		frustum.planes[i].Normalize();
-	}
-
-	return frustum;
-}
-
-bool Frustum::IntersectsAABB(const AABB& box) const
-{
-	for (size_t i = 0; i < planes.size(); ++i)
-	{
-		const FrustumPlane& plane = planes[i];
-		glm::vec3 positiveVertex(
-			(plane.normal.x >= 0.0f) ? box.maxPoint.x : box.minPoint.x,
-			(plane.normal.y >= 0.0f) ? box.maxPoint.y : box.minPoint.y,
-			(plane.normal.z >= 0.0f) ? box.maxPoint.z : box.minPoint.z
-		);
-
-		if (plane.DistanceToPoint(positiveVertex) < 0.0f)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-std::array<glm::vec3, 8> Frustum::ExtractCorners(const glm::mat4& viewProj)
-{
-	glm::mat4 invVP = glm::inverse(viewProj);
-	const glm::vec4 ndcCorners[8] = {
-		glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
-		glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f),
-		glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f),
-		glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f),
-		glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f),
-		glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
-		glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f),
-		glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f)
-	};
-
-	std::array<glm::vec3, 8> worldCorners;
-	for (size_t i = 0; i < 8; ++i)
-	{
-		glm::vec4 worldPt = invVP * ndcCorners[i];
-		if (std::fabs(worldPt.w) > 1e-6f)
-		{
-			worldCorners[i] = glm::vec3(worldPt) / worldPt.w;
-		}
-		else
-		{
-			worldCorners[i] = glm::vec3(worldPt);
-		}
-	}
-	return worldCorners;
-}
-
-// ============================================================================
 // QUADTREE (Iterativo con std::stack)
 // ============================================================================
 void Quadtree::Clear()
@@ -1023,8 +914,8 @@ void Quadtree::SubdivideNode(Node* node)
 {
 	if (!node || !node->IsLeaf()) return;
 
-	const glm::vec3 minP = node->bounds.minPoint;
-	const glm::vec3 maxP = node->bounds.maxPoint;
+	const glm::vec3 minP = node->bounds.min;
+	const glm::vec3 maxP = node->bounds.max;
 	const glm::vec3 center = node->bounds.GetCenter();
 	const int nextDepth = node->depth + 1;
 
@@ -1117,7 +1008,7 @@ int Quadtree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& out
 		if (!node) continue;
 
 		visitedNodes++;
-		if (!frustum.IntersectsAABB(node->bounds))
+		if (!frustum.IsVisible(node->bounds))
 		{
 			continue;
 		}
@@ -1128,7 +1019,7 @@ int Quadtree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& out
 			{
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
-					if (frustum.IntersectsAABB(entry.box))
+					if (frustum.IsVisible(entry.box))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);
@@ -1155,6 +1046,7 @@ int Quadtree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std:
 {
 	outObjects.clear();
 	if (!root) return 0;
+	const Ray ray(rayOrigin, rayDir);
 
 	int visitedNodes = 0;
 	std::unordered_set<GameObject*> uniqueSet;
@@ -1169,7 +1061,7 @@ int Quadtree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std:
 
 		visitedNodes++;
 		float tHit = 0.0f;
-		if (!node->bounds.IntersectsRay(rayOrigin, rayDir, tHit))
+		if (!Intersection::RayAABB(ray, node->bounds, tHit))
 		{
 			continue;
 		}
@@ -1181,7 +1073,7 @@ int Quadtree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std:
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
 					float tObj = 0.0f;
-					if (entry.box.IntersectsRay(rayOrigin, rayDir, tObj))
+					if (Intersection::RayAABB(ray, entry.box, tObj))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);
@@ -1271,8 +1163,8 @@ void Octree::SubdivideNode(Node* node)
 {
 	if (!node || !node->IsLeaf()) return;
 
-	const glm::vec3 minP = node->bounds.minPoint;
-	const glm::vec3 maxP = node->bounds.maxPoint;
+	const glm::vec3 minP = node->bounds.min;
+	const glm::vec3 maxP = node->bounds.max;
 	const glm::vec3 center = node->bounds.GetCenter();
 	const int nextDepth = node->depth + 1;
 
@@ -1367,7 +1259,7 @@ int Octree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& outOb
 		if (!node) continue;
 
 		visitedNodes++;
-		if (!frustum.IntersectsAABB(node->bounds))
+		if (!frustum.IsVisible(node->bounds))
 		{
 			continue;
 		}
@@ -1378,7 +1270,7 @@ int Octree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& outOb
 			{
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
-					if (frustum.IntersectsAABB(entry.box))
+					if (frustum.IsVisible(entry.box))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);
@@ -1405,6 +1297,7 @@ int Octree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::v
 {
 	outObjects.clear();
 	if (!root) return 0;
+	const Ray ray(rayOrigin, rayDir);
 
 	int visitedNodes = 0;
 	std::unordered_set<GameObject*> uniqueSet;
@@ -1419,7 +1312,7 @@ int Octree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::v
 
 		visitedNodes++;
 		float tHit = 0.0f;
-		if (!node->bounds.IntersectsRay(rayOrigin, rayDir, tHit))
+		if (!Intersection::RayAABB(ray, node->bounds, tHit))
 		{
 			continue;
 		}
@@ -1431,7 +1324,7 @@ int Octree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::v
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
 					float tObj = 0.0f;
-					if (entry.box.IntersectsRay(rayOrigin, rayDir, tObj))
+					if (Intersection::RayAABB(ray, entry.box, tObj))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);

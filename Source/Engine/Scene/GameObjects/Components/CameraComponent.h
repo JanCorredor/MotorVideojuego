@@ -60,8 +60,6 @@ private:
     glm::vec3 right;
     const glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-    bool RayAABBIntersection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec3& boxMin, const glm::vec3& boxMax, float& tMinOut);
-    bool RayTriangleIntersection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, float& tOut);
     void CheckRaycastRecursive(GameObject* go, glm::vec3 rayOrigin, glm::vec3 rayDir, GameObject*& closestObject, float& minDistance, const glm::mat4& parentMatrix);
 
     float yaw = -90.0f;
