@@ -1,110 +1,71 @@
 #include "Frustum.h"
 
-#include <cmath>
-
-void FrustumPlane::Normalize()
+void Frustum::Set(const glm::mat4& viewProjection)
 {
-	float len = glm::length(normal);
-	if (len > 1e-6f)
+	valid = true;
+
+	// GLM guarda por columnas: la fila i es (m[0][i], m[1][i], m[2][i], m[3][i])
+	const auto row = [&viewProjection](int i)
 	{
-		normal /= len;
-		d /= len;
-	}
-}
+		return glm::vec4(viewProjection[0][i], viewProjection[1][i], viewProjection[2][i], viewProjection[3][i]);
+	};
+	const glm::vec4 r0 = row(0);
+	const glm::vec4 r1 = row(1);
+	const glm::vec4 r2 = row(2);
+	const glm::vec4 r3 = row(3);
 
-Frustum Frustum::FromViewProjection(const glm::mat4& m)
-{
-	Frustum frustum;
-
-	// Left
-	frustum.planes[0].normal.x = m[0][3] + m[0][0];
-	frustum.planes[0].normal.y = m[1][3] + m[1][0];
-	frustum.planes[0].normal.z = m[2][3] + m[2][0];
-	frustum.planes[0].d        = m[3][3] + m[3][0];
-
-	// Right
-	frustum.planes[1].normal.x = m[0][3] - m[0][0];
-	frustum.planes[1].normal.y = m[1][3] - m[1][0];
-	frustum.planes[1].normal.z = m[2][3] - m[2][0];
-	frustum.planes[1].d        = m[3][3] - m[3][0];
-
-	// Bottom
-	frustum.planes[2].normal.x = m[0][3] + m[0][1];
-	frustum.planes[2].normal.y = m[1][3] + m[1][1];
-	frustum.planes[2].normal.z = m[2][3] + m[2][1];
-	frustum.planes[2].d        = m[3][3] + m[3][1];
-
-	// Top
-	frustum.planes[3].normal.x = m[0][3] - m[0][1];
-	frustum.planes[3].normal.y = m[1][3] - m[1][1];
-	frustum.planes[3].normal.z = m[2][3] - m[2][1];
-	frustum.planes[3].d        = m[3][3] - m[3][1];
-
-	// Near
-	frustum.planes[4].normal.x = m[0][3] + m[0][2];
-	frustum.planes[4].normal.y = m[1][3] + m[1][2];
-	frustum.planes[4].normal.z = m[2][3] + m[2][2];
-	frustum.planes[4].d        = m[3][3] + m[3][2];
-
-	// Far
-	frustum.planes[5].normal.x = m[0][3] - m[0][2];
-	frustum.planes[5].normal.y = m[1][3] - m[1][2];
-	frustum.planes[5].normal.z = m[2][3] - m[2][2];
-	frustum.planes[5].d        = m[3][3] - m[3][2];
-
-	for (size_t i = 0; i < frustum.planes.size(); ++i)
-	{
-		frustum.planes[i].Normalize();
-	}
-
-	return frustum;
-}
-
-bool Frustum::IntersectsAABB(const AABB& box) const
-{
-	for (size_t i = 0; i < planes.size(); ++i)
-	{
-		const FrustumPlane& plane = planes[i];
-		glm::vec3 positiveVertex(
-			(plane.normal.x >= 0.0f) ? box.maxPoint.x : box.minPoint.x,
-			(plane.normal.y >= 0.0f) ? box.maxPoint.y : box.minPoint.y,
-			(plane.normal.z >= 0.0f) ? box.maxPoint.z : box.minPoint.z
-		);
-
-		if (plane.DistanceToPoint(positiveVertex) < 0.0f)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-std::array<glm::vec3, 8> Frustum::ExtractCorners(const glm::mat4& viewProj)
-{
-	glm::mat4 invVP = glm::inverse(viewProj);
-	const glm::vec4 ndcCorners[8] = {
-		glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f),
-		glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f),
-		glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f),
-		glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f),
-		glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f),
-		glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
-		glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f),
-		glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f)
+	// Gribb-Hartmann: cada desigualdad -w <= x,y,z <= w del espacio clip es un plano
+	const glm::vec4 equations[6] = {
+		r3 + r0, // izquierdo
+		r3 - r0, // derecho
+		r3 + r1, // inferior
+		r3 - r1, // superior
+		r3 + r2, // cercano
+		r3 - r2  // lejano
 	};
 
-	std::array<glm::vec3, 8> worldCorners;
-	for (size_t i = 0; i < 8; ++i)
+	for (int i = 0; i < 6; ++i)
 	{
-		glm::vec4 worldPt = invVP * ndcCorners[i];
-		if (std::fabs(worldPt.w) > 1e-6f)
+		const glm::vec3 normal(equations[i]);
+		const float length = glm::length(normal);
+		if (length < 1e-8f)
 		{
-			worldCorners[i] = glm::vec3(worldPt) / worldPt.w;
+			valid = false; // Matriz degenerada (p. ej. aspect ratio 0)
+			planes[i] = Plane();
+			continue;
 		}
-		else
-		{
-			worldCorners[i] = glm::vec3(worldPt);
-		}
+		planes[i].normal = normal / length;
+		planes[i].distance = equations[i].w / length;
 	}
-	return worldCorners;
+
+	// Esquinas: se deshace la proyección del cubo NDC [-1, 1]^3
+	const glm::mat4 inverse = glm::inverse(viewProjection);
+	for (int i = 0; i < 8; ++i)
+	{
+		const glm::vec4 ndc((i & 1) ? 1.0f : -1.0f, (i & 2) ? 1.0f : -1.0f, (i & 4) ? 1.0f : -1.0f, 1.0f);
+		const glm::vec4 world = inverse * ndc;
+		corners[i] = (world.w != 0.0f) ? glm::vec3(world) / world.w : glm::vec3(world);
+	}
+}
+
+FrustumTestResult Frustum::Test(const AABB& box) const
+{
+	if (!valid || !box.IsValid()) return FrustumTestResult::Outside;
+
+	bool intersecting = false;
+	for (const Plane& plane : planes)
+	{
+		// Esquina más avanzada según la normal: si queda fuera, toda la caja está fuera
+		const glm::vec3 positive(plane.normal.x >= 0.0f ? box.max.x : box.min.x,
+			plane.normal.y >= 0.0f ? box.max.y : box.min.y,
+			plane.normal.z >= 0.0f ? box.max.z : box.min.z);
+		if (plane.SignedDistance(positive) < 0.0f) return FrustumTestResult::Outside;
+
+		// Esquina opuesta: si queda fuera, la caja cruza el plano
+		const glm::vec3 negative(plane.normal.x >= 0.0f ? box.min.x : box.max.x,
+			plane.normal.y >= 0.0f ? box.min.y : box.max.y,
+			plane.normal.z >= 0.0f ? box.min.z : box.max.z);
+		if (plane.SignedDistance(negative) < 0.0f) intersecting = true;
+	}
+	return intersecting ? FrustumTestResult::Intersect : FrustumTestResult::Inside;
 }

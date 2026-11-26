@@ -17,6 +17,7 @@
 #include "../ResourceManagement/Importers/TextureImporter.h"
 
 #include "../Geometry/AABB.h"
+#include "../Geometry/Ray.h"
 
 
 #ifdef GetObject
@@ -556,7 +557,7 @@ void Scene::RebuildSpacePartitioning()
 			}
 			else
 			{
-				worldBounds.Encapsulate(box);
+				worldBounds.Enclose(box);
 			}
 		}
 
@@ -568,9 +569,9 @@ void Scene::RebuildSpacePartitioning()
 	}
 
 	// Asegurar un volumen mínimo simétrico y un pequeño margen alrededor de los objetos estáticos
-	worldBounds.Encapsulate(AABB(glm::vec3(-6.0f, -1.0f, -6.0f), glm::vec3(6.0f, 6.0f, 6.0f)));
-	worldBounds.minPoint -= glm::vec3(0.5f);
-	worldBounds.maxPoint += glm::vec3(0.5f);
+	worldBounds.Enclose(AABB(glm::vec3(-6.0f, -1.0f, -6.0f), glm::vec3(6.0f, 6.0f, 6.0f)));
+	worldBounds.min -= glm::vec3(0.5f);
+	worldBounds.max += glm::vec3(0.5f);
 
 	quadtree.Build(worldBounds, staticEntries, treeMaxObjectsPerNode, treeMaxDepth);
 	octree.Build(worldBounds, staticEntries, treeMaxObjectsPerNode, treeMaxDepth);
@@ -913,8 +914,8 @@ void Quadtree::SubdivideNode(Node* node)
 {
 	if (!node || !node->IsLeaf()) return;
 
-	const glm::vec3 minP = node->bounds.minPoint;
-	const glm::vec3 maxP = node->bounds.maxPoint;
+	const glm::vec3 minP = node->bounds.min;
+	const glm::vec3 maxP = node->bounds.max;
 	const glm::vec3 center = node->bounds.GetCenter();
 	const int nextDepth = node->depth + 1;
 
@@ -1007,7 +1008,7 @@ int Quadtree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& out
 		if (!node) continue;
 
 		visitedNodes++;
-		if (!frustum.IntersectsAABB(node->bounds))
+		if (!frustum.IsVisible(node->bounds))
 		{
 			continue;
 		}
@@ -1018,7 +1019,7 @@ int Quadtree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& out
 			{
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
-					if (frustum.IntersectsAABB(entry.box))
+					if (frustum.IsVisible(entry.box))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);
@@ -1045,6 +1046,7 @@ int Quadtree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std:
 {
 	outObjects.clear();
 	if (!root) return 0;
+	const Ray ray(rayOrigin, rayDir);
 
 	int visitedNodes = 0;
 	std::unordered_set<GameObject*> uniqueSet;
@@ -1059,7 +1061,7 @@ int Quadtree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std:
 
 		visitedNodes++;
 		float tHit = 0.0f;
-		if (!node->bounds.IntersectsRay(rayOrigin, rayDir, tHit))
+		if (!Intersection::RayAABB(ray, node->bounds, tHit))
 		{
 			continue;
 		}
@@ -1071,7 +1073,7 @@ int Quadtree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std:
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
 					float tObj = 0.0f;
-					if (entry.box.IntersectsRay(rayOrigin, rayDir, tObj))
+					if (Intersection::RayAABB(ray, entry.box, tObj))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);
@@ -1161,8 +1163,8 @@ void Octree::SubdivideNode(Node* node)
 {
 	if (!node || !node->IsLeaf()) return;
 
-	const glm::vec3 minP = node->bounds.minPoint;
-	const glm::vec3 maxP = node->bounds.maxPoint;
+	const glm::vec3 minP = node->bounds.min;
+	const glm::vec3 maxP = node->bounds.max;
 	const glm::vec3 center = node->bounds.GetCenter();
 	const int nextDepth = node->depth + 1;
 
@@ -1257,7 +1259,7 @@ int Octree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& outOb
 		if (!node) continue;
 
 		visitedNodes++;
-		if (!frustum.IntersectsAABB(node->bounds))
+		if (!frustum.IsVisible(node->bounds))
 		{
 			continue;
 		}
@@ -1268,7 +1270,7 @@ int Octree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& outOb
 			{
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
-					if (frustum.IntersectsAABB(entry.box))
+					if (frustum.IsVisible(entry.box))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);
@@ -1295,6 +1297,7 @@ int Octree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::v
 {
 	outObjects.clear();
 	if (!root) return 0;
+	const Ray ray(rayOrigin, rayDir);
 
 	int visitedNodes = 0;
 	std::unordered_set<GameObject*> uniqueSet;
@@ -1309,7 +1312,7 @@ int Octree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::v
 
 		visitedNodes++;
 		float tHit = 0.0f;
-		if (!node->bounds.IntersectsRay(rayOrigin, rayDir, tHit))
+		if (!Intersection::RayAABB(ray, node->bounds, tHit))
 		{
 			continue;
 		}
@@ -1321,7 +1324,7 @@ int Octree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::v
 				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
 				{
 					float tObj = 0.0f;
-					if (entry.box.IntersectsRay(rayOrigin, rayDir, tObj))
+					if (Intersection::RayAABB(ray, entry.box, tObj))
 					{
 						uniqueSet.insert(entry.object);
 						outObjects.push_back(entry.object);
