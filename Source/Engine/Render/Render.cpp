@@ -20,7 +20,8 @@
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
 #include "../Scene/GameObjects/Components/CameraComponent.h"
 
-#include "../Scene/GameObjects/AABB/AABB.h"
+#include "../Geometry/AABB.h"
+#include "../Geometry/Frustum.h"
 
 #include <algorithm>
 #include <stack>
