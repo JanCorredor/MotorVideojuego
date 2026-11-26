@@ -1,6 +1,6 @@
 #include "TextureManager.h"
 #include "../../../Utils/Log.h"
-#include "../../Scene/GameObjects/Components/Component.h"
+#include "../../FileSystem/FileSystem.h"
 
 #include <IL/il.h>
 #include <glad/glad.h>
@@ -150,8 +150,8 @@ const TextureInfo* TextureManager::Load(const std::string& path)
 
 const TextureInfo* TextureManager::ImportWithSettings(const std::string& path, const TextureSettings& customSettings, bool forceReload)
 {
-	std::string cacheKey = SceneFile::ToProjectRelativePath(path);
-	std::string diskPath = SceneFile::ResolveExistingPath(cacheKey);
+	std::string cacheKey = FileSystem::ToProjectRelativePath(path);
+	std::string diskPath = FileSystem::ResolveExistingPath(cacheKey);
 
 	auto it = cache.find(cacheKey);
 	if (it != cache.end() && !forceReload)

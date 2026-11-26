@@ -4,6 +4,7 @@
 #include "../../../Render/Primitives/Primitive.h"
 #include "../../../ResourceManagement/Importers/MeshImporter.h"
 #include "../GameObject.h"
+#include "../../../FileSystem/FileSystem.h"
 #include <memory>
 #include <filesystem>
 
@@ -38,7 +39,7 @@ public:
 			// Garantizar que cualquier modelo externo se copie dentro de Assets/Models y se guarde con ruta relativa portable
 			if (!srcPath.empty() && srcPath.rfind("Primitive:", 0) != 0)
 			{
-				srcPath = SceneFile::EnsureAssetInProject(srcPath, "Models");
+				srcPath = FileSystem::EnsureAssetInProject(srcPath, "Models");
 				primitive->SetSourceInfo(srcPath, subIdx);
 			}
 
@@ -50,11 +51,11 @@ public:
 			}
 			else
 			{
-				customPath = SceneFile::ToProjectRelativePath(customPath);
+				customPath = FileSystem::ToProjectRelativePath(customPath);
 			}
 			primitive->SetCustomMeshPath(customPath);
 
-			std::string customDiskPath = SceneFile::ResolveExistingPath(customPath);
+			std::string customDiskPath = FileSystem::ResolveExistingPath(customPath);
 			std::error_code ec;
 			if (!std::filesystem::exists(customDiskPath, ec))
 			{

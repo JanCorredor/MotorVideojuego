@@ -1,6 +1,7 @@
 #include "MaterialComponent.h"
 #include "../../../Engine.h"
 #include "../../../ResourceManagement/Importers/TextureImporter.h"
+#include "../../../FileSystem/FileSystem.h"
 
 std::unique_ptr<Component> MaterialComponent::Clone(GameObject* newOwner) const
 {
@@ -23,7 +24,7 @@ void MaterialComponent::Save(SceneFile& file) const
 	file.SetBool("using_missing_texture", usingMissingTexture);
 
 	std::string texPath = (diffuse != nullptr && diffuse->path.find("(procedural)") == std::string::npos)
-		? SceneFile::EnsureAssetInProject(diffuse->path, "Textures")
+		? FileSystem::EnsureAssetInProject(diffuse->path, "Textures")
 		: "";
 	file.SetString("texture_path", texPath);
 
@@ -48,7 +49,7 @@ void MaterialComponent::Load(const SceneFile& file)
 
 	if (!texPath.empty() && texPath.find("(procedural)") == std::string::npos)
 	{
-		std::string resolvedTex = SceneFile::ResolveExistingPath(texPath);
+		std::string resolvedTex = FileSystem::ResolveExistingPath(texPath);
 		if (file.HasKey("min_filter"))
 		{
 			TextureSettings ts;

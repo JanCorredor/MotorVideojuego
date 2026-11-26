@@ -30,6 +30,7 @@
 #include <SDL3/SDL.h>
 
 #include "../../Utils/Log.h"
+#include "../FileSystem/FileSystem.h"
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -110,7 +111,7 @@ namespace
 	std::string ResolveProjectRootDirectory()
 	{
 		std::error_code ec;
-		std::filesystem::path assetsPath(SceneFile::ResolveAssetsDirectory());
+		std::filesystem::path assetsPath(FileSystem::ToDiskPath(FileSystem::ASSETS_DIR));
 		std::filesystem::path absAssets = std::filesystem::weakly_canonical(assetsPath, ec);
 		if (!ec && absAssets.has_parent_path())
 		{
@@ -387,7 +388,7 @@ bool ModuleUI::DrawMainMenuBar()
 
 			if (ImGui::BeginMenu("Load Saved Scene"))
 			{
-				std::vector<std::string> savedScenes = SceneFile::ListSavedSceneFiles();
+				std::vector<std::string> savedScenes = FileSystem::ListSavedSceneFiles();
 				if (savedScenes.empty())
 				{
 					ImGui::TextDisabled("No hay escenas guardadas en Assets/Scenes");
@@ -2873,13 +2874,13 @@ void ModuleUI::DrawSceneFileModals()
 	ImGui::SetNextWindowSize(ImVec2(480, 350), ImGuiCond_FirstUseEver);
 	if (ImGui::BeginPopupModal("Save Scene As", nullptr, ImGuiWindowFlags_None))
 	{
-		std::string scenesDir = SceneFile::ResolveScenesDirectory();
-		ImGui::TextDisabled("Carpeta de destino: %s", scenesDir.c_str());
+		std::string scenesDir = FileSystem::ToDiskPath(FileSystem::SCENES_DIR);
+		ImGui::TextDisabled("Carpeta de destino: %s", FileSystem::SCENES_DIR);
 		ImGui::Spacing();
 
 		ImGui::TextUnformatted("Escenas existentes (clic para seleccionar):");
 		ImGui::BeginChild("ExistingScenesSaveList", ImVec2(0, 140), true);
-		std::vector<std::string> existingScenes = SceneFile::ListSavedSceneFiles();
+		std::vector<std::string> existingScenes = FileSystem::ListSavedSceneFiles();
 		if (existingScenes.empty())
 		{
 			ImGui::TextDisabled("No hay archivos .scene o .json guardados todavía.");
@@ -3023,13 +3024,13 @@ void ModuleUI::DrawSceneFileModals()
 	ImGui::SetNextWindowSize(ImVec2(500, 360), ImGuiCond_FirstUseEver);
 	if (ImGui::BeginPopupModal("Load Scene", nullptr, ImGuiWindowFlags_None))
 	{
-		std::string scenesDir = SceneFile::ResolveScenesDirectory();
+		std::string scenesDir = FileSystem::SCENES_DIR;
 		ImGui::TextDisabled("Carpeta de escenas: %s", scenesDir.c_str());
 		ImGui::Spacing();
 
 		ImGui::TextUnformatted("Selecciona una escena para cargar (doble clic para cargar directamente):");
 		ImGui::BeginChild("ExistingScenesLoadList", ImVec2(0, 160), true);
-		std::vector<std::string> savedScenes = SceneFile::ListSavedSceneFiles();
+		std::vector<std::string> savedScenes = FileSystem::ListSavedSceneFiles();
 		bool doubleClickLoad = false;
 
 		if (savedScenes.empty())
@@ -3072,8 +3073,8 @@ void ModuleUI::DrawSceneFileModals()
 				{
 					Engine::GetInstance().Stop();
 				}
-				std::string projectScene = SceneFile::EnsureAssetInProject(loadSceneFilePathBuffer, "Scenes");
-				std::string resolved = SceneFile::ResolveExistingPath(projectScene);
+				std::string projectScene = FileSystem::EnsureAssetInProject(loadSceneFilePathBuffer, "Scenes");
+				std::string resolved = FileSystem::ResolveExistingPath(projectScene);
 				scene->Load(resolved);
 			}
 			ImGui::CloseCurrentPopup();

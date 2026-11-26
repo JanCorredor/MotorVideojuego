@@ -56,18 +56,6 @@ public:
 	size_t Size() const;
 	SceneFile GetElement(size_t index) const;
 
-	// Utilidades de rutas portables para Assets, Scenes y Library/Meshes (Custom File Format)
-	static std::string ResolveProjectRoot();
-	static std::string ResolveAssetsDirectory();
-	static std::string ResolveModelsDirectory();
-	static std::string ResolveTexturesDirectory();
-	static std::string ResolveScenesDirectory();
-	static std::string ResolveLibraryMeshesDirectory();
-	static std::string ToProjectRelativePath(const std::string& anyPath);
-	static std::string EnsureAssetInProject(const std::string& sourcePath, const std::string& targetSubfolder);
-	static std::string ResolveExistingPath(const std::string& storedPath);
-	static std::vector<std::string> ListSavedSceneFiles();
-
 	struct Node;
 private:
 	std::shared_ptr<Node> node;

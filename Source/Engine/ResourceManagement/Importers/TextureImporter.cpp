@@ -3,6 +3,7 @@
 #include "../../Scene/GameObjects/GameObject.h"
 #include "../../Scene/GameObjects/Components/MaterialComponent.h"
 #include "../../../Utils/Log.h"
+#include "../../FileSystem/FileSystem.h"
 
 #include <algorithm>
 #include <stack>
@@ -23,7 +24,7 @@ const TextureInfo* TextureImporter::ImportTexture(const std::string& filePath)
         return nullptr;
     }
 
-    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Textures");
+    std::string projectRelPath = FileSystem::EnsureAssetInProject(filePath, "Textures");
     LOG("[TextureImporter] Importando textura desde: %s", projectRelPath.c_str());
     const TextureInfo* texInfo = Engine::GetInstance().textures->Load(projectRelPath);
     if (!texInfo)
@@ -41,7 +42,7 @@ const TextureInfo* TextureImporter::ImportTexture(const std::string& filePath, c
         return nullptr;
     }
 
-    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Textures");
+    std::string projectRelPath = FileSystem::EnsureAssetInProject(filePath, "Textures");
     LOG("[TextureImporter] Importando textura '%s' (min=%d, mag=%d, wrap=%d, flipX=%d, flipY=%d)",
         projectRelPath.c_str(), settings.minFilter, settings.magFilter, settings.wrapMode,
         (int)settings.flipX, (int)settings.flipY);
