@@ -1,6 +1,6 @@
 #include "ModelLoader.h"
 #include "../../../Utils/Log.h"
-#include "../../Scene/GameObjects/Components/Component.h"
+#include "../../FileSystem/FileSystem.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -185,8 +185,8 @@ namespace
             {
                 originalDir = NormalizeSlashesStr(origSourceDir);
             }
-            assetsDir = NormalizeSlashesStr(SceneFile::ResolveAssetsDirectory());
-            texturesDir = NormalizeSlashesStr(SceneFile::ResolveTexturesDirectory());
+            assetsDir = NormalizeSlashesStr(FileSystem::ToDiskPath(FileSystem::ASSETS_DIR));
+            texturesDir = NormalizeSlashesStr(FileSystem::ToDiskPath(FileSystem::TEXTURES_DIR));
         }
 
         void ResolveMaterial(unsigned int materialIndex, glm::vec4& outColor, std::string& outTexturePath)
@@ -357,7 +357,7 @@ namespace
                 out.close();
             }
 
-            return SceneFile::ToProjectRelativePath(NormalizeSlashesStr(outPath.string()));
+            return FileSystem::ToProjectRelativePath(NormalizeSlashesStr(outPath.string()));
         }
 
         std::string ResolveTexturePathInternal(const std::string& rawTexPath)

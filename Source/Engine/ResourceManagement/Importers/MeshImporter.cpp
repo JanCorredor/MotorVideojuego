@@ -8,6 +8,7 @@
 #include "../../Render/3DModels/ModelLoader.h"
 #include "../../Render/Primitives/GeometryGenerator.h"
 #include "../../../Utils/Log.h"
+#include "../../FileSystem/FileSystem.h"
 
 #include <filesystem>
 #include <fstream>
@@ -28,7 +29,7 @@ namespace
         std::string stripped = norm;
         while (stripped.rfind("../", 0) == 0) stripped = stripped.substr(3);
         while (stripped.rfind("./", 0) == 0) stripped = stripped.substr(2);
-        return SceneFile::ResolveProjectRoot() + "/" + stripped;
+        return FileSystem::ToDiskPath(stripped);
     }
 
     bool ImportSettingsEqual(const MeshImportSettings& a, const MeshImportSettings& b)
@@ -50,7 +51,7 @@ bool MeshImporter::IsSupportedExtension(const std::string& extension)
 std::string MeshImporter::BuildCustomMeshPath(const std::string& sourcePath, int subMeshIndex, uint64_t fallbackId)
 {
     // Asegurar que la carpeta Library/Meshes existe
-    SceneFile::ResolveLibraryMeshesDirectory();
+    FileSystem::CreateDirectories(FileSystem::LIBRARY_MESHES_DIR);
     const std::string libRel = "Library/Meshes";
 
     if (sourcePath.rfind("Primitive:", 0) == 0)
@@ -139,7 +140,7 @@ std::unique_ptr<Primitive> MeshImporter::LoadMeshFromCustomFormat(const std::str
 {
     if (customFilePath.empty()) return nullptr;
 
-    std::string resolvedPath = SceneFile::ResolveExistingPath(customFilePath);
+    std::string resolvedPath = FileSystem::ResolveExistingPath(customFilePath);
     std::error_code ec;
     if (!std::filesystem::exists(resolvedPath, ec) || !std::filesystem::is_regular_file(resolvedPath, ec))
     {
@@ -205,7 +206,7 @@ std::unique_ptr<Primitive> MeshImporter::LoadMeshFromCustomFormat(const std::str
 
     auto prim = std::make_unique<Primitive>();
     prim->Init(std::move(vertices), std::move(indices));
-    prim->SetCustomMeshPath(SceneFile::ToProjectRelativePath(resolvedPath));
+    prim->SetCustomMeshPath(FileSystem::ToProjectRelativePath(resolvedPath));
     prim->SetImportSettings(loadedSettings);
     return prim;
 }
@@ -213,10 +214,10 @@ std::unique_ptr<Primitive> MeshImporter::LoadMeshFromCustomFormat(const std::str
 std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::string& sourcePath, int subMeshIndex, const std::string& customMeshPath,
     const MeshImportSettings& importSettings, bool hasExplicitImportSettings)
 {
-    std::string normalizedSource = SceneFile::ToProjectRelativePath(sourcePath);
+    std::string normalizedSource = FileSystem::ToProjectRelativePath(sourcePath);
     std::string targetCustomPath = customMeshPath.empty()
         ? BuildCustomMeshPath(normalizedSource, subMeshIndex)
-        : SceneFile::ToProjectRelativePath(customMeshPath);
+        : FileSystem::ToProjectRelativePath(customMeshPath);
 
     // 1. Intentar cargar directamente desde el Custom File Format (.mesh en Library/Meshes/)
     std::unique_ptr<Primitive> loadedCustom = LoadMeshFromCustomFormat(targetCustomPath);
@@ -226,11 +227,11 @@ std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::strin
         if (settingsMatch)
         {
             // Si el archivo fuente existe dentro del proyecto, asegurarnos de guardar su ruta relativa limpia
-            std::string existingSource = SceneFile::ResolveExistingPath(normalizedSource);
+            std::string existingSource = FileSystem::ResolveExistingPath(normalizedSource);
             std::error_code srcEc;
             if (!normalizedSource.empty() && normalizedSource.rfind("Primitive:", 0) != 0 && std::filesystem::exists(existingSource, srcEc))
             {
-                normalizedSource = SceneFile::EnsureAssetInProject(existingSource, "Models");
+                normalizedSource = FileSystem::EnsureAssetInProject(existingSource, "Models");
             }
             loadedCustom->SetSourceInfo(normalizedSource, subMeshIndex);
             loadedCustom->SetCustomMeshPath(targetCustomPath);
@@ -251,7 +252,7 @@ std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::strin
     else if (normalizedSource == "Primitive:Pyramid")  fallbackPrim = GeometryGenerator::CreatePyramid(1.0f, 1.0f);
     else if (!normalizedSource.empty())
     {
-        std::string resolvedSource = SceneFile::ResolveExistingPath(normalizedSource);
+        std::string resolvedSource = FileSystem::ResolveExistingPath(normalizedSource);
         std::error_code ec;
         if (!std::filesystem::exists(resolvedSource, ec) || !std::filesystem::is_regular_file(resolvedSource, ec))
         {
@@ -260,8 +261,8 @@ std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::strin
         }
 
         // Asegurar que el archivo está copiado dentro de Assets/Models si venía de fuera
-        normalizedSource = SceneFile::EnsureAssetInProject(resolvedSource, "Models");
-        resolvedSource = SceneFile::ResolveExistingPath(normalizedSource);
+        normalizedSource = FileSystem::EnsureAssetInProject(resolvedSource, "Models");
+        resolvedSource = FileSystem::ResolveExistingPath(normalizedSource);
         targetCustomPath = BuildCustomMeshPath(normalizedSource, subMeshIndex);
 
         if (subMeshIndex >= 0)
@@ -302,8 +303,8 @@ std::unique_ptr<Primitive> MeshImporter::ResolveOrLoadPrimitive(const std::strin
 
 std::unique_ptr<Primitive> MeshImporter::ImportMesh(const std::string& filePath)
 {
-    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Models");
-    std::string diskPath = SceneFile::ResolveExistingPath(projectRelPath);
+    std::string projectRelPath = FileSystem::EnsureAssetInProject(filePath, "Models");
+    std::string diskPath = FileSystem::ResolveExistingPath(projectRelPath);
 
     LOG("[MeshImporter] Importando malla desde: %s", projectRelPath.c_str());
     auto loadedMesh = ModelLoader::LoadFBX(diskPath, GetDefaultSettings());
@@ -332,7 +333,7 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
     // Conservar la carpeta de origen original (antes de copiar a Assets/Models/) para localizar texturas acompañantes (ej. carpeta Texture/)
     std::string originalSourceDir;
     {
-        std::string resolvedInput = SceneFile::ResolveExistingPath(filePath);
+        std::string resolvedInput = FileSystem::ResolveExistingPath(filePath);
         std::filesystem::path inputPath(resolvedInput);
         if (inputPath.has_parent_path())
         {
@@ -341,8 +342,8 @@ GameObject* MeshImporter::ImportToScene(const std::string& filePath, GameObject*
     }
 
     // Copiar automáticamente modelos externos (Descargas, Escritorio, etc.) dentro de Assets/Models/
-    std::string projectRelPath = SceneFile::EnsureAssetInProject(filePath, "Models");
-    std::string diskPath = SceneFile::ResolveExistingPath(projectRelPath);
+    std::string projectRelPath = FileSystem::EnsureAssetInProject(filePath, "Models");
+    std::string diskPath = FileSystem::ResolveExistingPath(projectRelPath);
 
     std::vector<SubMeshData> subMeshes = ModelLoader::LoadFBXMeshes(diskPath, GetDefaultSettings(), originalSourceDir);
     if (subMeshes.empty())
@@ -478,7 +479,7 @@ std::unique_ptr<Primitive> MeshImporter::ReimportPrimitive(const Primitive* exis
         return nullptr;
     }
 
-    std::string resolvedSource = SceneFile::ResolveExistingPath(sourcePath);
+    std::string resolvedSource = FileSystem::ResolveExistingPath(sourcePath);
     std::unique_ptr<Primitive> reimported = nullptr;
 
     if (subMeshIndex >= 0)
@@ -496,10 +497,10 @@ std::unique_ptr<Primitive> MeshImporter::ReimportPrimitive(const Primitive* exis
 
     if (reimported)
     {
-        std::string cleanSource = SceneFile::EnsureAssetInProject(resolvedSource, "Models");
+        std::string cleanSource = FileSystem::EnsureAssetInProject(resolvedSource, "Models");
         std::string customPath = existingPrim->GetCustomMeshPath().empty()
             ? BuildCustomMeshPath(cleanSource, subMeshIndex)
-            : SceneFile::ToProjectRelativePath(existingPrim->GetCustomMeshPath());
+            : FileSystem::ToProjectRelativePath(existingPrim->GetCustomMeshPath());
 
         reimported->SetSourceInfo(cleanSource, subMeshIndex);
         reimported->SetCustomMeshPath(customPath);
