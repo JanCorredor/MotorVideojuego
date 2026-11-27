@@ -331,7 +331,7 @@ void CameraComponent::CheckRaycastRecursive(GameObject* rootGo, glm::vec3 rayOri
                 // Si el objeto es Static y hay Space Partitioning activo, descartarlo en O(1) si el árbol ya filtró su rama
                 if (!useTreeFilter || !go->IsStatic() || staticCandidatesSet.find(go) != staticCandidatesSet.end())
                 {
-                    Primitive* prim = mesh->GetPrimitive();
+                    const Primitive* prim = mesh->GetPrimitive();
 
                     // Transformamos el rayo una sola vez al espacio local del GameObject
                     glm::mat4 invModel = glm::inverse(globalMatrix);

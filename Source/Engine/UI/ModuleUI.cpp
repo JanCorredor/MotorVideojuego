@@ -12,9 +12,11 @@
 #include "../Scene/GameObjects/Components/TransformComponent.h"
 #include "../Scene/GameObjects/Components/MeshComponent.h"
 #include "../Scene/GameObjects/Components/MaterialComponent.h"
+#include "../ResourceManagement/ResourceManager.h"
+#include "../ResourceManagement/ResourceMesh.h"
+#include "../ResourceManagement/ResourceTexture.h"
 #include "../Scene/GameObjects/Components/CameraComponent.h"
 
-#include "../ResourceManagement/Importers/MeshImporter.h"
 
 #include "../Audio/Audio.h"
 
@@ -1530,47 +1532,43 @@ void ModuleUI::DrawInspectorPanel()
 						ImGui::BulletText("AABB Min: (%.2f, %.2f, %.2f)", bMin.x, bMin.y, bMin.z);
 						ImGui::BulletText("AABB Max: (%.2f, %.2f, %.2f)", bMax.x, bMax.y, bMax.z);
 
-						const Primitive* primaryPrim = meshesToInspect[0]->GetPrimitive();
-						if (primaryPrim && !primaryPrim->GetSourcePath().empty() &&
-							primaryPrim->GetSourcePath().rfind("Primitive:", 0) != 0)
+						// Las opciones son del asset (su .meta): al reimportar cambian todas sus instancias
+						ResourceManager* resources = Engine::GetInstance().resources.get();
+						const ResourceMesh* meshRes = meshesToInspect[0]->GetMeshResource();
+						if (resources && meshRes && !meshRes->IsBuiltIn() && !meshRes->GetAssetPath().empty())
 						{
+							const std::string& assetPath = meshRes->GetAssetPath();
 							ImGui::Spacing();
-							ImGui::SeparatorText("Opciones de Importado (Malla)");
+							ImGui::SeparatorText("Opciones de Importado (Modelo)");
+							ImGui::TextDisabled("%s", assetPath.c_str());
 
-							static MeshImportSettings editMeshOpts;
-							static const Primitive* lastInspectedPrim = nullptr;
-							if (lastInspectedPrim != primaryPrim)
+							static ModelImportSettings editModelOpts;
+							static std::string lastModelAsset;
+							if (lastModelAsset != assetPath)
 							{
-								editMeshOpts = primaryPrim->GetImportSettings();
-								lastInspectedPrim = primaryPrim;
+								editModelOpts = ModelImportSettings();
+								resources->GetModelImportSettings(assetPath, editModelOpts);
+								lastModelAsset = assetPath;
 							}
 
-							ImGui::DragFloat("Escala Global", &editMeshOpts.globalScale, 0.01f, 0.001f, 100.0f, "%.3f");
+							ImGui::DragFloat("Escala Global", &editModelOpts.globalScale, 0.01f, 0.001f, 100.0f, "%.3f");
+							ImGui::Checkbox("Convertir unidades del FBX a metros", &editModelOpts.convertUnits);
 
-							static const char* axisPresets[] = {
-								"Estandar (+X, +Y, +Z)",
-								"Z-Up a Y-Up (+X, +Z, -Y)",
-								"Invertir Eje Z (+X, +Y, -Z)",
-								"Invertir Eje X (-X, +Y, +Z)"
-							};
-							ImGui::Combo("Ejes (Coordenadas)", &editMeshOpts.axisPreset, axisPresets, IM_ARRAYSIZE(axisPresets));
-
-							ImGui::Checkbox("Ignorar Camaras", &editMeshOpts.ignoreCameras);
+							static const char* upAxes[] = { "+Y arriba", "+Z arriba", "+X arriba", "-Z arriba", "-X arriba", "-Y arriba" };
+							ImGui::Combo("Eje vertical", &editModelOpts.upAxis, upAxes, IM_ARRAYSIZE(upAxes));
+							ImGui::Checkbox("Espejo X", &editModelOpts.mirrorX);
 							ImGui::SameLine();
-							ImGui::Checkbox("Ignorar Luces", &editMeshOpts.ignoreLights);
+							ImGui::Checkbox("Espejo Z", &editModelOpts.mirrorZ);
 
-							if (ImGui::Button("Reimportar Malla"))
+							ImGui::Checkbox("Ignorar Camaras", &editModelOpts.ignoreCameras);
+							ImGui::SameLine();
+							ImGui::Checkbox("Ignorar Luces", &editModelOpts.ignoreLights);
+
+							ImGui::TextDisabled("Afecta a todas las instancias del modelo.\nEscala y ejes se aplican al volver a colocarlo en la escena.");
+							if (ImGui::Button("Reimportar Modelo"))
 							{
-								for (MeshComponent* m : meshesToInspect)
-								{
-									if (std::unique_ptr<Primitive> newPrim = MeshImporter::ReimportPrimitive(m->GetPrimitive(), editMeshOpts))
-									{
-										m->SetPrimitive(std::move(newPrim));
-									}
-								}
-								lastInspectedPrim = meshesToInspect[0]->GetPrimitive();
+								resources->SetModelImportSettings(assetPath, editModelOpts);
 								if (scene) scene->MarkSpacePartitioningDirty();
-								selectedGameObject->NotifySceneModified();
 							}
 						}
 
@@ -1643,54 +1641,74 @@ void ModuleUI::DrawInspectorPanel()
 
 						ImGui::Spacing();
 						ImGui::SeparatorText("Datos de Textura");
-						const TextureInfo* texInfo = primaryMat->GetTexture();
-						if (texInfo)
+						const ResourceTexture* texRes = primaryMat->GetTexture();
+						ResourceManager* resources = Engine::GetInstance().resources.get();
+						if (texRes)
 						{
-							ImGui::BulletText("Path: %s", texInfo->path.c_str());
-							ImGui::BulletText("Tamaño: %d x %d px", texInfo->width, texInfo->height);
-							ImGui::BulletText("OpenGL Texture ID: %u", texInfo->id);
+							ImGui::BulletText("Asset: %s", texRes->GetAssetPath().c_str());
+							ImGui::BulletText("Tamaño: %d x %d px", texRes->GetWidth(), texRes->GetHeight());
+							ImGui::BulletText("OpenGL Texture ID: %u", texRes->GetGLID());
 
-							if (texInfo->path.find("(procedural)") == std::string::npos)
+							if (resources && !texRes->GetAssetPath().empty())
 							{
+								const std::string& assetPath = texRes->GetAssetPath();
 								ImGui::Spacing();
 								ImGui::SeparatorText("Opciones de Importado (Textura)");
 
-								TextureSettings importOpts = texInfo->importSettings;
+								static TextureImportSettings editTexOpts;
+								static std::string lastTextureAsset;
+								if (lastTextureAsset != assetPath)
+								{
+									editTexOpts = TextureImportSettings();
+									resources->GetTextureImportSettings(assetPath, editTexOpts);
+									lastTextureAsset = assetPath;
+								}
 								bool importChanged = false;
 
 								static const char* minFilters[] = {
-									"GL_LINEAR_MIPMAP_LINEAR (Trilineal)",
+									"GL_NEAREST (Vecino más cercano)",
 									"GL_LINEAR (Bilineal)",
-									"GL_NEAREST (Vecino más cercano)"
+									"GL_LINEAR_MIPMAP_LINEAR (Trilineal)"
 								};
-								importChanged |= ImGui::Combo("Filtro Minificación", &importOpts.minFilter, minFilters, IM_ARRAYSIZE(minFilters));
+								importChanged |= ImGui::Combo("Filtro Minificación", &editTexOpts.minFilter, minFilters, IM_ARRAYSIZE(minFilters));
 
 								static const char* magFilters[] = {
-									"GL_LINEAR (Suave)",
-									"GL_NEAREST (Pixelado)"
+									"GL_NEAREST (Pixelado)",
+									"GL_LINEAR (Suave)"
 								};
-								importChanged |= ImGui::Combo("Filtro Magnificación", &importOpts.magFilter, magFilters, IM_ARRAYSIZE(magFilters));
+								importChanged |= ImGui::Combo("Filtro Magnificación", &editTexOpts.magFilter, magFilters, IM_ARRAYSIZE(magFilters));
 
 								static const char* wrapModes[] = {
 									"GL_REPEAT (Repetición)",
 									"GL_CLAMP_TO_EDGE (Abrazar bordes)",
 									"GL_MIRRORED_REPEAT (Espejado)"
 								};
-								importChanged |= ImGui::Combo("Modo Wrap (S/T)", &importOpts.wrapMode, wrapModes, IM_ARRAYSIZE(wrapModes));
+								importChanged |= ImGui::Combo("Modo Wrap (S/T)", &editTexOpts.wrapMode, wrapModes, IM_ARRAYSIZE(wrapModes));
 
-								importChanged |= ImGui::Checkbox("Flip Horizontal (X)", &importOpts.flipX);
+								importChanged |= ImGui::Checkbox("Flip Horizontal (X)", &editTexOpts.flipX);
 								ImGui::SameLine();
-								importChanged |= ImGui::Checkbox("Flip Vertical (Y)", &importOpts.flipY);
+								importChanged |= ImGui::Checkbox("Flip Vertical (Y)", &editTexOpts.flipY);
 
+								static const int maxSizes[] = { 256, 512, 1024, 2048, 4096, 8192 };
+								static const char* maxSizeNames[] = { "256", "512", "1024", "2048", "4096", "8192" };
+								int sizeIndex = 3;
+								for (int i = 0; i < IM_ARRAYSIZE(maxSizes); ++i) if (maxSizes[i] == editTexOpts.maxSize) sizeIndex = i;
+								if (ImGui::Combo("Tamaño máximo", &sizeIndex, maxSizeNames, IM_ARRAYSIZE(maxSizeNames)))
+								{
+									editTexOpts.maxSize = maxSizes[sizeIndex];
+									importChanged = true;
+								}
+
+								ImGui::TextDisabled("Afecta a todos los materiales que usan esta textura.");
 								if (importChanged)
 								{
-									if (TextureManager* texMgr = Engine::GetInstance().textures.get())
-									{
-										texMgr->ImportWithSettings(texInfo->path, importOpts, true);
-										selectedGameObject->NotifySceneModified();
-									}
+									resources->SetTextureImportSettings(assetPath, editTexOpts);
 								}
 							}
+						}
+						else if (primaryMat->IsTextureMissing())
+						{
+							ImGui::TextDisabled("La textura asignada ya no existe: se muestra la textura missing.");
 						}
 						else
 						{
@@ -1805,8 +1823,7 @@ void ModuleUI::DrawInspectorPanel()
 					}
 					else
 					{
-						std::unique_ptr<Primitive> prim = GeometryGenerator::CreateCube();
-						auto mesh = std::make_unique<MeshComponent>(selectedGameObject, std::move(prim));
+						auto mesh = std::make_unique<MeshComponent>(selectedGameObject, ResourceManager::GetBuiltInMeshUID(PrimitiveType::Cube));
 						selectedGameObject->AddComponent(std::move(mesh));
 						if (scene) scene->MarkSpacePartitioningDirty();
 					}
@@ -2550,48 +2567,14 @@ void ModuleUI::DrawConfigurationPanel()
 				ImGui::SeparatorText("Subsistema DevIL & Caché GPU");
 				ImGui::BulletText("Librería de Carga: Developer's Image Library (DevIL v%s)", hw.devilVersion.c_str());
 				ImGui::BulletText("Formatos Compatibles: PNG, JPG, JPEG, DDS, TGA, BMP");
-				if (texMgr)
+				// Las opciones de muestreo son de cada textura (su .meta) y se editan en el Inspector
+				if (ResourceManager* resources = Engine::GetInstance().resources.get())
 				{
-					ImGui::BulletText("Texturas en Caché VRAM: %zu (+1 Checkerboard procedural)", texMgr->GetLoadedCount());
+					ImGui::BulletText("Texturas en VRAM: %zu (+ checkerboard y missing)", resources->GetLoadedCount(ResourceType::Texture));
+					ImGui::BulletText("Mallas en memoria: %zu", resources->GetLoadedCount(ResourceType::Mesh));
+					ImGui::BulletText("Memoria de recursos: %.2f MB", resources->GetTotalMemoryUsage() / (1024.0 * 1024.0));
 				}
-
-				if (texMgr)
-				{
-					ImGui::Spacing();
-					ImGui::SeparatorText("Parámetros de Muestreo OpenGL (Tiempo Real)");
-
-					TextureSettings ts = texMgr->GetSettings();
-					bool texChanged = false;
-
-					static const char* minFilters[] = {
-						"GL_LINEAR_MIPMAP_LINEAR (Trilineal)",
-						"GL_LINEAR (Bilineal)",
-						"GL_NEAREST (Vecino más cercano)"
-					};
-					texChanged |= ImGui::Combo("Filtro Minificación", &ts.minFilter, minFilters, IM_ARRAYSIZE(minFilters));
-
-					static const char* magFilters[] = {
-						"GL_LINEAR (Suave)",
-						"GL_NEAREST (Pixelado)"
-					};
-					texChanged |= ImGui::Combo("Filtro Magnificación", &ts.magFilter, magFilters, IM_ARRAYSIZE(magFilters));
-
-					static const char* wrapModes[] = {
-						"GL_REPEAT (Repetición)",
-						"GL_CLAMP_TO_EDGE (Abrazar bordes)",
-						"GL_MIRRORED_REPEAT (Espejado)"
-					};
-					texChanged |= ImGui::Combo("Modo Wrap (S/T)", &ts.wrapMode, wrapModes, IM_ARRAYSIZE(wrapModes));
-
-					texChanged |= ImGui::Checkbox("Flip Horizontal por defecto (X)", &ts.flipX);
-					ImGui::SameLine();
-					texChanged |= ImGui::Checkbox("Flip Vertical por defecto (Y)", &ts.flipY);
-
-					if (texChanged)
-					{
-						texMgr->SetSettings(ts);
-					}
-				}
+				(void)texMgr;
 
 				ImGui::EndTabItem();
 			}

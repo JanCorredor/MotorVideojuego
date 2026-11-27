@@ -5,7 +5,6 @@
 #include <glm/glm.hpp>
 #include "Vertex.h"
 
-#include "../../ResourceManagement/Importers/MeshImportSettings.h"
 
 
 // Datos geométricos de un triángulo (calculados una vez en Init) para visualizar normales por cara
@@ -44,20 +43,6 @@ public:
     glm::vec3 GetBoundsMin() const { return boundsMin; }
     glm::vec3 GetBoundsMax() const { return boundsMax; }
 
-    void SetSourceInfo(const std::string& path, int subIndex = -1)
-    {
-        sourcePath = path;
-        subMeshIndex = subIndex;
-    }
-    const std::string& GetSourcePath() const { return sourcePath; }
-    int GetSubMeshIndex() const { return subMeshIndex; }
-
-    void SetCustomMeshPath(const std::string& path) { customMeshPath = path; }
-    const std::string& GetCustomMeshPath() const { return customMeshPath; }
-
-    void SetImportSettings(const MeshImportSettings& settings) { importSettings = settings; }
-    const MeshImportSettings& GetImportSettings() const { return importSettings; }
-
 private:
     unsigned int VAO = 0, VBO = 0, EBO = 0;
     unsigned int indexCount = 0;
@@ -66,10 +51,4 @@ private:
     std::vector<FaceData> faces;
     glm::vec3 boundsMin = glm::vec3(0.0f);
     glm::vec3 boundsMax = glm::vec3(0.0f);
-
-    std::string sourcePath;
-    int subMeshIndex = -1;
-    std::string customMeshPath;
-
-    MeshImportSettings importSettings;
 };

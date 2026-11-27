@@ -1,0 +1,21 @@
+{
+	"importSettings": {
+		"convertUnits": true,
+		"globalScale": 1.0,
+		"ignoreCameras": true,
+		"ignoreLights": true,
+		"mirrorX": false,
+		"mirrorZ": false,
+		"upAxis": 0
+	},
+	"meshes": [
+		{
+			"index": 0,
+			"name": "watchtowerHigh",
+			"uid": 12397652828391370149
+		}
+	],
+	"metaVersion": 1,
+	"type": "Model",
+	"uid": 7777782219084001235
+}

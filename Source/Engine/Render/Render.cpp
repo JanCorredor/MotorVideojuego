@@ -1055,7 +1055,11 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 			glStencilOp(GL_KEEP, GL_REPLACE, GL_REPLACE);
 		}
 
+		// Una escala negativa (p. ej. un nodo espejado del FBX) invierte el orden de los triángulos
+		const bool mirrored = glm::determinant(glm::mat3(worldMatrix)) < 0.0f;
+		if (mirrored) glFrontFace(GL_CW);
 		mesh->GetPrimitive()->Draw();
+		if (mirrored) glFrontFace(GL_CCW);
 
 		if (isSelected)
 		{
@@ -1374,7 +1378,7 @@ void Render::AppendNormals(GameObject* go, const glm::mat4& worldMatrix)
 	MeshComponent* mesh = go->GetComponent<MeshComponent>();
 	if (!mesh || !mesh->IsActive() || !mesh->GetPrimitive()) return;
 
-	Primitive* prim = mesh->GetPrimitive();
+	const Primitive* prim = mesh->GetPrimitive();
 	const bool wantVertex = (settings.normals == NormalsMode::Vertex || settings.normals == NormalsMode::Both);
 	const bool wantFace = (settings.normals == NormalsMode::Face || settings.normals == NormalsMode::Both);
 

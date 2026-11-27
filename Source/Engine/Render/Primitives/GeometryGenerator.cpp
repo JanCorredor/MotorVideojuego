@@ -39,7 +39,6 @@ std::unique_ptr<Primitive> GeometryGenerator::CreateCube(float size)
 
     auto cube = std::make_unique<Primitive>();
     cube->Init(std::move(vertices), std::move(indices));
-    cube->SetSourceInfo("Primitive:Cube", -1);
     return cube;
 }
 
@@ -102,7 +101,6 @@ std::unique_ptr<Primitive> GeometryGenerator::CreatePyramid(float baseSize, floa
 
     auto pyramid = std::make_unique<Primitive>();
     pyramid->Init(std::move(vertices), std::move(indices));
-    pyramid->SetSourceInfo("Primitive:Pyramid", -1);
     return pyramid;
 }
 
@@ -158,7 +156,6 @@ std::unique_ptr<Primitive> GeometryGenerator::CreateSphere(float radius, unsigne
 
     auto sphere = std::make_unique<Primitive>();
     sphere->Init(std::move(vertices), std::move(indices));
-    sphere->SetSourceInfo("Primitive:Sphere", -1);
     return sphere;
 }
 
@@ -223,7 +220,6 @@ std::unique_ptr<Primitive> GeometryGenerator::CreateCylinder(float radius, float
 
     auto cylinder = std::make_unique<Primitive>();
     cylinder->Init(std::move(vertices), std::move(indices));
-    cylinder->SetSourceInfo("Primitive:Cylinder", -1);
     return cylinder;
 }
 
@@ -244,7 +240,6 @@ std::unique_ptr<Primitive> GeometryGenerator::CreatePlane(float size)
 
     auto plane = std::make_unique<Primitive>();
     plane->Init(std::move(vertices), std::move(indices));
-    plane->SetSourceInfo("Primitive:Plane", -1);
     return plane;
 }
 

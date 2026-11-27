@@ -1,41 +1,18 @@
 #pragma once
 
-#include <string>
-#include <memory>
-#include <cstdint>
 #include "../../Render/Primitives/Primitive.h"
 
-class GameObject;
+#include <memory>
+#include <string>
+#include <vector>
 
+// Formato propio .mesh (binario): cabecera "MMSH" (versión, nº de vértices e índices y AABB local),
+// vértices (posición, normal, UV) e índices uint32. Cargarlo es casi un memcpy
 class MeshImporter
 {
 public:
-    // Verifica si la extensión corresponde a un modelo 3D soportado (.fbx, .obj, .dae)
-    static bool IsSupportedExtension(const std::string& extension);
+	static bool Save(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices, const std::string& libraryPath);
 
-    // Carga la geometría desde un archivo y devuelve el Primitive
-    static std::unique_ptr<Primitive> ImportMesh(const std::string& filePath);
-
-    // Importa el archivo y lo instancia directamente como GameObject en la Scene
-    static GameObject* ImportToScene(const std::string& filePath, GameObject* parent = nullptr);
-
-    ////////////////////////
-    // Importer
-    ///////////////////////
-
-    // Opciones globales por defecto para nuevas importaciones de mallas
-    static MeshImportSettings& GetDefaultSettings();
-    static void SetDefaultSettings(const MeshImportSettings& newSettings);
-
-    // Reimporta una primitiva desde su archivo fuente original aplicando nuevas opciones
-    static std::unique_ptr<Primitive> ReimportPrimitive(const Primitive* existingPrim, const MeshImportSettings& newSettings);
-
-    // ========================================================================
-    // Custom File Format (.mesh en Library/Meshes/)
-    // ========================================================================
-    static std::string BuildCustomMeshPath(const std::string& sourcePath, int subMeshIndex = -1, uint64_t fallbackId = 0);
-    static bool SaveMeshToCustomFormat(const Primitive* primitive, const std::string& customFilePath);
-    static std::unique_ptr<Primitive> LoadMeshFromCustomFormat(const std::string& customFilePath);
-    static std::unique_ptr<Primitive> ResolveOrLoadPrimitive(const std::string& sourcePath, int subMeshIndex, const std::string& customMeshPath,
-        const MeshImportSettings& importSettings = MeshImportSettings(), bool hasExplicitImportSettings = false);
+	// Lee el .mesh y crea el Primitive (sube los buffers a la GPU). nullptr si falla.
+	static std::unique_ptr<Primitive> Load(const std::string& libraryPath);
 };

@@ -3,7 +3,6 @@
 #include "../Engine.h"
 #include "../Window/Window.h"
 #include "../Render/Render.h"
-#include "../Render/3DModels/ModelLoader.h"
 #include "../Input/Input.h"
 #include "../../Utils/Log.h"
 #include "GameObjects/Components/TransformComponent.h"
@@ -13,8 +12,8 @@
 #include "../Render/Primitives/GeometryGenerator.h"
 
 #include "../ResourceManagement/Importers/ImporterManager.h"
-#include "../ResourceManagement/Importers/MeshImporter.h"
-#include "../ResourceManagement/Importers/TextureImporter.h"
+#include "../ResourceManagement/ResourceManager.h"
+#include "../ResourceManagement/ResourceModel.h"
 
 #include "../Geometry/AABB.h"
 #include "../Geometry/Ray.h"
@@ -280,7 +279,7 @@ GameObject* Scene::CreateNewGameObject(std::vector<std::unique_ptr<Component>> o
 
 	if (presentTypes.find(COMPONENT_MESH) == presentTypes.end())
 	{
-		auto newMesh = std::make_unique<MeshComponent>(newObj.get(), GeometryGenerator::CreateCube(1.0f));
+		auto newMesh = std::make_unique<MeshComponent>(newObj.get(), ResourceManager::GetBuiltInMeshUID(PrimitiveType::Cube));
 		newObj->AddComponent(std::move(newMesh));
 	}
 
@@ -321,9 +320,8 @@ GameObject* Scene::CreatePrimitive(PrimitiveType type, GameObject* parent)
 	trans->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
 	newObj->AddComponent(std::move(trans));
 
-	auto prim = GeometryGenerator::Create(type);
-	auto mesh = std::make_unique<MeshComponent>(newObj.get(), std::move(prim));
-	newObj->AddComponent(std::move(mesh));
+	// Las primitivas son mallas internas del ResourceManager: todas las instancias comparten una
+	newObj->AddComponent(std::make_unique<MeshComponent>(newObj.get(), ResourceManager::GetBuiltInMeshUID(type)));
 
 	auto mat = std::make_unique<MaterialComponent>(newObj.get());
 	mat->SetColor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -337,7 +335,98 @@ GameObject* Scene::CreatePrimitive(PrimitiveType type, GameObject* parent)
 
 GameObject* Scene::ImportModel(const std::string& filePath, GameObject* parent)
 {
-	return MeshImporter::ImportToScene(filePath, parent);
+	// Se copia a Assets si viene de fuera, se importa a Library y se instancia
+	ResourceManager* resources = Engine::GetInstance().resources.get();
+	if (!resources) return nullptr;
+	const std::string assetPath = resources->ImportExternalFile(filePath, resources->GetImportFolder());
+	const UID modelUID = assetPath.empty() ? INVALID_UID : resources->GetAssetUID(assetPath);
+	return modelUID != INVALID_UID ? InstantiateModel(modelUID, parent) : nullptr;
+}
+
+GameObject* Scene::InstantiateModel(UID modelUID, GameObject* parent)
+{
+	ResourceManager* resources = Engine::GetInstance().resources.get();
+	if (!resources) return nullptr;
+
+	// El modelo solo se pide mientras se instancia; las mallas y texturas las piden los componentes
+	Resource* resource = resources->RequestResource(modelUID);
+	if (resource == nullptr || resource->GetType() != ResourceType::Model || !resource->IsLoaded())
+	{
+		if (resource) resources->ReleaseResource(modelUID);
+		LOG_ERROR("[Scene] El modelo con UID %llu no existe o no se pudo cargar", (unsigned long long)modelUID);
+		return nullptr;
+	}
+
+	const std::vector<ModelNode>& nodes = static_cast<const ResourceModel*>(resource)->GetNodes();
+	std::vector<GameObject*> created(nodes.size(), nullptr);
+
+	for (size_t i = 0; i < nodes.size(); ++i)
+	{
+		const ModelNode& node = nodes[i];
+		auto go = std::make_unique<GameObject>(i == 0 ? MakeUniqueName(node.name) : node.name);
+
+		auto transform = std::make_unique<TransformComponent>(go.get());
+		transform->SetPosition(node.position);
+		transform->SetRotation(node.rotation);
+		transform->SetScale(node.scale);
+		go->AddComponent(std::move(transform));
+
+		if (node.mesh != INVALID_UID)
+		{
+			go->AddComponent(std::make_unique<MeshComponent>(go.get(), node.mesh));
+
+			auto material = std::make_unique<MaterialComponent>(go.get());
+			material->SetColor(node.color);
+			material->SetTexture(node.texture);
+			material->SetUseTexture(node.texture != INVALID_UID);
+			go->AddComponent(std::move(material));
+		}
+
+		if (node.isCamera)
+		{
+			go->AddComponent(std::make_unique<CameraComponent>(go.get()));
+		}
+
+		// Los nodos vienen en preorden: el padre de 'i' ya se ha creado
+		GameObject* nodeParent = (node.parent >= 0 && node.parent < static_cast<int>(i)) ? created[node.parent] : parent;
+		created[i] = Register(std::move(go), nodeParent);
+	}
+
+	GameObject* root = created.empty() ? nullptr : created[0];
+	if (root) LOG("[Scene] Modelo '%s' instanciado (%zu GameObjects)", resource->GetName().c_str(), created.size());
+
+	resources->ReleaseResource(modelUID);
+	spacePartitioningDirty = true;
+	return root;
+}
+
+void Scene::OnResourcesRemoved(const std::vector<UID>& uids)
+{
+	if (uids.empty() || sceneEntities.empty()) return;
+
+	const std::unordered_set<UID> removed(uids.begin(), uids.end());
+	size_t affected = 0;
+	for (const auto& entity : sceneEntities)
+	{
+		if (MeshComponent* mesh = entity->GetComponent<MeshComponent>())
+		{
+			if (mesh->GetMeshUID() != INVALID_UID && removed.count(mesh->GetMeshUID()) > 0)
+			{
+				mesh->MarkMeshMissing();
+				++affected;
+			}
+		}
+		if (MaterialComponent* material = entity->GetComponent<MaterialComponent>())
+		{
+			if (material->GetTextureUID() != INVALID_UID && removed.count(material->GetTextureUID()) > 0)
+			{
+				material->MarkTextureMissing();
+				++affected;
+			}
+		}
+	}
+
+	if (affected > 0) LOG_WARNING("[Scene] %zu componente(s) usaban recursos borrados y se han quedado sin ellos", affected);
 }
 
 void Scene::DestroyGameObject(GameObject* target)
@@ -504,7 +593,7 @@ GameObject* Scene::DuplicateGameObject(GameObject* target, GameObject* parent)
 
 void Scene::HandleDroppedFile(const std::string& filePath)
 {
-	ImporterManager::ImportFile(filePath, selected);
+	ImporterManager::HandleDroppedFile(filePath, selected);
 	spacePartitioningDirty = true;
 }
 

@@ -15,9 +15,14 @@ namespace FileSystem
 	constexpr const char* SCENES_DIR = "Assets/Scenes";
 	constexpr const char* LIBRARY_DIR = "Library";
 	constexpr const char* LIBRARY_MESHES_DIR = "Library/Meshes";
+	constexpr const char* LIBRARY_TEXTURES_DIR = "Library/Textures";
+	constexpr const char* LIBRARY_MODELS_DIR = "Library/Models";
 
 	// Extensiones propias del motor
+	constexpr const char* META_EXTENSION = ".meta";
 	constexpr const char* MESH_EXTENSION = ".mesh";
+	constexpr const char* TEXTURE_EXTENSION = ".tex";
+	constexpr const char* MODEL_EXTENSION = ".model";
 	constexpr const char* SCENE_EXTENSION = ".scene";
 
 	// Busca la raíz del proyecto y crea las carpetas que faltan. Llamar una vez al arrancar

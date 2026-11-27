@@ -20,7 +20,7 @@
 namespace
 {
 	// 2: lista plana de GameObjects con los componentes por nombre (la 1 anidaba los hijos)
-	constexpr int SCENE_FILE_VERSION = 2;
+	constexpr int SCENE_FILE_VERSION = 3; // 3: mallas y texturas por UID de recurso
 
 	bool WriteTextFile(const std::string& diskPath, const std::string& text)
 	{

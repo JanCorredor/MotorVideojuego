@@ -1,0 +1,13 @@
+{
+	"importSettings": {
+		"flipX": false,
+		"flipY": false,
+		"magFilter": 1,
+		"maxSize": 2048,
+		"minFilter": 2,
+		"wrapMode": 0
+	},
+	"metaVersion": 1,
+	"type": "Texture",
+	"uid": 14260475656956381900
+}

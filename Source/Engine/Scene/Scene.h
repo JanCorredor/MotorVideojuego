@@ -5,6 +5,7 @@
 #include "../Render/Primitives/GeometryGenerator.h"
 #include "../Geometry/AABB.h"
 #include "../Geometry/Frustum.h"
+#include "../ResourceManagement/Resource.h"
 #include <vector>
 #include <memory>
 #include <string>
@@ -122,6 +123,10 @@ public:
 	GameObject* CreateEmptyGameObject(GameObject* parent = nullptr);
 	GameObject* CreatePrimitive(PrimitiveType type, GameObject* parent = nullptr);
 	GameObject* ImportModel(const std::string& filePath, GameObject* parent = nullptr);
+	// Crea un GameObject por nodo de un modelo importado (ResourceModel)
+	GameObject* InstantiateModel(UID modelUID, GameObject* parent = nullptr);
+	// El ResourceManager avisa de que estos recursos se han borrado: los componentes los sueltan
+	void OnResourcesRemoved(const std::vector<UID>& uids);
 	GameObject* DuplicateGameObject(GameObject* target, GameObject* parent = nullptr);
 
 	// Destrucción recursiva en cascada y segura de GameObjects

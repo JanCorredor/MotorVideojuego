@@ -57,9 +57,9 @@
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -72,6 +72,36 @@
 			"parent": 0,
 			"static": false,
 			"uid": 1316477271999811816
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform"
+			],
+			"components": {
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						-90.0,
+						0.0,
+						-0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "Dummy001",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 16758778940965347939
 		},
 		{
 			"active": true,
@@ -90,40 +120,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building03_c.tga",
+					"texture": 8621400695702624141,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub0.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 0
-					}
+					"mesh": 2469379043552161249
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-41.47589111328125,
+						21.01409912109375,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -133,7 +148,7 @@
 				}
 			},
 			"name": "City_building_004",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 10586391012471812110
 		},
@@ -154,40 +169,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V02_C.png",
+					"texture": 2516460444493078418,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub1.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 1
-					}
+					"mesh": 4660889690202403457
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						17.707164764404297,
+						20.05327606201172,
+						2.121072952832037e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -197,7 +197,7 @@
 				}
 			},
 			"name": "City_building_001",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 5665665614759993728
 		},
@@ -218,40 +218,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building_016_c.tga",
+					"texture": 16129912871265520015,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub2.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 2
-					}
+					"mesh": 9470733788711321259
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						16.0104923248291,
+						37.4932861328125,
+						-1.5106878663573298e-06
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -261,7 +246,7 @@
 				}
 			},
 			"name": "City_building_007",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 7886386515368976256
 		},
@@ -282,40 +267,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building_025_c.tga",
+					"texture": 11972382101432323897,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub3.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 3
-					}
+					"mesh": 12888003404166712553
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						40.97999572753906,
+						18.270824432373047,
+						-2.0522466002148576e-06
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						90.0
 					],
 					"scale": [
 						1.0,
@@ -325,7 +295,7 @@
 				}
 			},
 			"name": "City_building_008",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 12670143334365214823
 		},
@@ -346,35 +316,25 @@
 						0.2705882489681244,
 						1.0
 					],
-					"texturePath": "",
+					"texture": 0,
 					"useTexture": false,
 					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub4.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 4
-					}
+					"mesh": 9441927800495487779
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-2.1597719192504883,
+						1.8538382053375244,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.0
 					],
 					"scale": [
 						1.0,
@@ -384,7 +344,7 @@
 				}
 			},
 			"name": "Line002",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 13108905297788362349
 		},
@@ -405,45 +365,35 @@
 						0.05882353335618973,
 						1.0
 					],
-					"texturePath": "",
+					"texture": 0,
 					"useTexture": false,
 					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub5.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 5
-					}
+					"mesh": 12657434546154371053
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-0.02860260009765625,
+						0.026032090187072754,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
-						1.0,
-						1.0,
-						1.0
+						0.9966352581977844,
+						0.9706164598464966,
+						0.9966352581977844
 					]
 				}
 			},
 			"name": "Plane001",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 1339224790189329995
 		},
@@ -464,40 +414,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building 01_c.tga",
+					"texture": 300815412029661012,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub6.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 6
-					}
+					"mesh": 16740458136093152778
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						25.154010772705078,
+						-39.15372085571289,
+						8.553864176974457e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						90.0
 					],
 					"scale": [
 						1.0,
@@ -507,7 +442,7 @@
 				}
 			},
 			"name": "City_building_010",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 16377946809425297935
 		},
@@ -528,40 +463,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building_016_c.tga",
+					"texture": 16129912871265520015,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub7.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 7
-					}
+					"mesh": 6446442630020124536
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						30.134540557861328,
+						37.4932861328125,
+						-1.5106878663573298e-06
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -571,7 +491,7 @@
 				}
 			},
 			"name": "City_building_011",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 1020837064979189769
 		},
@@ -592,40 +512,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building 06_ c.tga",
+					"texture": 2947384585792095273,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub8.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 8
-					}
+					"mesh": 1421880122560225662
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-42.288055419921875,
+						33.201576232910156,
+						5.014607040720875e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						90.0
 					],
 					"scale": [
 						1.0,
@@ -635,7 +540,7 @@
 				}
 			},
 			"name": "City_building_013",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 13771597503548226962
 		},
@@ -656,40 +561,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building03_c.tga",
+					"texture": 8621400695702624141,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub9.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 9
-					}
+					"mesh": 6283470519517000054
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-19.439706802368164,
+						32.061729431152344,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-180.0
 					],
 					"scale": [
 						1.0,
@@ -699,7 +589,7 @@
 				}
 			},
 			"name": "City_building_014",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 2196326251135790553
 		},
@@ -720,40 +610,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building 01_c.tga",
+					"texture": 300815412029661012,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub10.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 10
-					}
+					"mesh": 501802874368022517
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						34.270423889160156,
+						-41.972747802734375,
+						8.553864176974457e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-180.0
 					],
 					"scale": [
 						1.0,
@@ -763,7 +638,7 @@
 				}
 			},
 			"name": "City_building_016",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 14162621601192417466
 		},
@@ -784,40 +659,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building 01_c.tga",
+					"texture": 300815412029661012,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub11.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 11
-					}
+					"mesh": 14949383964479291700
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						44.26008224487305,
+						-39.15372085571289,
+						8.553864176974457e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						90.0
 					],
 					"scale": [
 						1.0,
@@ -827,7 +687,7 @@
 				}
 			},
 			"name": "City_building_017",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 2698713462384730130
 		},
@@ -848,40 +708,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building05 _c.tga",
+					"texture": 12000410168841666668,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub12.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 12
-					}
+					"mesh": 15448981975782225044
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-20.831323623657227,
+						-27.426488876342773,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						179.99998474121094
 					],
 					"scale": [
 						1.0,
@@ -891,7 +736,7 @@
 				}
 			},
 			"name": "City_building_022",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 5558280441544219810
 		},
@@ -912,40 +757,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building_016_c.tga",
+					"texture": 16129912871265520015,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub13.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 13
-					}
+					"mesh": 5853545278223372012
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						42.13064193725586,
+						37.4932861328125,
+						-1.5106878663573298e-06
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -955,7 +785,7 @@
 				}
 			},
 			"name": "City_building_023",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 9403456086560267942
 		},
@@ -976,40 +806,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building_025_c.tga",
+					"texture": 11972382101432323897,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub14.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 14
-					}
+					"mesh": 1428473504398966087
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-20.572771072387695,
+						43.060829162597656,
+						-0.06919445842504501
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						180.0
 					],
 					"scale": [
 						1.0,
@@ -1019,7 +834,7 @@
 				}
 			},
 			"name": "City_building_024",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 8644909838591027005
 		},
@@ -1040,40 +855,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building05 _c.tga",
+					"texture": 12000410168841666668,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub15.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 15
-					}
+					"mesh": 13598290854635461990
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						31.51188850402832,
+						-16.446016311645508,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						180.0
 					],
 					"scale": [
 						1.0,
@@ -1083,7 +883,7 @@
 				}
 			},
 			"name": "City_building_026",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 7364538799062136384
 		},
@@ -1104,40 +904,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"texture": 16552989222893791102,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub16.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 16
-					}
+					"mesh": 5387169965651990515
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						13.38798999786377,
+						-33.75503921508789,
+						-9.383451811117993e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -1147,7 +932,7 @@
 				}
 			},
 			"name": "City_building_028",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 2377214211692554804
 		},
@@ -1168,35 +953,25 @@
 						0.5882353186607361,
 						1.0
 					],
-					"texturePath": "",
+					"texture": 0,
 					"useTexture": false,
 					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub17.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 17
-					}
+					"mesh": 12629260511427941293
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-2.5033531188964844,
+						15.800846099853516,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -1206,7 +981,7 @@
 				}
 			},
 			"name": "Object010",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 717225843796598937
 		},
@@ -1227,40 +1002,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"texture": 16552989222893791102,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub18.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 18
-					}
+					"mesh": 607782347524364976
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-42.8072395324707,
+						-41.83556365966797,
+						-9.383451811117993e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.0
 					],
 					"scale": [
 						1.0,
@@ -1270,7 +1030,7 @@
 				}
 			},
 			"name": "City_building_030",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 849041010354536109
 		},
@@ -1291,40 +1051,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"texture": 16552989222893791102,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub19.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 19
-					}
+					"mesh": 8261850504567568960
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-34.679481506347656,
+						-41.83556365966797,
+						-9.383451811117993e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.0
 					],
 					"scale": [
 						1.0,
@@ -1334,7 +1079,7 @@
 				}
 			},
 			"name": "City_building_031",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 13900911829910064235
 		},
@@ -1355,40 +1100,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building03_c.tga",
+					"texture": 8621400695702624141,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub20.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 20
-					}
+					"mesh": 8034197651395755004
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-29.478403091430664,
+						21.01409912109375,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -1398,7 +1128,7 @@
 				}
 			},
 			"name": "City_building_032",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 15104820721279422326
 		},
@@ -1419,40 +1149,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building 06_ c.tga",
+					"texture": 2947384585792095273,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub21.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 21
-					}
+					"mesh": 15530993569628700547
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-32.36149597167969,
+						42.37042236328125,
+						5.014607040720875e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -1462,7 +1177,7 @@
 				}
 			},
 			"name": "City_building_033",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 6160395089842453364
 		},
@@ -1483,40 +1198,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building05 _c.tga",
+					"texture": 12000410168841666668,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub22.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 22
-					}
+					"mesh": 4978505421327648968
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						16.049516677856445,
+						-16.696884155273438,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.00001525878906
 					],
 					"scale": [
 						1.0,
@@ -1526,7 +1226,7 @@
 				}
 			},
 			"name": "City_building_034",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 9413548424045510741
 		},
@@ -1547,40 +1247,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"texture": 16552989222893791102,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub23.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 23
-					}
+					"mesh": 1996040438578890645
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						13.38798999786377,
+						-40.80251693725586,
+						-9.383451811117993e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
 						1.0,
@@ -1590,7 +1275,7 @@
 				}
 			},
 			"name": "City_building_035",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 10820062514207748276
 		},
@@ -1611,40 +1296,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building 06_ c.tga",
+					"texture": 2947384585792095273,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub24.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 24
-					}
+					"mesh": 8210887323016837497
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-31.216331481933594,
+						33.201576232910156,
+						5.014607040720875e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.0
 					],
 					"scale": [
 						1.0,
@@ -1654,7 +1324,7 @@
 				}
 			},
 			"name": "City_building_036",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 17569325793672249960
 		},
@@ -1675,40 +1345,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building05 _c.tga",
+					"texture": 12000410168841666668,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub25.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 25
-					}
+					"mesh": 17525987280041873889
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-20.31769371032715,
+						-16.16360855102539,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						179.99998474121094
 					],
 					"scale": [
 						1.0,
@@ -1718,7 +1373,7 @@
 				}
 			},
 			"name": "City_building_037",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 956888491826359454
 		},
@@ -1739,40 +1394,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": true,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/building05 _c.tga",
+					"texture": 12000410168841666668,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub26.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 26
-					}
+					"mesh": 15586492799992815918
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
+						-41.64900207519531,
+						-16.495393753051758,
 						0.0
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.00001525878906
 					],
 					"scale": [
 						1.0,
@@ -1782,7 +1422,7 @@
 				}
 			},
 			"name": "City_building_038",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 13106414099759174525
 		},
@@ -1803,40 +1443,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"texture": 16552989222893791102,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub27.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 27
-					}
+					"mesh": 13257111690129358824
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-42.8072395324707,
+						-30.643888473510742,
+						-9.383451811117993e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.0
 					],
 					"scale": [
 						1.0,
@@ -1846,7 +1471,7 @@
 				}
 			},
 			"name": "City_building_039",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 3565915183483543411
 		},
@@ -1867,40 +1492,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"texture": 16552989222893791102,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub28.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 28
-					}
+					"mesh": 1089276622809655085
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						-34.679481506347656,
+						-30.643888473510742,
+						-9.383451811117993e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						-90.0
 					],
 					"scale": [
 						1.0,
@@ -1910,7 +1520,7 @@
 				}
 			},
 			"name": "City_building_040",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 5347718812987804488
 		},
@@ -1931,40 +1541,25 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Building_V02_C.png",
+					"texture": 2516460444493078418,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/Street environment_V01_sub29.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/Street environment_V01.FBX",
-						"submeshIndex": 29
-					}
+					"mesh": 3080636825789132141
 				},
 				"Transform": {
 					"active": true,
 					"position": [
-						0.0,
-						0.0,
-						0.0
+						30.69527816772461,
+						21.612646102905273,
+						2.121072952832037e-07
 					],
 					"rotation": [
+						-0.0,
 						0.0,
-						0.0,
-						0.0
+						90.0
 					],
 					"scale": [
 						1.0,
@@ -1974,7 +1569,7 @@
 				}
 			},
 			"name": "City_building_041",
-			"parent": 1316477271999811816,
+			"parent": 16758778940965347939,
 			"static": false,
 			"uid": 13413719413520452627
 		}
@@ -1984,5 +1579,5 @@
 		"maxDepth": 5,
 		"maxObjectsPerNode": 1
 	},
-	"version": 2
+	"version": 3
 }

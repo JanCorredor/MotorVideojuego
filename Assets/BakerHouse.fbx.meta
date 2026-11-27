@@ -1,0 +1,26 @@
+{
+	"importSettings": {
+		"convertUnits": true,
+		"globalScale": 1.0,
+		"ignoreCameras": true,
+		"ignoreLights": true,
+		"mirrorX": false,
+		"mirrorZ": false,
+		"upAxis": 0
+	},
+	"meshes": [
+		{
+			"index": 0,
+			"name": "Chimney",
+			"uid": 2831387068128690793
+		},
+		{
+			"index": 1,
+			"name": "Baker_house",
+			"uid": 30878072393544342
+		}
+	],
+	"metaVersion": 1,
+	"type": "Model",
+	"uid": 10592149441504089857
+}

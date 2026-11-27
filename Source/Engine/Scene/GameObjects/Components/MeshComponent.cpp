@@ -1,79 +1,125 @@
 #include "MeshComponent.h"
+#include "../GameObject.h"
+#include "../../Scene.h"
+#include "../../../Engine.h"
+#include "../../../ResourceManagement/ResourceManager.h"
+#include "../../../ResourceManagement/ResourceMesh.h"
 #include "../../../../Utils/JsonHelpers.h"
+#include "../../../../Utils/Log.h"
+
+#include <nlohmann/json.hpp>
+
+namespace
+{
+	// La AABB del objeto cambia: el árbol de partición espacial tiene que rehacerse
+	void MarkSpacePartitioningDirty()
+	{
+		if (Scene* scene = Engine::GetInstance().scene.get()) scene->MarkSpacePartitioningDirty();
+	}
+}
+
+MeshComponent::MeshComponent(GameObject* owner, UID meshUID) : Component(COMPONENT_MESH, owner)
+{
+	SetMesh(meshUID);
+}
+
+MeshComponent::~MeshComponent()
+{
+	ReleaseMesh();
+}
+
+std::unique_ptr<Component> MeshComponent::Clone(GameObject* newOwner) const
+{
+	// El clon pide su propia referencia a la misma malla
+	auto clone = std::make_unique<MeshComponent>(newOwner, missing ? INVALID_UID : meshUID);
+	if (!active) clone->Disable();
+	return clone;
+}
+
+void MeshComponent::SetMesh(UID uid)
+{
+	if (uid == meshUID && !missing) return;
+
+	ResourceManager* resources = Engine::GetInstance().resources.get();
+
+	// Se pide la nueva antes de soltar la vieja: si fuese la misma no se descarga
+	ResourceMesh* newMesh = nullptr;
+	bool newMissing = false;
+	if (uid != INVALID_UID && resources != nullptr)
+	{
+		Resource* resource = resources->RequestResource(uid);
+		if (resource != nullptr && resource->GetType() == ResourceType::Mesh)
+		{
+			newMesh = static_cast<ResourceMesh*>(resource);
+		}
+		else
+		{
+			if (resource != nullptr) resources->ReleaseResource(uid);
+			newMissing = true;
+			LOG_WARNING("[Mesh] La malla con UID %llu no existe (¿asset borrado?)", (unsigned long long)uid);
+		}
+	}
+
+	ReleaseMesh();
+
+	meshUID = uid;
+	mesh = newMesh;
+	missing = newMissing;
+
+	MarkSpacePartitioningDirty();
+	NotifyOwnerModified();
+}
+
+void MeshComponent::ReleaseMesh()
+{
+	if (mesh != nullptr)
+	{
+		if (ResourceManager* resources = Engine::GetInstance().resources.get())
+		{
+			resources->ReleaseResource(meshUID);
+		}
+		mesh = nullptr;
+	}
+}
+
+void MeshComponent::MarkMeshMissing()
+{
+	ReleaseMesh();
+	missing = (meshUID != INVALID_UID);
+	MarkSpacePartitioningDirty();
+}
+
+const Primitive* MeshComponent::GetPrimitive() const
+{
+	return mesh ? mesh->GetPrimitive() : nullptr;
+}
+
+AABB MeshComponent::GetLocalAABB() const
+{
+	return mesh ? mesh->GetLocalAABB() : AABB();
+}
+
+void MeshComponent::Enable()
+{
+	Component::Enable();
+	MarkSpacePartitioningDirty();
+}
+
+void MeshComponent::Disable()
+{
+	Component::Disable();
+	MarkSpacePartitioningDirty();
+}
 
 void MeshComponent::Save(nlohmann::json& out) const
 {
 	out["active"] = active;
-	if (!primitive) return;
-
-	std::string srcPath = primitive->GetSourcePath();
-	const int subIdx = primitive->GetSubMeshIndex();
-
-	// Garantizar que cualquier modelo externo se copie dentro de Assets/Models y se guarde con ruta relativa portable
-	if (!srcPath.empty() && srcPath.rfind("Primitive:", 0) != 0)
-	{
-		srcPath = FileSystem::EnsureAssetInProject(srcPath, "Models");
-		primitive->SetSourceInfo(srcPath, subIdx);
-	}
-
-	std::string customPath = primitive->GetCustomMeshPath();
-	if (customPath.empty())
-	{
-		uint64_t ownerId = owner ? (uint64_t)owner->GetUUID() : 0;
-		customPath = MeshImporter::BuildCustomMeshPath(srcPath, subIdx, ownerId);
-	}
-	else
-	{
-		customPath = FileSystem::ToProjectRelativePath(customPath);
-	}
-	primitive->SetCustomMeshPath(customPath);
-
-	std::string customDiskPath = FileSystem::ResolveExistingPath(customPath);
-	std::error_code ec;
-	if (!std::filesystem::exists(customDiskPath, ec))
-	{
-		MeshImporter::SaveMeshToCustomFormat(primitive.get(), customPath);
-	}
-
-	const MeshImportSettings& imp = primitive->GetImportSettings();
-	out["primitive"] = {
-		{ "sourcePath", srcPath },
-		{ "submeshIndex", subIdx },
-		{ "customMeshPath", customPath },
-		{ "import", {
-			{ "globalScale", imp.globalScale },
-			{ "axisPreset", imp.axisPreset },
-			{ "ignoreCameras", imp.ignoreCameras },
-			{ "ignoreLights", imp.ignoreLights } } }
-	};
+	out["mesh"] = meshUID;
 }
 
 void MeshComponent::Load(const nlohmann::json& in)
 {
-	active = JsonHelpers::Get(in, "active", true);
-
-	// Sin "primitive" el componente está vacío
-	const auto prim = in.find("primitive");
-	if (prim == in.end() || !prim->is_object())
-	{
-		primitive.reset();
-		return;
-	}
-
-	std::string srcPath = JsonHelpers::Get(*prim, "sourcePath", std::string());
-	int subIdx = JsonHelpers::Get(*prim, "submeshIndex", -1);
-	std::string customPath = JsonHelpers::Get(*prim, "customMeshPath", std::string());
-
-	MeshImportSettings imp;
-	const auto settings = prim->find("import");
-	const bool hasExplicitSettings = settings != prim->end() && settings->is_object();
-	if (hasExplicitSettings)
-	{
-		imp.globalScale = JsonHelpers::Get(*settings, "globalScale", 1.0f);
-		imp.axisPreset = JsonHelpers::Get(*settings, "axisPreset", 0);
-		imp.ignoreCameras = JsonHelpers::Get(*settings, "ignoreCameras", true);
-		imp.ignoreLights = JsonHelpers::Get(*settings, "ignoreLights", true);
-	}
-
-	primitive = MeshImporter::ResolveOrLoadPrimitive(srcPath, subIdx, customPath, imp, hasExplicitSettings);
+	SetMesh(JsonHelpers::Get(in, "mesh", (UID)INVALID_UID));
+	if (JsonHelpers::Get(in, "active", true)) Enable();
+	else Disable();
 }

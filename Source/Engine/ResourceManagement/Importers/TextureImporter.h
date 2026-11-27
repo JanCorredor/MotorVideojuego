@@ -1,22 +1,30 @@
 #pragma once
 
+#include "../ImportSettings.h"
+
+#include <cstddef>
 #include <string>
-#include "../../Render/Texture/TextureManager.h"
 
-class GameObject;
-
+// Formato propio .tex (binario): cabecera "MTEX" (versión, tamaño, canales y filtros) y píxeles de
+// abajo arriba, ya volteados y reducidos: cargarlo es leer el fichero y subirlo a la GPU
 class TextureImporter
 {
 public:
-    // Verifica si la extensión es un formato de imagen soportado (.png, .jpg, .jpeg, .dds, .tga, .bmp)
-    static bool IsSupportedExtension(const std::string& extension);
+	// .png .jpg .jpeg .tga .dds .bmp
+	static bool IsSupportedExtension(const std::string& extension);
 
-    // Importa la textura a través del TextureManager (con caché en GPU)
-    static const TextureInfo* ImportTexture(const std::string& filePath);
+	// Asset (ruta de proyecto) -> fichero .tex en Library
+	static bool Import(const std::string& assetPath, const TextureImportSettings& settings, const std::string& libraryPath);
 
-    // Importa o reimporta la textura con opciones explícitas (filtrado, wrapping, flip X/Y)
-    static const TextureInfo* ImportTexture(const std::string& filePath, const TextureSettings& settings, bool forceReload = false);
+	struct GPUTexture
+	{
+		unsigned int id = 0;
+		int width = 0;
+		int height = 0;
+		int channels = 0;
+		size_t bytes = 0; // memoria aproximada en GPU
+	};
 
-    // Importa la textura y la asigna al MaterialComponent del GameObject indicado
-    static bool ImportAndAssignToGameObject(const std::string& filePath, GameObject* target);
+	// Fichero .tex -> textura OpenGL lista para usar
+	static bool LoadToGPU(const std::string& libraryPath, GPUTexture& outTexture);
 };

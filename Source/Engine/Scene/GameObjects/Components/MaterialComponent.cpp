@@ -1,19 +1,102 @@
 #include "MaterialComponent.h"
 #include "../../../Engine.h"
-#include "../../../ResourceManagement/Importers/TextureImporter.h"
-#include "../../../FileSystem/FileSystem.h"
+#include "../../../Render/Texture/TextureManager.h"
+#include "../../../ResourceManagement/ResourceManager.h"
+#include "../../../ResourceManagement/ResourceTexture.h"
 #include "../../../../Utils/JsonHelpers.h"
+#include "../../../../Utils/Log.h"
+
+#include <nlohmann/json.hpp>
+
+MaterialComponent::MaterialComponent(GameObject* owner) : Component(COMPONENT_MATERIAL, owner)
+{
+}
+
+MaterialComponent::~MaterialComponent()
+{
+	ReleaseTexture();
+}
 
 std::unique_ptr<Component> MaterialComponent::Clone(GameObject* newOwner) const
 {
 	auto clone = std::make_unique<MaterialComponent>(newOwner);
-	clone->diffuse = this->diffuse;
-	clone->color = this->color;
-	clone->useTexture = this->useTexture;
-	clone->useCheckerboard = this->useCheckerboard;
-	clone->usingMissingTexture = this->usingMissingTexture;
+	clone->color = color;
+	clone->useTexture = useTexture;
+	clone->useCheckerboard = useCheckerboard;
+	clone->usingMissingTexture = usingMissingTexture;
+	clone->SetTexture(textureUID); // el clon pide su propia referencia
 	if (!active) clone->Disable();
 	return clone;
+}
+
+void MaterialComponent::SetTexture(UID uid)
+{
+	if (uid == textureUID && !missing) return;
+
+	ResourceManager* resources = Engine::GetInstance().resources.get();
+
+	// Se pide la nueva antes de soltar la vieja: si fuese la misma no se descarga
+	ResourceTexture* newTexture = nullptr;
+	bool newMissing = false;
+	if (uid != INVALID_UID && resources != nullptr)
+	{
+		Resource* resource = resources->RequestResource(uid);
+		if (resource != nullptr && resource->GetType() == ResourceType::Texture)
+		{
+			newTexture = static_cast<ResourceTexture*>(resource);
+		}
+		else
+		{
+			if (resource != nullptr) resources->ReleaseResource(uid);
+			newMissing = true;
+			LOG_WARNING("[Material] La textura con UID %llu no existe (¿asset borrado?)", (unsigned long long)uid);
+		}
+	}
+
+	ReleaseTexture();
+
+	textureUID = uid;
+	texture = newTexture;
+	missing = newMissing;
+	NotifyOwnerModified();
+}
+
+void MaterialComponent::ReleaseTexture()
+{
+	if (texture != nullptr)
+	{
+		if (ResourceManager* resources = Engine::GetInstance().resources.get())
+		{
+			resources->ReleaseResource(textureUID);
+		}
+		texture = nullptr;
+	}
+}
+
+void MaterialComponent::MarkTextureMissing()
+{
+	ReleaseTexture();
+	missing = (textureUID != INVALID_UID);
+}
+
+unsigned int MaterialComponent::GetActiveTextureID() const
+{
+	const TextureManager* textures = Engine::GetInstance().textures.get();
+
+	if (useCheckerboard && textures && textures->GetCheckerboard())
+	{
+		return textures->GetCheckerboard()->id;
+	}
+
+	// Textura borrada, que no se pudo cargar o forzada para depurar: se ve la "missing"
+	const bool broken = textureUID != INVALID_UID && (missing || texture == nullptr || texture->GetGLID() == 0);
+	if (usingMissingTexture || (useTexture && broken))
+	{
+		return (textures && textures->GetMissingTexture()) ? textures->GetMissingTexture()->id : 0;
+	}
+
+	if (!useTexture || texture == nullptr) return 0;
+	return texture->GetGLID();
 }
 
 void MaterialComponent::Save(nlohmann::json& out) const
@@ -23,93 +106,17 @@ void MaterialComponent::Save(nlohmann::json& out) const
 	out["useTexture"] = useTexture;
 	out["checkerboard"] = useCheckerboard;
 	out["usingMissingTexture"] = usingMissingTexture;
-
-	std::string texPath = (diffuse != nullptr && diffuse->path.find("(procedural)") == std::string::npos)
-		? FileSystem::EnsureAssetInProject(diffuse->path, "Textures")
-		: "";
-	out["texturePath"] = texPath;
-
-	if (diffuse != nullptr && !texPath.empty())
-	{
-		out["minFilter"] = diffuse->importSettings.minFilter;
-		out["magFilter"] = diffuse->importSettings.magFilter;
-		out["wrapMode"] = diffuse->importSettings.wrapMode;
-		out["flipX"] = diffuse->importSettings.flipX;
-		out["flipY"] = diffuse->importSettings.flipY;
-	}
+	out["texture"] = textureUID;
 }
 
 void MaterialComponent::Load(const nlohmann::json& in)
 {
-	active = JsonHelpers::Get(in, "active", true);
 	color = JsonHelpers::GetVec4(in, "color", glm::vec4(1.0f));
 	useTexture = JsonHelpers::Get(in, "useTexture", false);
 	useCheckerboard = JsonHelpers::Get(in, "checkerboard", false);
-	bool savedMissing = JsonHelpers::Get(in, "usingMissingTexture", false);
-	std::string texPath = JsonHelpers::Get(in, "texturePath", std::string());
+	usingMissingTexture = JsonHelpers::Get(in, "usingMissingTexture", false);
+	SetTexture(JsonHelpers::Get(in, "texture", (UID)INVALID_UID));
 
-	if (!texPath.empty() && texPath.find("(procedural)") == std::string::npos)
-	{
-		std::string resolvedTex = FileSystem::ResolveExistingPath(texPath);
-		if (in.contains("minFilter"))
-		{
-			TextureSettings ts;
-			ts.minFilter = JsonHelpers::Get(in, "minFilter", 0);
-			ts.magFilter = JsonHelpers::Get(in, "magFilter", 0);
-			ts.wrapMode = JsonHelpers::Get(in, "wrapMode", 0);
-			ts.flipX = JsonHelpers::Get(in, "flipX", false);
-			ts.flipY = JsonHelpers::Get(in, "flipY", false);
-			diffuse = TextureImporter::ImportTexture(resolvedTex, ts, false);
-			usingMissingTexture = (diffuse == nullptr);
-			if (usingMissingTexture && Engine::GetInstance().textures)
-			{
-				diffuse = Engine::GetInstance().textures->GetMissingTexture();
-			}
-		}
-		else
-		{
-			SetTexture(resolvedTex);
-		}
-	}
-	else if (savedMissing && Engine::GetInstance().textures)
-	{
-		usingMissingTexture = true;
-		diffuse = Engine::GetInstance().textures->GetMissingTexture();
-	}
-	else
-	{
-		diffuse = nullptr;
-		usingMissingTexture = false;
-	}
-}
-
-bool MaterialComponent::SetTexture(const std::string& filePath)
-{
-	const TextureInfo* loaded = TextureImporter::ImportTexture(filePath);
-	if (loaded == nullptr)
-	{
-		usingMissingTexture = true;
-		diffuse = Engine::GetInstance().textures->GetMissingTexture();
-		return false;
-	}
-	usingMissingTexture = false;
-	diffuse = loaded;
-	NotifyOwnerModified();
-	return true;
-}
-
-unsigned int MaterialComponent::GetActiveTextureID() const
-{
-	if (useCheckerboard)
-	{
-		const TextureInfo* checker = Engine::GetInstance().textures->GetCheckerboard();
-		if (checker) return checker->id;
-	}
-	if (usingMissingTexture)
-	{
-		const TextureInfo* missingTexture = Engine::GetInstance().textures->GetMissingTexture();
-		if (missingTexture) return missingTexture->id;
-	}
-	if (useTexture && diffuse) return diffuse->id;
-	return 0;
+	if (JsonHelpers::Get(in, "active", true)) Enable();
+	else Disable();
 }

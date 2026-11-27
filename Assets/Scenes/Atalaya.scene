@@ -46,6 +46,36 @@
 		{
 			"active": true,
 			"componentOrder": [
+				"Transform"
+			],
+			"components": {
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						-0.0,
+						0.0,
+						-0.0
+					],
+					"scale": [
+						0.009999999776482582,
+						0.009999999776482582,
+						0.009999999776482582
+					]
+				}
+			},
+			"name": "wooden watch tower2",
+			"parent": 0,
+			"static": false,
+			"uid": 9726957474027302871
+		},
+		{
+			"active": true,
+			"componentOrder": [
 				"Transform",
 				"Mesh",
 				"Material"
@@ -60,52 +90,37 @@
 						1.0,
 						1.0
 					],
-					"flipX": false,
-					"flipY": false,
-					"magFilter": 0,
-					"minFilter": 0,
-					"texturePath": "Assets/Textures/Wood_Tower_Col.jpg",
+					"texture": 14260475656956381900,
 					"useTexture": true,
-					"usingMissingTexture": false,
-					"wrapMode": 0
+					"usingMissingTexture": false
 				},
 				"Mesh": {
 					"active": true,
-					"primitive": {
-						"customMeshPath": "Library/Meshes/wooden watch tower2_sub0.mesh",
-						"import": {
-							"axisPreset": 0,
-							"globalScale": 1.0,
-							"ignoreCameras": true,
-							"ignoreLights": true
-						},
-						"sourcePath": "Assets/Models/wooden watch tower2.fbx",
-						"submeshIndex": 0
-					}
+					"mesh": 12397652828391370149
 				},
 				"Transform": {
 					"active": true,
 					"position": [
 						0.0,
-						0.0,
+						67.14997100830078,
 						0.0
 					],
 					"rotation": [
+						-90.00000762939453,
 						0.0,
-						0.0,
-						0.0
+						-0.0
 					],
 					"scale": [
-						1.0,
-						1.0,
-						1.0
+						100.0,
+						100.0,
+						100.0
 					]
 				}
 			},
-			"name": "wooden watch tower2",
-			"parent": 0,
+			"name": "watchtowerHigh",
+			"parent": 9726957474027302871,
 			"static": false,
-			"uid": 9726957474027302871
+			"uid": 5705731819779935452
 		}
 	],
 	"name": "Atalaya",
@@ -113,5 +128,5 @@
 		"maxDepth": 5,
 		"maxObjectsPerNode": 1
 	},
-	"version": 2
+	"version": 3
 }

@@ -1,0 +1,21 @@
+{
+	"importSettings": {
+		"convertUnits": true,
+		"globalScale": 1.0,
+		"ignoreCameras": true,
+		"ignoreLights": true,
+		"mirrorX": false,
+		"mirrorZ": false,
+		"upAxis": 0
+	},
+	"meshes": [
+		{
+			"index": 0,
+			"name": "SM_Candle_02",
+			"uid": 5118537814382238497
+		}
+	],
+	"metaVersion": 1,
+	"type": "Model",
+	"uid": 15577325368661500300
+}

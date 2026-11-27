@@ -17,6 +17,7 @@ class Audio;
 class Scene;
 class ModuleUI;
 class TextureManager;
+class ResourceManager;
 
 enum class SimulationState
 {
@@ -160,6 +161,8 @@ public:
 	std::shared_ptr<Render> render;
 	std::shared_ptr<Audio> audio;
 	std::shared_ptr<TextureManager> textures;
+	// Antes que 'scene': se destruye después, cuando la escena ya ha soltado sus recursos
+	std::shared_ptr<ResourceManager> resources;
 	std::shared_ptr<Scene> scene;
 	std::shared_ptr<ModuleUI> ui;
 
