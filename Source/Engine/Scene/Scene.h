@@ -122,6 +122,9 @@ private:
 
 	void ProcessPendingDestructions();
 	void ProcessPendingSceneChange();
+	// Escena <-> JSON sin tocar ficheros. editorState: cámara del editor y selección guardadas (vacío = la cámara no cambia)
+	nlohmann::json SerializeToJson(const std::string& sceneName) const;
+	bool LoadFromJson(const nlohmann::json& root, const std::string& sourceName, const nlohmann::json& editorState);
 	// Vacía la escena (sin cámara del editor ni árboles); la usan cargar, nueva escena y CleanUp
 	void ClearScene();
 

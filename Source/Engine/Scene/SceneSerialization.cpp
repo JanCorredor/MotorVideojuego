@@ -64,17 +64,8 @@ namespace
 	}
 }
 
-bool Scene::Save(const std::string& filePath) const
+nlohmann::json Scene::SerializeToJson(const std::string& sceneName) const
 {
-	if (filePath.empty())
-	{
-		LOG_ERROR("[Scene] No se puede guardar la escena: ruta vacía.");
-		return false;
-	}
-
-	std::string sceneName = FileSystem::GetFileNameNoExtension(filePath);
-	if (sceneName.empty()) sceneName = "Scene";
-
 	nlohmann::json root;
 	root["version"] = SCENE_FILE_VERSION;
 	root["name"] = sceneName;
@@ -105,6 +96,21 @@ bool Scene::Save(const std::string& filePath) const
 		}
 	}
 	root["gameObjects"] = std::move(objects);
+	return root;
+}
+
+bool Scene::Save(const std::string& filePath) const
+{
+	if (filePath.empty())
+	{
+		LOG_ERROR("[Scene] No se puede guardar la escena: ruta vacía.");
+		return false;
+	}
+
+	std::string sceneName = FileSystem::GetFileNameNoExtension(filePath);
+	if (sceneName.empty()) sceneName = "Scene";
+
+	const nlohmann::json root = SerializeToJson(sceneName);
 
 	const bool isTempFile = (filePath == Engine::GetInstance().GetTempSceneFilePath());
 	std::string targetSavePath = filePath;
@@ -175,23 +181,41 @@ bool Scene::Load(const std::string& filePath)
 		return false;
 	}
 
-	// Se valida antes de vaciar la escena actual, para no perderla si el fichero está mal
 	const nlohmann::json root = nlohmann::json::parse(text, nullptr, false);
+	// La escena temporal del Play no lo usa: al pulsar Stop la cámara del editor se queda donde está
+	const nlohmann::json editorState = isTempFile ? nlohmann::json::object() : ReadEditorState(FileSystem::ToProjectRelativePath(resolvedScenePath));
+	if (!LoadFromJson(root, resolvedScenePath, editorState))
+	{
+		return false;
+	}
+
+	if (!isTempFile)
+	{
+		currentScenePath = FileSystem::ToProjectRelativePath(resolvedScenePath);
+		sceneDirty = false;
+		UpdateWindowTitle();
+	}
+	return true;
+}
+
+bool Scene::LoadFromJson(const nlohmann::json& root, const std::string& sourceName, const nlohmann::json& editorState)
+{
+	// Se valida antes de vaciar la escena actual, para no perderla si el fichero está mal
 	if (root.is_discarded() || !root.is_object())
 	{
-		LOG_ERROR("[Scene] '%s' no es un JSON válido", resolvedScenePath.c_str());
+		LOG_ERROR("[Scene] '%s' no es un JSON válido", sourceName.c_str());
 		return false;
 	}
 	const int version = JsonHelpers::Get(root, "version", 0);
 	if (version != SCENE_FILE_VERSION)
 	{
-		LOG_ERROR("[Scene] '%s' usa la versión %d del formato de escena y el motor lee la %d", resolvedScenePath.c_str(), version, SCENE_FILE_VERSION);
+		LOG_ERROR("[Scene] '%s' usa la versión %d del formato de escena y el motor lee la %d", sourceName.c_str(), version, SCENE_FILE_VERSION);
 		return false;
 	}
 	const auto objectsIt = root.find("gameObjects");
 	if (objectsIt == root.end() || !objectsIt->is_array())
 	{
-		LOG_ERROR("[Scene] '%s' no tiene la lista 'gameObjects'", resolvedScenePath.c_str());
+		LOG_ERROR("[Scene] '%s' no tiene la lista 'gameObjects'", sourceName.c_str());
 		return false;
 	}
 
@@ -204,8 +228,6 @@ bool Scene::Load(const std::string& filePath)
 		treeMaxDepth = std::max(1, JsonHelpers::Get(*spIt, "maxDepth", treeMaxDepth));
 	}
 
-	// La escena temporal del Play no lo usa: al pulsar Stop la cámara del editor se queda donde está
-	const nlohmann::json editorState = isTempFile ? nlohmann::json::object() : ReadEditorState(FileSystem::ToProjectRelativePath(resolvedScenePath));
 	const uint64_t savedSelectedUuid = JsonHelpers::Get(editorState, "selected", (uint64_t)0);
 	// Los estados guardados antes de la selección múltiple solo tienen "selected"
 	std::vector<uint64_t> savedSelection = JsonHelpers::Get(editorState, "selection", std::vector<uint64_t>());
@@ -246,7 +268,7 @@ bool Scene::Load(const std::string& filePath)
 	}
 	catch (const std::exception& e)
 	{
-		LOG_ERROR("[Scene] Error leyendo '%s': %s", resolvedScenePath.c_str(), e.what());
+		LOG_ERROR("[Scene] Error leyendo '%s': %s", sourceName.c_str(), e.what());
 	}
 
 	// Restaurar la cámara de la vista Game y el GameObject seleccionado
@@ -273,14 +295,7 @@ bool Scene::Load(const std::string& filePath)
 	RebuildSpacePartitioning();
 	isLoadingOrInitializing = false;
 
-	if (!isTempFile)
-	{
-		currentScenePath = FileSystem::ToProjectRelativePath(resolvedScenePath);
-		sceneDirty = false;
-		UpdateWindowTitle();
-	}
-
-	LOG("[Scene] Escena cargada con éxito desde '%s' (%zu GameObjects totales)", resolvedScenePath.c_str(), sceneEntities.size());
+	LOG("[Scene] Escena cargada con éxito desde '%s' (%zu GameObjects totales)", sourceName.c_str(), sceneEntities.size());
 	return true;
 }
 
