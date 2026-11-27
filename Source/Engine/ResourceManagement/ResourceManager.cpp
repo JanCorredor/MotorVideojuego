@@ -803,7 +803,12 @@ bool ResourceManager::WriteMeta(const std::string& assetPath, const MetaFile& me
 
 	// Solo se escribe si cambia: los .meta van al control de versiones y no queremos tocarlos sin motivo
 	std::string current;
-	if (FileSystem::ReadText(GetMetaPath(assetPath), current) && current == text) return true;
+	if (FileSystem::ReadText(GetMetaPath(assetPath), current))
+	{
+		// Se ignoran los '\r': con autocrlf la copia de trabajo está en CRLF y el texto generado en LF
+		current.erase(std::remove(current.begin(), current.end(), '\r'), current.end());
+		if (current == text) return true;
+	}
 	return FileSystem::WriteText(GetMetaPath(assetPath), text);
 }
 
