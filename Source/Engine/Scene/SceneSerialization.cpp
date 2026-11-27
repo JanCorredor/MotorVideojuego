@@ -141,7 +141,8 @@ bool Scene::Save(const std::string& filePath) const
 		{
 			nlohmann::json state;
 			state["version"] = EDITOR_STATE_VERSION;
-			state["selected"] = selected ? (uint64_t)selected->GetUUID() : 0;
+			state["selected"] = selected ? (uint64_t)selected->GetUUID() : 0; // el activo
+			state["selection"] = GetSelectionUIDs();
 			if (editorCameraObj)
 			{
 				nlohmann::json editorCamera = nlohmann::json::object();
@@ -206,6 +207,9 @@ bool Scene::Load(const std::string& filePath)
 	// La escena temporal del Play no lo usa: al pulsar Stop la cámara del editor se queda donde está
 	const nlohmann::json editorState = isTempFile ? nlohmann::json::object() : ReadEditorState(FileSystem::ToProjectRelativePath(resolvedScenePath));
 	const uint64_t savedSelectedUuid = JsonHelpers::Get(editorState, "selected", (uint64_t)0);
+	// Los estados guardados antes de la selección múltiple solo tienen "selected"
+	std::vector<uint64_t> savedSelection = JsonHelpers::Get(editorState, "selection", std::vector<uint64_t>());
+	if (savedSelection.empty() && savedSelectedUuid != 0) savedSelection.push_back(savedSelectedUuid);
 
 	// Limpiar escena actual antes de reconstruir
 	ClearScene();
@@ -265,7 +269,7 @@ bool Scene::Load(const std::string& filePath)
 
 	gameCameraPtr = mainCamera ? mainCamera : fallbackCamera;
 
-	SetSelected(FindByUID(savedSelectedUuid));
+	SelectByUIDs(savedSelection, savedSelectedUuid);
 	RebuildSpacePartitioning();
 	isLoadingOrInitializing = false;
 
@@ -289,17 +293,15 @@ bool Scene::SaveTemporaryScene(const std::string& filePath) const
 
 bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad)
 {
-	// La selección no va en la escena: se conserva la que había al pulsar Stop si el objeto sigue existiendo
-	const uint64_t selectedUuid = selected ? (uint64_t)selected->GetUUID() : 0;
+	// La selección no va en la escena: se conserva la que había al pulsar Stop con los objetos que siguen existiendo
+	const std::vector<uint64_t> selectionUuids = GetSelectionUIDs();
+	const uint64_t activeUuid = selected ? (uint64_t)selected->GetUUID() : 0;
 	if (!Load(filePath))
 	{
 		return false;
 	}
 
-	if (selectedUuid != 0)
-	{
-		SetSelected(FindByUID(selectedUuid));
-	}
+	SelectByUIDs(selectionUuids, activeUuid);
 
 	currentScenePath = prePlayScenePath;
 	sceneDirty = prePlaySceneDirty;

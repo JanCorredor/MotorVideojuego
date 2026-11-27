@@ -11,6 +11,7 @@
 #include <string>
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 
 // ============================================================================
 // QUADTREE (Partición espacial 2D en el plano XZ, conservando altura Y)
@@ -141,10 +142,29 @@ public:
 	GameObject* GetMainCameraObject() const { return mainCameraPtr; }
 	GameObject* GetGameCameraObject() const { return gameCameraPtr; }
 
-	// Selección única de la escena (la consumen Editor y cámara). nullptr = sin selección.
+	// Selección múltiple. El activo (el último seleccionado) es el que usan Inspector, cámara y drag & drop.
 	// El root y objetos que no pertenezcan a la escena se rechazan.
-	void SetSelected(GameObject* object);
+	void SetSelected(GameObject* object) { Select(object); }
 	GameObject* GetSelected() const { return selected; }
+	const std::vector<GameObject*>& GetSelection() const { return selection; }
+	bool HasSelection() const { return !selection.empty(); }
+	bool IsSelected(const GameObject* object) const { return selectionSet.count(object) > 0; }
+	// Seleccionado o descendiente de un seleccionado (contorno del render)
+	bool IsInSelectedHierarchy(const GameObject* object) const;
+	void Select(GameObject* object);               // sustituye la selección (nullptr = ninguna)
+	void AddToSelection(GameObject* object);       // la amplía y lo hace activo
+	void RemoveFromSelection(GameObject* object);
+	void ToggleSelection(GameObject* object);      // Ctrl + clic
+	void SetSelection(const std::vector<GameObject*>& objects, GameObject* active = nullptr);
+	void ClearSelection() { Select(nullptr); }
+	void SelectAll();
+	// Sin los que ya cuelgan de otro seleccionado: es lo que se duplica, borra o mueve
+	std::vector<GameObject*> GetTopLevelSelection() const;
+	std::vector<uint64_t> GetSelectionUIDs() const;
+	void SelectByUIDs(const std::vector<uint64_t>& uids, uint64_t activeUID = 0);
+	// Duplica o borra la selección de nivel superior; tras duplicar quedan seleccionadas las copias
+	std::vector<GameObject*> DuplicateSelection();
+	void DestroySelection();
 	uint64_t GetSelectionRevision() const { return selectionRevision; }
 	void NotifySelectionHierarchyChanged() { selectionRevision++; }
 
@@ -204,7 +224,9 @@ private:
 	std::unique_ptr<GameObject> editorCameraObj;
 	GameObject* mainCameraPtr = nullptr;
 	GameObject* gameCameraPtr = nullptr;
-	GameObject* selected = nullptr;
+	GameObject* selected = nullptr;                          // objeto activo de la selección
+	std::vector<GameObject*> selection;                      // en el orden en que se seleccionaron
+	std::unordered_set<const GameObject*> selectionSet;      // IsSelected en O(1): el render lo consulta por objeto
 	uint64_t selectionRevision = 0;
 	mutable std::string currentScenePath;
 	mutable bool sceneDirty = false;

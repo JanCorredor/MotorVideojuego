@@ -163,6 +163,8 @@ bool Scene::CleanUp()
 void Scene::ClearScene()
 {
 	pendingDestruction.clear();
+	selection.clear();
+	selectionSet.clear();
 	selected = nullptr;
 	gameCameraPtr = nullptr;
 
@@ -422,11 +424,7 @@ void Scene::DestroyGameObject(GameObject* target)
 
 	for (GameObject* obj : toDestroy)
 	{
-		if (selected == obj)
-		{
-			SetSelected(nullptr);
-			break;
-		}
+		RemoveFromSelection(obj);
 	}
 
 	// Si la cámara principal estuviera en el subárbol, desvincularla para no dejar puntero colgante
