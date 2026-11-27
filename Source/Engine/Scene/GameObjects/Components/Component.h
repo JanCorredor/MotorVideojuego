@@ -5,62 +5,9 @@
 #include <vector>
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <nlohmann/json_fwd.hpp>
 
 class GameObject;
-
-// Archivo / Nodo de serialización de escena en formato JSON.
-// Permite que Scene::Save(file) pase el nodo 'file' a cada GameObject::Save(file),
-// y que éste se lo pase a sus hijos y a sus Component::Save(file).
-class SceneFile
-{
-public:
-	SceneFile();
-	~SceneFile();
-
-	SceneFile(const SceneFile& other);
-	SceneFile& operator=(const SceneFile& other);
-
-	// Carga desde disco o guarda a disco en formato JSON legible (Pretty JSON)
-	bool LoadFromFile(const std::string& filePath);
-	bool SaveToFile(const std::string& filePath) const;
-
-	bool IsValid() const;
-
-	// Escritura de propiedades
-	void SetBool(const char* key, bool value);
-	void SetInt(const char* key, int value);
-	void SetUInt64(const char* key, uint64_t value);
-	void SetFloat(const char* key, float value);
-	void SetString(const char* key, const std::string& value);
-	void SetVec3(const char* key, const glm::vec3& value);
-	void SetVec4(const char* key, const glm::vec4& value);
-
-	// Lectura de propiedades con valor por defecto
-	bool HasKey(const char* key) const;
-	bool GetBool(const char* key, bool defaultVal = false) const;
-	int GetInt(const char* key, int defaultVal = 0) const;
-	uint64_t GetUInt64(const char* key, uint64_t defaultVal = 0) const;
-	float GetFloat(const char* key, float defaultVal = 0.0f) const;
-	std::string GetString(const char* key, const std::string& defaultVal = "") const;
-	glm::vec3 GetVec3(const char* key, const glm::vec3& defaultVal = glm::vec3(0.0f)) const;
-	glm::vec4 GetVec4(const char* key, const glm::vec4& defaultVal = glm::vec4(0.0f)) const;
-
-	// Sub-objetos y Arrays para propagar Save(file) / Load(file) a hijos y componentes
-	SceneFile AddObject(const char* key);
-	SceneFile GetObjectNode(const char* key) const;
-
-	SceneFile AddArray(const char* key);
-	SceneFile GetArray(const char* key) const;
-
-	SceneFile PushObject();
-	size_t Size() const;
-	SceneFile GetElement(size_t index) const;
-
-	struct Node;
-private:
-	std::shared_ptr<Node> node;
-	explicit SceneFile(std::shared_ptr<Node> n);
-};
 
 enum ComponentType
 {
@@ -70,6 +17,10 @@ enum ComponentType
 	COMPONENT_CAMERA,
 	COMPONENT_COUNT //Mantener al final
 };
+
+// Nombre del componente en los ficheros de escena ("Transform", "Mesh"...)
+const char* ComponentTypeToString(ComponentType type);
+bool ComponentTypeFromString(const std::string& name, ComponentType& outType);
 
 class Component
 {
@@ -91,8 +42,8 @@ public:
 	virtual std::unique_ptr<Component> Clone(GameObject* newOwner) const = 0;
 
 	// Serialización del Componente (Scene Serialization)
-	virtual void Save(SceneFile& file) const = 0;
-	virtual void Load(const SceneFile& file) = 0;
+	virtual void Save(nlohmann::json& out) const = 0;
+	virtual void Load(const nlohmann::json& in) = 0;
 
 protected:
 	ComponentType type;

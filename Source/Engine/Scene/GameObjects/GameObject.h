@@ -15,7 +15,6 @@ class TransformComponent;
 class MeshComponent;
 class MaterialComponent;
 class CameraComponent;
-class SceneFile;
 
 class GameObject
 {
@@ -32,9 +31,9 @@ public:
 	std::unique_ptr<GameObject> Duplicate(const std::string& newName = "") const;
 	std::unique_ptr<GameObject> Clone(const std::string& newName = "") const;
 
-	// Serialización del GameObject: se propaga a sus componentes y a sus hijos
-	void Save(SceneFile& file) const;
-	void Load(const SceneFile& file);
+	// Serialización del GameObject y sus componentes (la jerarquía la guarda la escena)
+	void Save(nlohmann::json& out) const;
+	void Load(const nlohmann::json& in);
 
 	GameUUID GetUUID() const { return uuid; }
 

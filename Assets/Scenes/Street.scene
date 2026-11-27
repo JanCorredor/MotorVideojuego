@@ -1,1909 +1,1988 @@
 {
-    "scene_name": "Street",
-    "version": 1,
-    "space_partitioning": {
-        "max_objects_per_node": 1,
-        "max_depth": 5
-    },
-    "selected_uuid": 12670143334365214823,
-    "game_camera_uuid": 11405455030016019490,
-    "editor_camera": {
-        "uuid": 13028740536039517887,
-        "parent_uuid": 0,
-        "name": "EditorCamera",
-        "active": true,
-        "static": false,
-        "components": [
-            {
-                "type": 0,
-                "active": true,
-                "position": [
-                    9.112833023071289,
-                    10.789619445800781,
-                    -13.945291519165039
-                ],
-                "rotation": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
-            {
-                "type": 3,
-                "active": true,
-                "fov": 65.0,
-                "near_plane": 0.10000000149011612,
-                "far_plane": 500.0,
-                "movement_speed": 5.0,
-                "mouse_sensitivity": 0.10000000149011612,
-                "orbit_distance": 5.0,
-                "yaw": 850.4009399414063,
-                "pitch": -36.50002670288086
-            }
-        ],
-        "children": []
-    },
-    "game_objects": [
-        {
-            "uuid": 11405455030016019490,
-            "parent_uuid": 0,
-            "name": "Main Camera",
-            "active": true,
-            "static": false,
-            "components": [
-                {
-                    "type": 0,
-                    "active": true,
-                    "position": [
-                        0.0,
-                        2.0,
-                        7.0
-                    ],
-                    "rotation": [
-                        -10.000000953674316,
-                        0.0,
-                        -0.0
-                    ],
-                    "scale": [
-                        1.0,
-                        0.9999999403953552,
-                        0.9999999403953552
-                    ]
-                },
-                {
-                    "type": 3,
-                    "active": true,
-                    "fov": 45.0,
-                    "near_plane": 0.10000000149011612,
-                    "far_plane": 500.0,
-                    "movement_speed": 5.0,
-                    "mouse_sensitivity": 0.10000000149011612,
-                    "orbit_distance": 5.0,
-                    "yaw": -90.0,
-                    "pitch": 0.0
-                }
-            ],
-            "children": []
-        },
-        {
-            "uuid": 1316477271999811816,
-            "parent_uuid": 0,
-            "name": "Street environment_V01",
-            "active": true,
-            "static": false,
-            "components": [
-                {
-                    "type": 0,
-                    "active": true,
-                    "position": [
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "rotation": [
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "scale": [
-                        1.0,
-                        1.0,
-                        1.0
-                    ]
-                }
-            ],
-            "children": [
-                {
-                    "uuid": 10586391012471812110,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_004",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 0,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub0.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building03_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 5665665614759993728,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_001",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 1,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub1.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V02_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 7886386515368976256,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_007",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 2,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub2.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building_016_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 12670143334365214823,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_008",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 3,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub3.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building_025_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 13108905297788362349,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "Line002",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 4,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub4.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                0.2705882489681244,
-                                0.2705882489681244,
-                                0.2705882489681244,
-                                1.0
-                            ],
-                            "use_texture": false,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": ""
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 1339224790189329995,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "Plane001",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 5,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub5.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                0.30980393290519714,
-                                0.4549019932746887,
-                                0.05882353335618973,
-                                1.0
-                            ],
-                            "use_texture": false,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": ""
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 16377946809425297935,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_010",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 6,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub6.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building 01_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 1020837064979189769,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_011",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 7,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub7.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building_016_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 13771597503548226962,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_013",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 8,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub8.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building 06_ c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 2196326251135790553,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_014",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 9,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub9.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building03_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 14162621601192417466,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_016",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 10,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub10.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building 01_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 2698713462384730130,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_017",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 11,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub11.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building 01_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 5558280441544219810,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_022",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 12,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub12.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building05 _c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 9403456086560267942,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_023",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 13,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub13.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building_016_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 8644909838591027005,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_024",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 14,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub14.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building_025_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 7364538799062136384,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_026",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 15,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub15.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building05 _c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 2377214211692554804,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_028",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 16,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub16.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V01_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 717225843796598937,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "Object010",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 17,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub17.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                0.5882353186607361,
-                                0.5882353186607361,
-                                0.5882353186607361,
-                                1.0
-                            ],
-                            "use_texture": false,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": ""
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 849041010354536109,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_030",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 18,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub18.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V01_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 13900911829910064235,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_031",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 19,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub19.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V01_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 15104820721279422326,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_032",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 20,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub20.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building03_c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 6160395089842453364,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_033",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 21,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub21.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building 06_ c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 9413548424045510741,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_034",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 22,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub22.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building05 _c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 10820062514207748276,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_035",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 23,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub23.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V01_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 17569325793672249960,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_036",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 24,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub24.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building 06_ c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 956888491826359454,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_037",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 25,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub25.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building05 _c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 13106414099759174525,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_038",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 26,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub26.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/building05 _c.tga",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": true
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 3565915183483543411,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_039",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 27,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub27.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V01_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 5347718812987804488,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_040",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 28,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub28.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V01_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                },
-                {
-                    "uuid": 13413719413520452627,
-                    "parent_uuid": 1316477271999811816,
-                    "name": "City_building_041",
-                    "active": true,
-                    "static": false,
-                    "components": [
-                        {
-                            "type": 0,
-                            "active": true,
-                            "position": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "rotation": [
-                                0.0,
-                                0.0,
-                                0.0
-                            ],
-                            "scale": [
-                                1.0,
-                                1.0,
-                                1.0
-                            ]
-                        },
-                        {
-                            "type": 1,
-                            "active": true,
-                            "has_primitive": true,
-                            "source_path": "Assets/Models/Street environment_V01.FBX",
-                            "submesh_index": 29,
-                            "custom_mesh_path": "Library/Meshes/Street environment_V01_sub29.mesh",
-                            "import_global_scale": 1.0,
-                            "import_axis_preset": 0,
-                            "import_ignore_cameras": true,
-                            "import_ignore_lights": true
-                        },
-                        {
-                            "type": 2,
-                            "active": true,
-                            "color": [
-                                1.0,
-                                1.0,
-                                1.0,
-                                1.0
-                            ],
-                            "use_texture": true,
-                            "use_checkerboard": false,
-                            "using_missing_texture": false,
-                            "texture_path": "Assets/Textures/Building_V02_C.png",
-                            "min_filter": 0,
-                            "mag_filter": 0,
-                            "wrap_mode": 0,
-                            "flip_x": false,
-                            "flip_y": false
-                        }
-                    ],
-                    "children": []
-                }
-            ]
-        }
-    ]
+	"gameObjects": [
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Camera"
+			],
+			"components": {
+				"Camera": {
+					"active": true,
+					"far": 500.0,
+					"fov": 45.0,
+					"mouseSensitivity": 0.10000000149011612,
+					"movementSpeed": 5.0,
+					"near": 0.10000000149011612,
+					"orbitDistance": 5.0,
+					"pitch": 0.0,
+					"yaw": -90.0
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						2.0,
+						7.0
+					],
+					"rotation": [
+						-10.000000953674316,
+						0.0,
+						-0.0
+					],
+					"scale": [
+						1.0,
+						0.9999999403953552,
+						0.9999999403953552
+					]
+				}
+			},
+			"mainCamera": true,
+			"name": "Main Camera",
+			"parent": 0,
+			"static": false,
+			"uid": 11405455030016019490
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform"
+			],
+			"components": {
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "Street environment_V01",
+			"parent": 0,
+			"static": false,
+			"uid": 1316477271999811816
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building03_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub0.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 0
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_004",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 10586391012471812110
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V02_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub1.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 1
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_001",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 5665665614759993728
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building_016_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub2.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 2
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_007",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 7886386515368976256
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building_025_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub3.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 3
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_008",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 12670143334365214823
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						0.2705882489681244,
+						0.2705882489681244,
+						0.2705882489681244,
+						1.0
+					],
+					"texturePath": "",
+					"useTexture": false,
+					"usingMissingTexture": false
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub4.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 4
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "Line002",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 13108905297788362349
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						0.30980393290519714,
+						0.4549019932746887,
+						0.05882353335618973,
+						1.0
+					],
+					"texturePath": "",
+					"useTexture": false,
+					"usingMissingTexture": false
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub5.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 5
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "Plane001",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 1339224790189329995
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building 01_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub6.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 6
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_010",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 16377946809425297935
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building_016_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub7.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 7
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_011",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 1020837064979189769
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building 06_ c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub8.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 8
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_013",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 13771597503548226962
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building03_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub9.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 9
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_014",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 2196326251135790553
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building 01_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub10.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 10
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_016",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 14162621601192417466
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building 01_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub11.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 11
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_017",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 2698713462384730130
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building05 _c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub12.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 12
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_022",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 5558280441544219810
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building_016_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub13.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 13
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_023",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 9403456086560267942
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building_025_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub14.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 14
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_024",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 8644909838591027005
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building05 _c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub15.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 15
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_026",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 7364538799062136384
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub16.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 16
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_028",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 2377214211692554804
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						0.5882353186607361,
+						0.5882353186607361,
+						0.5882353186607361,
+						1.0
+					],
+					"texturePath": "",
+					"useTexture": false,
+					"usingMissingTexture": false
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub17.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 17
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "Object010",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 717225843796598937
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub18.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 18
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_030",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 849041010354536109
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub19.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 19
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_031",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 13900911829910064235
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building03_c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub20.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 20
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_032",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 15104820721279422326
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building 06_ c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub21.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 21
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_033",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 6160395089842453364
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building05 _c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub22.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 22
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_034",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 9413548424045510741
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub23.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 23
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_035",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 10820062514207748276
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building 06_ c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub24.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 24
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_036",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 17569325793672249960
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building05 _c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub25.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 25
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_037",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 956888491826359454
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": true,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/building05 _c.tga",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub26.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 26
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_038",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 13106414099759174525
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub27.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 27
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_039",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 3565915183483543411
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V01_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub28.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 28
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_040",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 5347718812987804488
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Building_V02_C.png",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/Street environment_V01_sub29.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/Street environment_V01.FBX",
+						"submeshIndex": 29
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "City_building_041",
+			"parent": 1316477271999811816,
+			"static": false,
+			"uid": 13413719413520452627
+		}
+	],
+	"name": "Street",
+	"spacePartitioning": {
+		"maxDepth": 5,
+		"maxObjectsPerNode": 1
+	},
+	"version": 2
 }

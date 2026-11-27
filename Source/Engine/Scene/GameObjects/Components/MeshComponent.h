@@ -26,8 +26,8 @@ public:
 		return clone;
 	}
 
-	void Save(SceneFile& file) const override;
-	void Load(const SceneFile& file) override;
+	void Save(nlohmann::json& out) const override;
+	void Load(const nlohmann::json& in) override;
 
 private:
 	std::unique_ptr<Primitive> primitive;

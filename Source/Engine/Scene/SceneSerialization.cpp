@@ -2,14 +2,48 @@
 
 #include "../Engine.h"
 #include "../../Utils/Log.h"
+#include "../../Utils/JsonHelpers.h"
 #include "GameObjects/Components/TransformComponent.h"
 #include "GameObjects/Components/CameraComponent.h"
 #include "../FileSystem/FileSystem.h"
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <unordered_map>
 
 // Guardado y carga de escenas (.scene)
+
+namespace
+{
+	// 2: lista plana de GameObjects con los componentes por nombre (la 1 anidaba los hijos)
+	constexpr int SCENE_FILE_VERSION = 2;
+
+	bool WriteTextFile(const std::string& diskPath, const std::string& text)
+	{
+		const std::filesystem::path path = std::filesystem::u8path(diskPath);
+		std::error_code ec;
+		if (path.has_parent_path()) std::filesystem::create_directories(path.parent_path(), ec);
+
+		std::ofstream out(path, std::ios::binary | std::ios::trunc);
+		if (!out.is_open()) return false;
+		out.write(text.data(), (std::streamsize)text.size());
+		return static_cast<bool>(out);
+	}
+
+	bool ReadTextFile(const std::string& diskPath, std::string& outText)
+	{
+		std::ifstream in(std::filesystem::u8path(diskPath), std::ios::binary);
+		if (!in.is_open()) return false;
+		std::ostringstream ss;
+		ss << in.rdbuf();
+		outText = ss.str();
+		return true;
+	}
+}
 
 bool Scene::Save(const std::string& filePath) const
 {
@@ -19,39 +53,47 @@ bool Scene::Save(const std::string& filePath) const
 		return false;
 	}
 
-	SceneFile file;
-	std::filesystem::path p(filePath);
-	std::string sceneName = p.stem().string();
+	std::string sceneName = FileSystem::GetFileNameNoExtension(filePath);
 	if (sceneName.empty()) sceneName = "Scene";
 
-	file.SetString("scene_name", sceneName);
-	file.SetInt("version", 1);
-
-	SceneFile spNode = file.AddObject("space_partitioning");
-	spNode.SetInt("max_objects_per_node", treeMaxObjectsPerNode);
-	spNode.SetInt("max_depth", treeMaxDepth);
-
-	file.SetUInt64("selected_uuid", selected ? (uint64_t)selected->GetUUID() : 0);
-	file.SetUInt64("game_camera_uuid", gameCameraPtr ? (uint64_t)gameCameraPtr->GetUUID() : 0);
+	nlohmann::json root;
+	root["version"] = SCENE_FILE_VERSION;
+	root["name"] = sceneName;
+	root["spacePartitioning"] = {
+		{ "maxObjectsPerNode", treeMaxObjectsPerNode },
+		{ "maxDepth", treeMaxDepth }
+	};
+	root["selected"] = selected ? (uint64_t)selected->GetUUID() : 0;
 
 	if (editorCameraObj)
 	{
-		SceneFile editorCamNode = file.AddObject("editor_camera");
-		editorCameraObj->Save(editorCamNode);
+		nlohmann::json editorCamera = nlohmann::json::object();
+		editorCameraObj->Save(editorCamera);
+		root["editorCamera"] = std::move(editorCamera);
 	}
 
-	// Pasar Save(file) a los hijos raíz de la escena (cada GameObject se la pasa a sus componentes y a sus hijos)
-	SceneFile objectsArray = file.AddArray("game_objects");
+	// Preorden: cada padre se escribe antes que sus hijos, así la carga los enlaza en una pasada
+	nlohmann::json objects = nlohmann::json::array();
 	const std::vector<GameObject*>& rootChildren = sceneRoot.GetChildren();
-	for (size_t i = 0; i < rootChildren.size(); ++i)
+	std::vector<const GameObject*> stack(rootChildren.rbegin(), rootChildren.rend());
+	while (!stack.empty())
 	{
-		GameObject* child = rootChildren[i];
-		if (child)
+		const GameObject* node = stack.back();
+		stack.pop_back();
+		if (!node) continue;
+
+		nlohmann::json object = nlohmann::json::object();
+		node->Save(object);
+		if (node == gameCameraPtr) object["mainCamera"] = true;
+		objects.push_back(std::move(object));
+
+		const std::vector<GameObject*>& children = node->GetChildren();
+		for (auto it = children.rbegin(); it != children.rend(); ++it)
 		{
-			SceneFile childFile = objectsArray.PushObject();
-			child->Save(childFile);
+			stack.push_back(*it);
 		}
 	}
+	root["gameObjects"] = std::move(objects);
 
 	const bool isTempFile = (filePath == Engine::GetInstance().GetTempSceneFilePath());
 	std::string targetSavePath = filePath;
@@ -69,7 +111,9 @@ bool Scene::Save(const std::string& filePath) const
 		}
 	}
 
-	if (!file.SaveToFile(targetSavePath))
+	// replace: un nombre con bytes que no son UTF-8 no debe impedir guardar
+	const std::string text = root.dump(1, '\t', false, nlohmann::json::error_handler_t::replace);
+	if (!WriteTextFile(targetSavePath, text))
 	{
 		LOG_ERROR("[Scene] Error al guardar la escena en: '%s'", targetSavePath.c_str());
 		return false;
@@ -97,24 +141,43 @@ bool Scene::Load(const std::string& filePath)
 	const bool isTempFile = (filePath == Engine::GetInstance().GetTempSceneFilePath());
 	std::string resolvedScenePath = isTempFile ? filePath : FileSystem::ResolveExistingPath(filePath);
 
-	SceneFile file;
-	if (!file.LoadFromFile(resolvedScenePath))
+	std::string text;
+	if (!ReadTextFile(resolvedScenePath, text) || text.empty())
 	{
 		LOG_ERROR("[Scene] No se pudo cargar el archivo de escena: '%s'", resolvedScenePath.c_str());
 		return false;
 	}
 
-	isLoadingOrInitializing = true;
-
-	SceneFile spNode = file.GetObjectNode("space_partitioning");
-	if (spNode.IsValid())
+	// Se valida antes de vaciar la escena actual, para no perderla si el fichero está mal
+	const nlohmann::json root = nlohmann::json::parse(text, nullptr, false);
+	if (root.is_discarded() || !root.is_object())
 	{
-		treeMaxObjectsPerNode = std::max(1, spNode.GetInt("max_objects_per_node", treeMaxObjectsPerNode));
-		treeMaxDepth = std::max(1, spNode.GetInt("max_depth", treeMaxDepth));
+		LOG_ERROR("[Scene] '%s' no es un JSON válido", resolvedScenePath.c_str());
+		return false;
+	}
+	const int version = JsonHelpers::Get(root, "version", 0);
+	if (version != SCENE_FILE_VERSION)
+	{
+		LOG_ERROR("[Scene] '%s' usa la versión %d del formato de escena y el motor lee la %d", resolvedScenePath.c_str(), version, SCENE_FILE_VERSION);
+		return false;
+	}
+	const auto objectsIt = root.find("gameObjects");
+	if (objectsIt == root.end() || !objectsIt->is_array())
+	{
+		LOG_ERROR("[Scene] '%s' no tiene la lista 'gameObjects'", resolvedScenePath.c_str());
+		return false;
 	}
 
-	uint64_t savedSelectedUuid = file.GetUInt64("selected_uuid", 0);
-	uint64_t savedGameCameraUuid = file.GetUInt64("game_camera_uuid", 0);
+	isLoadingOrInitializing = true;
+
+	const auto spIt = root.find("spacePartitioning");
+	if (spIt != root.end() && spIt->is_object())
+	{
+		treeMaxObjectsPerNode = std::max(1, JsonHelpers::Get(*spIt, "maxObjectsPerNode", treeMaxObjectsPerNode));
+		treeMaxDepth = std::max(1, JsonHelpers::Get(*spIt, "maxDepth", treeMaxDepth));
+	}
+
+	const uint64_t savedSelectedUuid = JsonHelpers::Get(root, "selected", (uint64_t)0);
 
 	// Limpiar escena actual antes de reconstruir
 	pendingDestruction.clear();
@@ -127,27 +190,45 @@ bool Scene::Load(const std::string& filePath)
 	}
 	sceneEntities.clear();
 
-	SceneFile editorCamNode = file.GetObjectNode("editor_camera");
-	if (editorCamNode.IsValid() && editorCameraObj)
+	const auto editorCamIt = root.find("editorCamera");
+	if (editorCamIt != root.end() && editorCamIt->is_object() && editorCameraObj)
 	{
-		editorCameraObj->Load(editorCamNode);
+		editorCameraObj->Load(*editorCamIt);
 		mainCameraPtr = editorCameraObj.get();
 	}
 
-	// Cargar GameObjects raíz pasando Load(file) a cada uno (ellos se la pasan a sus componentes y a sus hijos)
-	SceneFile objectsArray = file.GetArray("game_objects");
-	for (size_t i = 0; i < objectsArray.Size(); ++i)
+	// UID del fichero -> objeto creado, para colgar cada hijo de su padre
+	std::unordered_map<uint64_t, GameObject*> created;
+	GameObject* mainCamera = nullptr;
+	try
 	{
-		SceneFile objFile = objectsArray.GetElement(i);
-		uint64_t objUuid = objFile.GetUInt64("uuid", 0);
-		std::string objName = objFile.GetString("name", "GameObject");
+		for (const nlohmann::json& objFile : *objectsIt)
+		{
+			if (!objFile.is_object()) continue;
 
-		auto newObj = std::make_unique<GameObject>(objName, objUuid != 0 ? GameUUID(objUuid) : GameUUID());
-		GameObject* regObj = Register(std::move(newObj), &sceneRoot);
-		regObj->Load(objFile);
+			const uint64_t objUuid = JsonHelpers::Get(objFile, "uid", (uint64_t)0);
+			const uint64_t parentUuid = JsonHelpers::Get(objFile, "parent", (uint64_t)0);
+			const std::string objName = JsonHelpers::Get(objFile, "name", std::string("GameObject"));
+
+			// Un UID que falta o está repetido recibe uno nuevo
+			const bool reuseUuid = objUuid != 0 && created.find(objUuid) == created.end();
+			auto newObj = std::make_unique<GameObject>(objName, reuseUuid ? GameUUID(objUuid) : GameUUID());
+
+			const auto parentIt = created.find(parentUuid);
+			GameObject* parent = (parentUuid != 0 && parentIt != created.end()) ? parentIt->second : &sceneRoot;
+			GameObject* regObj = Register(std::move(newObj), parent);
+			regObj->Load(objFile);
+
+			if (reuseUuid) created[objUuid] = regObj;
+			if (mainCamera == nullptr && JsonHelpers::Get(objFile, "mainCamera", false)) mainCamera = regObj;
+		}
+	}
+	catch (const std::exception& e)
+	{
+		LOG_ERROR("[Scene] Error leyendo '%s': %s", resolvedScenePath.c_str(), e.what());
 	}
 
-	// Restaurar punteros a Main Camera (vista Game) y al GameObject seleccionado por UUID
+	// Restaurar el GameObject seleccionado y la cámara de la vista Game
 	GameObject* restoredSelected = nullptr;
 	GameObject* fallbackCamera = nullptr;
 	for (size_t i = 0; i < sceneEntities.size(); ++i)
@@ -160,12 +241,7 @@ bool Scene::Load(const std::string& filePath)
 			ent->AddComponent(std::make_unique<TransformComponent>(ent));
 		}
 
-		uint64_t entUuid = (uint64_t)ent->GetUUID();
-		if (savedGameCameraUuid != 0 && entUuid == savedGameCameraUuid)
-		{
-			gameCameraPtr = ent;
-		}
-		if (savedSelectedUuid != 0 && entUuid == savedSelectedUuid)
+		if (savedSelectedUuid != 0 && (uint64_t)ent->GetUUID() == savedSelectedUuid)
 		{
 			restoredSelected = ent;
 		}
@@ -175,10 +251,7 @@ bool Scene::Load(const std::string& filePath)
 		}
 	}
 
-	if (gameCameraPtr == nullptr)
-	{
-		gameCameraPtr = fallbackCamera;
-	}
+	gameCameraPtr = mainCamera ? mainCamera : fallbackCamera;
 
 	SetSelected(restoredSelected);
 	RebuildSpacePartitioning();

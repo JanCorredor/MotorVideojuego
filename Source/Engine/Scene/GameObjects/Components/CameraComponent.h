@@ -15,8 +15,8 @@ public:
 
     std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
-    void Save(SceneFile& file) const override;
-    void Load(const SceneFile& file) override;
+    void Save(nlohmann::json& out) const override;
+    void Load(const nlohmann::json& in) override;
 
     void Update(float dt) override;
 

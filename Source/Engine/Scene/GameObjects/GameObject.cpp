@@ -8,6 +8,7 @@
 #include "./Components/CameraComponent.h"
 
 #include "../../Geometry/AABB.h"
+#include "../../../Utils/JsonHelpers.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
@@ -73,130 +74,104 @@ std::unique_ptr<GameObject> GameObject::Duplicate(const std::string& newName) co
     return clone;
 }
 
-void GameObject::Save(SceneFile& file) const
+void GameObject::Save(nlohmann::json& out) const
 {
-    file.SetUInt64("uuid", (uint64_t)uuid);
-    uint64_t parentUuid = (parent != nullptr && parent->GetParent() != nullptr) ? (uint64_t)parent->GetUUID() : 0;
-    file.SetUInt64("parent_uuid", parentUuid);
-    file.SetString("name", name);
-    file.SetBool("active", active);
-    file.SetBool("static", isStatic);
+    out["uid"] = (uint64_t)uuid;
+    out["parent"] = (parent != nullptr && parent->GetParent() != nullptr) ? (uint64_t)parent->GetUUID() : 0;
+    out["name"] = name;
+    out["active"] = active;
+    out["static"] = isStatic;
 
-    // 1. Pasar Save(file) a todos sus componentes en su orden actual
-    SceneFile componentsArray = file.AddArray("components");
-    for (size_t i = 0; i < COMPONENT_COUNT; ++i)
+    // Los componentes se guardan por nombre; su orden en el Inspector va aparte
+    nlohmann::json order = nlohmann::json::array();
+    nlohmann::json componentsJson = nlohmann::json::object();
+    for (ComponentType type : componentOrder)
     {
-        ComponentType type = componentOrder[i];
         const std::unique_ptr<Component>& comp = components[type];
-        if (comp)
-        {
-            SceneFile compFile = componentsArray.PushObject();
-            compFile.SetInt("type", (int)type);
-            comp->Save(compFile);
-        }
-    }
+        if (!comp) continue;
 
-    // 2. Pasar Save(file) a todos sus hijos
-    SceneFile childrenArray = file.AddArray("children");
-    for (size_t i = 0; i < children.size(); ++i)
-    {
-        GameObject* child = children[i];
-        if (child)
-        {
-            SceneFile childFile = childrenArray.PushObject();
-            child->Save(childFile);
-        }
+        nlohmann::json data = nlohmann::json::object();
+        comp->Save(data);
+        order.push_back(ComponentTypeToString(type));
+        componentsJson[ComponentTypeToString(type)] = std::move(data);
     }
+    out["componentOrder"] = std::move(order);
+    out["components"] = std::move(componentsJson);
 }
 
-void GameObject::Load(const SceneFile& file)
+void GameObject::Load(const nlohmann::json& in)
 {
-    uuid = GameUUID(file.GetUInt64("uuid", (uint64_t)uuid));
-    name = file.GetString("name", name);
-    active = file.GetBool("active", true);
-    isStatic = file.GetBool("static", false);
+    name = JsonHelpers::Get(in, "name", name);
+    active = JsonHelpers::Get(in, "active", true);
+    isStatic = JsonHelpers::Get(in, "static", false);
 
     for (size_t i = 0; i < COMPONENT_COUNT; ++i)
     {
         components[i].reset();
     }
 
-    // 1. Cargar todos sus componentes pasando Load(file) a cada uno
-    SceneFile componentsArray = file.GetArray("components");
-    std::array<ComponentType, COMPONENT_COUNT> loadedOrder = {
-        COMPONENT_TRANSFORM, COMPONENT_MESH, COMPONENT_MATERIAL, COMPONENT_CAMERA
-    };
-    std::array<bool, COMPONENT_COUNT> usedInOrder = { false, false, false, false };
-    size_t orderIdx = 0;
-
-    for (size_t i = 0; i < componentsArray.Size(); ++i)
+    // Se crean en el orden del enum: el Transform va primero porque la cámara lo busca al cargarse
+    const auto componentsIt = in.find("components");
+    if (componentsIt != in.end() && componentsIt->is_object())
     {
-        SceneFile compFile = componentsArray.GetElement(i);
-        int typeInt = compFile.GetInt("type", -1);
-        if (typeInt < 0 || typeInt >= COMPONENT_COUNT) continue;
-        ComponentType type = static_cast<ComponentType>(typeInt);
-
-        std::unique_ptr<Component> comp = nullptr;
-        switch (type)
+        for (int t = 0; t < COMPONENT_COUNT; ++t)
         {
-        case COMPONENT_TRANSFORM:
-            comp = std::make_unique<TransformComponent>(this);
-            break;
-        case COMPONENT_MESH:
-            comp = std::make_unique<MeshComponent>(this);
-            break;
-        case COMPONENT_MATERIAL:
-            comp = std::make_unique<MaterialComponent>(this);
-            break;
-        case COMPONENT_CAMERA:
-            comp = std::make_unique<CameraComponent>(this);
-            break;
-        default:
-            break;
+            const ComponentType type = static_cast<ComponentType>(t);
+            const auto data = componentsIt->find(ComponentTypeToString(type));
+            if (data == componentsIt->end() || !data->is_object()) continue;
+
+            std::unique_ptr<Component> comp = nullptr;
+            switch (type)
+            {
+            case COMPONENT_TRANSFORM:
+                comp = std::make_unique<TransformComponent>(this);
+                break;
+            case COMPONENT_MESH:
+                comp = std::make_unique<MeshComponent>(this);
+                break;
+            case COMPONENT_MATERIAL:
+                comp = std::make_unique<MaterialComponent>(this);
+                break;
+            case COMPONENT_CAMERA:
+                comp = std::make_unique<CameraComponent>(this);
+                break;
+            default:
+                break;
+            }
+
+            if (comp)
+            {
+                comp->Load(*data);
+                AddComponent(std::move(comp));
+            }
         }
+    }
 
-        if (comp)
+    // Orden guardado y, al final, los tipos que no aparecen
+    std::array<ComponentType, COMPONENT_COUNT> loadedOrder = {};
+    std::array<bool, COMPONENT_COUNT> usedInOrder = {};
+    size_t orderIdx = 0;
+    const auto orderIt = in.find("componentOrder");
+    if (orderIt != in.end() && orderIt->is_array())
+    {
+        for (const nlohmann::json& item : *orderIt)
         {
-            comp->Load(compFile);
-            AddComponent(std::move(comp));
-            if (!usedInOrder[type] && orderIdx < COMPONENT_COUNT)
+            ComponentType type;
+            if (item.is_string() && ComponentTypeFromString(item.get<std::string>(), type) && !usedInOrder[type])
             {
                 loadedOrder[orderIdx++] = type;
                 usedInOrder[type] = true;
             }
         }
     }
-
     for (int t = 0; t < COMPONENT_COUNT; ++t)
     {
-        if (!usedInOrder[t] && orderIdx < COMPONENT_COUNT)
+        if (!usedInOrder[t])
         {
             loadedOrder[orderIdx++] = static_cast<ComponentType>(t);
         }
     }
     componentOrder = loadedOrder;
-
-    // 2. Cargar todos sus hijos pasando Load(file) a cada hijo
-    Scene* scene = Engine::GetInstance().scene.get();
-    SceneFile childrenArray = file.GetArray("children");
-    for (size_t i = 0; i < childrenArray.Size(); ++i)
-    {
-        SceneFile childFile = childrenArray.GetElement(i);
-        uint64_t childUuid = childFile.GetUInt64("uuid", 0);
-        std::string childName = childFile.GetString("name", "GameObject");
-
-        auto childObj = std::make_unique<GameObject>(childName, childUuid != 0 ? GameUUID(childUuid) : GameUUID());
-        GameObject* childPtr = childObj.get();
-        if (scene)
-        {
-            scene->Register(std::move(childObj), this);
-        }
-        else
-        {
-            AddChild(childPtr);
-        }
-        childPtr->Load(childFile);
-    }
 }
 
 void GameObject::Update(float dt)

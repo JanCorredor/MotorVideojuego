@@ -1,154 +1,117 @@
 {
-    "scene_name": "Atalaya",
-    "version": 1,
-    "space_partitioning": {
-        "max_objects_per_node": 1,
-        "max_depth": 5
-    },
-    "selected_uuid": 9726957474027302871,
-    "game_camera_uuid": 13710042015929667653,
-    "editor_camera": {
-        "uuid": 11673288615500080939,
-        "parent_uuid": 0,
-        "name": "EditorCamera",
-        "active": true,
-        "static": false,
-        "components": [
-            {
-                "type": 0,
-                "active": true,
-                "position": [
-                    3.44132661819458,
-                    8.70969295501709,
-                    -4.201995372772217
-                ],
-                "rotation": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
-            {
-                "type": 3,
-                "active": true,
-                "fov": 101.0,
-                "near_plane": 0.10000000149011612,
-                "far_plane": 500.0,
-                "movement_speed": 5.0,
-                "mouse_sensitivity": 0.10000000149011612,
-                "orbit_distance": 5.0,
-                "yaw": -227.300048828125,
-                "pitch": -35.00005340576172
-            }
-        ],
-        "children": []
-    },
-    "game_objects": [
-        {
-            "uuid": 13710042015929667653,
-            "parent_uuid": 0,
-            "name": "Main Camera",
-            "active": true,
-            "static": false,
-            "components": [
-                {
-                    "type": 0,
-                    "active": true,
-                    "position": [
-                        0.0,
-                        2.0,
-                        7.0
-                    ],
-                    "rotation": [
-                        -10.000000953674316,
-                        0.0,
-                        -0.0
-                    ],
-                    "scale": [
-                        1.0,
-                        0.9999999403953552,
-                        0.9999999403953552
-                    ]
-                },
-                {
-                    "type": 3,
-                    "active": true,
-                    "fov": 45.0,
-                    "near_plane": 0.10000000149011612,
-                    "far_plane": 500.0,
-                    "movement_speed": 5.0,
-                    "mouse_sensitivity": 0.10000000149011612,
-                    "orbit_distance": 5.0,
-                    "yaw": -90.0,
-                    "pitch": 0.0
-                }
-            ],
-            "children": []
-        },
-        {
-            "uuid": 9726957474027302871,
-            "parent_uuid": 0,
-            "name": "wooden watch tower2",
-            "active": true,
-            "static": false,
-            "components": [
-                {
-                    "type": 0,
-                    "active": true,
-                    "position": [
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "rotation": [
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    "scale": [
-                        1.0,
-                        1.0,
-                        1.0
-                    ]
-                },
-                {
-                    "type": 1,
-                    "active": true,
-                    "has_primitive": true,
-                    "source_path": "Assets/Models/wooden watch tower2.fbx",
-                    "submesh_index": 0,
-                    "custom_mesh_path": "Library/Meshes/wooden watch tower2_sub0.mesh",
-                    "import_global_scale": 1.0,
-                    "import_axis_preset": 0,
-                    "import_ignore_cameras": true,
-                    "import_ignore_lights": true
-                },
-                {
-                    "type": 2,
-                    "active": true,
-                    "color": [
-                        1.0,
-                        1.0,
-                        1.0,
-                        1.0
-                    ],
-                    "use_texture": true,
-                    "use_checkerboard": false,
-                    "using_missing_texture": false,
-                    "texture_path": "Assets/Textures/Wood_Tower_Col.jpg",
-                    "min_filter": 0,
-                    "mag_filter": 0,
-                    "wrap_mode": 0,
-                    "flip_x": false,
-                    "flip_y": false
-                }
-            ],
-            "children": []
-        }
-    ]
+	"gameObjects": [
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Camera"
+			],
+			"components": {
+				"Camera": {
+					"active": true,
+					"far": 500.0,
+					"fov": 45.0,
+					"mouseSensitivity": 0.10000000149011612,
+					"movementSpeed": 5.0,
+					"near": 0.10000000149011612,
+					"orbitDistance": 5.0,
+					"pitch": 0.0,
+					"yaw": -90.0
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						2.0,
+						7.0
+					],
+					"rotation": [
+						-10.000000953674316,
+						0.0,
+						-0.0
+					],
+					"scale": [
+						1.0,
+						0.9999999403953552,
+						0.9999999403953552
+					]
+				}
+			},
+			"mainCamera": true,
+			"name": "Main Camera",
+			"parent": 0,
+			"static": false,
+			"uid": 13710042015929667653
+		},
+		{
+			"active": true,
+			"componentOrder": [
+				"Transform",
+				"Mesh",
+				"Material"
+			],
+			"components": {
+				"Material": {
+					"active": true,
+					"checkerboard": false,
+					"color": [
+						1.0,
+						1.0,
+						1.0,
+						1.0
+					],
+					"flipX": false,
+					"flipY": false,
+					"magFilter": 0,
+					"minFilter": 0,
+					"texturePath": "Assets/Textures/Wood_Tower_Col.jpg",
+					"useTexture": true,
+					"usingMissingTexture": false,
+					"wrapMode": 0
+				},
+				"Mesh": {
+					"active": true,
+					"primitive": {
+						"customMeshPath": "Library/Meshes/wooden watch tower2_sub0.mesh",
+						"import": {
+							"axisPreset": 0,
+							"globalScale": 1.0,
+							"ignoreCameras": true,
+							"ignoreLights": true
+						},
+						"sourcePath": "Assets/Models/wooden watch tower2.fbx",
+						"submeshIndex": 0
+					}
+				},
+				"Transform": {
+					"active": true,
+					"position": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"rotation": [
+						0.0,
+						0.0,
+						0.0
+					],
+					"scale": [
+						1.0,
+						1.0,
+						1.0
+					]
+				}
+			},
+			"name": "wooden watch tower2",
+			"parent": 0,
+			"static": false,
+			"uid": 9726957474027302871
+		}
+	],
+	"name": "Atalaya",
+	"spacePartitioning": {
+		"maxDepth": 5,
+		"maxObjectsPerNode": 1
+	},
+	"version": 2
 }

@@ -8,6 +8,7 @@
 #include "MeshComponent.h"
 #include "../../../Geometry/Ray.h"
 #include "../../../../Utils/Log.h"
+#include "../../../../Utils/JsonHelpers.h"
 #include <algorithm>
 #include <stack>
 #include <unordered_set>
@@ -34,30 +35,30 @@ std::unique_ptr<Component> CameraComponent::Clone(GameObject* newOwner) const
     return clone;
 }
 
-void CameraComponent::Save(SceneFile& file) const
+void CameraComponent::Save(nlohmann::json& out) const
 {
-    file.SetBool("active", active);
-    file.SetFloat("fov", fov);
-    file.SetFloat("near_plane", nearPlane);
-    file.SetFloat("far_plane", farPlane);
-    file.SetFloat("movement_speed", movementSpeed);
-    file.SetFloat("mouse_sensitivity", mouseSensitivity);
-    file.SetFloat("orbit_distance", orbitDistance);
-    file.SetFloat("yaw", yaw);
-    file.SetFloat("pitch", pitch);
+    out["active"] = active;
+    out["fov"] = fov;
+    out["near"] = nearPlane;
+    out["far"] = farPlane;
+    out["movementSpeed"] = movementSpeed;
+    out["mouseSensitivity"] = mouseSensitivity;
+    out["orbitDistance"] = orbitDistance;
+    out["yaw"] = yaw;
+    out["pitch"] = pitch;
 }
 
-void CameraComponent::Load(const SceneFile& file)
+void CameraComponent::Load(const nlohmann::json& in)
 {
-    active = file.GetBool("active", true);
-    fov = file.GetFloat("fov", 45.0f);
-    nearPlane = file.GetFloat("near_plane", 0.1f);
-    farPlane = file.GetFloat("far_plane", 100.0f);
-    movementSpeed = file.GetFloat("movement_speed", 5.0f);
-    mouseSensitivity = file.GetFloat("mouse_sensitivity", 0.1f);
-    orbitDistance = file.GetFloat("orbit_distance", 5.0f);
-    yaw = file.GetFloat("yaw", -90.0f);
-    pitch = file.GetFloat("pitch", 0.0f);
+    active = JsonHelpers::Get(in, "active", true);
+    fov = JsonHelpers::Get(in, "fov", 45.0f);
+    nearPlane = JsonHelpers::Get(in, "near", 0.1f);
+    farPlane = JsonHelpers::Get(in, "far", 100.0f);
+    movementSpeed = JsonHelpers::Get(in, "movementSpeed", 5.0f);
+    mouseSensitivity = JsonHelpers::Get(in, "mouseSensitivity", 0.1f);
+    orbitDistance = JsonHelpers::Get(in, "orbitDistance", 5.0f);
+    yaw = JsonHelpers::Get(in, "yaw", -90.0f);
+    pitch = JsonHelpers::Get(in, "pitch", 0.0f);
     transform = owner ? owner->GetComponent<TransformComponent>() : nullptr;
     UpdateCameraVectors();
 }
