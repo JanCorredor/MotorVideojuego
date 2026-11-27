@@ -687,7 +687,10 @@ void Render::CollectVisibleRenderItems(Scene* scene, const glm::mat4& cullViewPr
 		if (settings.partitionMode == SpacePartitionMode::Octree)
 		{
 			std::vector<GameObject*> treeResults;
-			stats.treeNodesVisited = scene->GetOctree().QueryFrustum(frustum, treeResults);
+			OctreeQueryStats query;
+			scene->GetOctree().CollectVisible(frustum, treeResults, &query);
+			stats.treeNodesVisited = query.nodesVisited;
+			stats.treeObjectsTested = query.objectsTested;
 			visibleStaticSet.insert(treeResults.begin(), treeResults.end());
 			useTreeForStatic = true;
 		}
@@ -1263,7 +1266,7 @@ void Render::DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& 
 	if (settings.drawOctree)
 	{
 		std::vector<AABB> octBoxes;
-		scene->GetOctree().CollectNodeBounds(octBoxes);
+		scene->GetOctree().CollectNodeBoxes(octBoxes);
 
 		std::vector<float> octLines;
 		octLines.reserve(octBoxes.size() * 72);

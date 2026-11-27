@@ -2464,10 +2464,11 @@ void ModuleUI::DrawConfigurationPanel()
 					cStats.totalMeshObjects, cStats.visibleObjects, cStats.culledObjects);
 				if (scenePtr)
 				{
-					ImGui::BulletText("Objetos Static en Árbol: %zu | Nodos Octree: %zu (Visitados: %d)",
-						scenePtr->GetOctree().GetObjectCount(),
-						scenePtr->GetOctree().GetNodeCount(),
-						cStats.treeNodesVisited);
+					const Octree& octree = scenePtr->GetOctree();
+					ImGui::BulletText("Objetos Static en Árbol: %zu | Nodos Octree: %zu | Profundidad: %d",
+						octree.GetObjectCount(), octree.GetNodeCount(), octree.GetDepthReached());
+					ImGui::BulletText("Consulta del frustum: %d nodos visitados, %d objetos probados uno a uno",
+						cStats.treeNodesVisited, cStats.treeObjectsTested);
 				}
 
 				ImGui::Spacing();

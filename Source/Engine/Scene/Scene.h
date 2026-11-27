@@ -5,6 +5,7 @@
 #include "../Render/Primitives/GeometryGenerator.h"
 #include "../Geometry/AABB.h"
 #include "../Geometry/Frustum.h"
+#include "Octree.h"
 #include "../ResourceManagement/Resource.h"
 #include <vector>
 #include <memory>
@@ -12,55 +13,6 @@
 #include <array>
 #include <unordered_map>
 #include <unordered_set>
-
-// ============================================================================
-// OCTREE (Partición espacial 3D en los ejes X, Y, Z)
-// Implementado íntegramente de forma iterativa mediante std::stack
-// ============================================================================
-class Octree
-{
-public:
-	struct Entry
-	{
-		GameObject* object = nullptr;
-		AABB box;
-	};
-
-	struct Node
-	{
-		AABB bounds;
-		int depth = 0;
-		std::vector<Entry> objects;
-		std::array<std::unique_ptr<Node>, 8> children;
-
-		bool IsLeaf() const { return children[0] == nullptr; }
-	};
-
-	Octree() = default;
-	~Octree() = default;
-
-	void Build(const AABB& worldBounds, const std::vector<Entry>& staticEntries, int maxObjectsPerNode = 2, int maxDepth = 5);
-	void Clear();
-
-	int QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& outObjects) const;
-	int QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::vector<GameObject*>& outObjects) const;
-
-	void CollectNodeBounds(std::vector<AABB>& outBoxes) const;
-
-	int GetMaxObjectsPerNode() const { return maxObjects; }
-	int GetMaxDepth() const { return maxTreeDepth; }
-	size_t GetNodeCount() const { return totalNodes; }
-	size_t GetObjectCount() const { return totalObjects; }
-
-private:
-	void SubdivideNode(Node* node);
-
-	std::unique_ptr<Node> root;
-	int maxObjects = 2;
-	int maxTreeDepth = 5;
-	size_t totalNodes = 0;
-	size_t totalObjects = 0;
-};
 
 class Scene : public Module
 {

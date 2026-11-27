@@ -565,8 +565,6 @@ void Scene::SetTreeParameters(int maxObjectsPerNode, int maxDepth)
 void Scene::RebuildSpacePartitioning()
 {
 	std::vector<Octree::Entry> staticEntries;
-	AABB worldBounds(glm::vec3(-8.0f, -2.0f, -8.0f), glm::vec3(8.0f, 8.0f, 8.0f));
-	bool firstBox = true;
 
 	std::stack<GameObject*> stack;
 	stack.push(&sceneRoot);
@@ -579,18 +577,7 @@ void Scene::RebuildSpacePartitioning()
 
 		if (node != &sceneRoot && node->IsStatic() && node->HasWorldAABB())
 		{
-			AABB box = node->GetWorldAABB();
-			staticEntries.push_back({ node, box });
-
-			if (firstBox)
-			{
-				worldBounds = box;
-				firstBox = false;
-			}
-			else
-			{
-				worldBounds.Enclose(box);
-			}
+			staticEntries.push_back({ node, node->GetWorldAABB() });
 		}
 
 		const std::vector<GameObject*>& children = node->GetChildren();
@@ -600,16 +587,11 @@ void Scene::RebuildSpacePartitioning()
 		}
 	}
 
-	// Asegurar un volumen mínimo simétrico y un pequeño margen alrededor de los objetos estáticos
-	worldBounds.Enclose(AABB(glm::vec3(-6.0f, -1.0f, -6.0f), glm::vec3(6.0f, 6.0f, 6.0f)));
-	worldBounds.min -= glm::vec3(0.5f);
-	worldBounds.max += glm::vec3(0.5f);
-
-	octree.Build(worldBounds, staticEntries, treeMaxObjectsPerNode, treeMaxDepth);
+	octree.Build(staticEntries, treeMaxObjectsPerNode, treeMaxDepth);
 	spacePartitioningDirty = false;
 
-	LOG("[Scene] Space Partitioning reconstruido (%zu objetos Static): Octree=%zu nodos",
-		staticEntries.size(), octree.GetNodeCount());
+	LOG("[Scene] Space Partitioning reconstruido (%zu objetos Static): Octree=%zu nodos, profundidad %d",
+		staticEntries.size(), octree.GetNodeCount(), octree.GetDepthReached());
 }
 
 void Scene::SetCurrentScenePath(const std::string& path)
@@ -686,255 +668,4 @@ void Scene::NewScene()
 	UpdateWindowTitle();
 
 	LOG("[Scene] Nueva escena creada ('Untitled', 1 entidad: 'Main Camera').");
-}
-
-// ============================================================================
-// OCTREE (Iterativo con std::stack)
-// ============================================================================
-void Octree::Clear()
-{
-	if (!root)
-	{
-		totalNodes = 0;
-		totalObjects = 0;
-		return;
-	}
-
-	std::stack<std::unique_ptr<Node>> cleanupStack;
-	cleanupStack.push(std::move(root));
-
-	while (!cleanupStack.empty())
-	{
-		std::unique_ptr<Node> current = std::move(cleanupStack.top());
-		cleanupStack.pop();
-		if (!current) continue;
-
-		for (size_t i = 0; i < 8; ++i)
-		{
-			if (current->children[i])
-			{
-				cleanupStack.push(std::move(current->children[i]));
-			}
-		}
-	}
-
-	totalNodes = 0;
-	totalObjects = 0;
-}
-
-void Octree::SubdivideNode(Node* node)
-{
-	if (!node || !node->IsLeaf()) return;
-
-	const glm::vec3 minP = node->bounds.min;
-	const glm::vec3 maxP = node->bounds.max;
-	const glm::vec3 center = node->bounds.GetCenter();
-	const int nextDepth = node->depth + 1;
-
-	for (size_t i = 0; i < 8; ++i)
-	{
-		glm::vec3 childMin(
-			(i & 1) ? center.x : minP.x,
-			(i & 2) ? center.y : minP.y,
-			(i & 4) ? center.z : minP.z
-		);
-		glm::vec3 childMax(
-			(i & 1) ? maxP.x : center.x,
-			(i & 2) ? maxP.y : center.y,
-			(i & 4) ? maxP.z : center.z
-		);
-
-		node->children[i] = std::make_unique<Node>();
-		node->children[i]->bounds = AABB(childMin, childMax);
-		node->children[i]->depth = nextDepth;
-	}
-
-	totalNodes += 8;
-}
-
-void Octree::Build(const AABB& worldBounds, const std::vector<Entry>& staticEntries, int maxObjectsPerNode, int maxDepth)
-{
-	Clear();
-
-	maxObjects = std::max(1, maxObjectsPerNode);
-	maxTreeDepth = std::max(1, maxDepth);
-	totalObjects = staticEntries.size();
-
-	root = std::make_unique<Node>();
-	root->bounds = worldBounds;
-	root->depth = 0;
-	root->objects = staticEntries;
-	totalNodes = 1;
-
-	std::stack<Node*> stack;
-	stack.push(root.get());
-
-	while (!stack.empty())
-	{
-		Node* current = stack.top();
-		stack.pop();
-		if (!current) continue;
-
-		if ((int)current->objects.size() > maxObjects && current->depth < maxTreeDepth)
-		{
-			SubdivideNode(current);
-
-			std::vector<Entry> currentEntries = std::move(current->objects);
-			current->objects.clear();
-
-			for (const Entry& entry : currentEntries)
-			{
-				for (size_t c = 0; c < 8; ++c)
-				{
-					if (current->children[c]->bounds.Intersects(entry.box))
-					{
-						current->children[c]->objects.push_back(entry);
-					}
-				}
-			}
-
-			for (size_t c = 8; c > 0; --c)
-			{
-				Node* child = current->children[c - 1].get();
-				if ((int)child->objects.size() > maxObjects && child->objects.size() < currentEntries.size())
-				{
-					stack.push(child);
-				}
-			}
-		}
-	}
-}
-
-int Octree::QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& outObjects) const
-{
-	outObjects.clear();
-	if (!root) return 0;
-
-	int visitedNodes = 0;
-	std::unordered_set<GameObject*> uniqueSet;
-	std::stack<const Node*> stack;
-	stack.push(root.get());
-
-	while (!stack.empty())
-	{
-		const Node* node = stack.top();
-		stack.pop();
-		if (!node) continue;
-
-		visitedNodes++;
-		if (!frustum.IsVisible(node->bounds))
-		{
-			continue;
-		}
-
-		if (node->IsLeaf())
-		{
-			for (const Entry& entry : node->objects)
-			{
-				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
-				{
-					if (frustum.IsVisible(entry.box))
-					{
-						uniqueSet.insert(entry.object);
-						outObjects.push_back(entry.object);
-					}
-				}
-			}
-		}
-		else
-		{
-			for (size_t i = 8; i > 0; --i)
-			{
-				if (node->children[i - 1])
-				{
-					stack.push(node->children[i - 1].get());
-				}
-			}
-		}
-	}
-
-	return visitedNodes;
-}
-
-int Octree::QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::vector<GameObject*>& outObjects) const
-{
-	outObjects.clear();
-	if (!root) return 0;
-	const Ray ray(rayOrigin, rayDir);
-
-	int visitedNodes = 0;
-	std::unordered_set<GameObject*> uniqueSet;
-	std::stack<const Node*> stack;
-	stack.push(root.get());
-
-	while (!stack.empty())
-	{
-		const Node* node = stack.top();
-		stack.pop();
-		if (!node) continue;
-
-		visitedNodes++;
-		float tHit = 0.0f;
-		if (!Intersection::RayAABB(ray, node->bounds, tHit))
-		{
-			continue;
-		}
-
-		if (node->IsLeaf())
-		{
-			for (const Entry& entry : node->objects)
-			{
-				if (entry.object && uniqueSet.find(entry.object) == uniqueSet.end())
-				{
-					float tObj = 0.0f;
-					if (Intersection::RayAABB(ray, entry.box, tObj))
-					{
-						uniqueSet.insert(entry.object);
-						outObjects.push_back(entry.object);
-					}
-				}
-			}
-		}
-		else
-		{
-			for (size_t i = 8; i > 0; --i)
-			{
-				if (node->children[i - 1])
-				{
-					stack.push(node->children[i - 1].get());
-				}
-			}
-		}
-	}
-
-	return visitedNodes;
-}
-
-void Octree::CollectNodeBounds(std::vector<AABB>& outBoxes) const
-{
-	outBoxes.clear();
-	if (!root) return;
-
-	std::stack<const Node*> stack;
-	stack.push(root.get());
-
-	while (!stack.empty())
-	{
-		const Node* node = stack.top();
-		stack.pop();
-		if (!node) continue;
-
-		outBoxes.push_back(node->bounds);
-
-		if (!node->IsLeaf())
-		{
-			for (size_t i = 8; i > 0; --i)
-			{
-				if (node->children[i - 1])
-				{
-					stack.push(node->children[i - 1].get());
-				}
-			}
-		}
-	}
 }

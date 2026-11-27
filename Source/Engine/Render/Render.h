@@ -16,6 +16,7 @@ struct CullingStats
 	int visibleObjects = 0;
 	int culledObjects = 0;
 	int treeNodesVisited = 0;
+	int treeObjectsTested = 0; // objetos Static del árbol probados uno a uno (el resto se resolvió por nodo)
 };
 
 class Render : public Module

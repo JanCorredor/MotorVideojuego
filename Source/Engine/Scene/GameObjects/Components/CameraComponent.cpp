@@ -288,12 +288,12 @@ void CameraComponent::CheckRaycastRecursive(GameObject* rootGo, glm::vec3 rayOri
 
     if (scene && partitionMode != SpacePartitionMode::None)
     {
-        std::vector<GameObject*> treeHits;
+        std::vector<std::pair<float, GameObject*>> treeHits;
         if (partitionMode == SpacePartitionMode::Octree)
         {
-            scene->GetOctree().QueryRay(rayOrigin, rayDir, treeHits);
+            scene->GetOctree().CollectRayHits(Ray(rayOrigin, rayDir), treeHits);
         }
-        staticCandidatesSet.insert(treeHits.begin(), treeHits.end());
+        for (const auto& hit : treeHits) staticCandidatesSet.insert(hit.second);
         useTreeFilter = true;
     }
 
