@@ -43,6 +43,26 @@ namespace
 		outText = ss.str();
 		return true;
 	}
+
+	// Cámara del editor y selección: van en Library/ (de cada usuario) y no en el .scene, que se sube al repo
+	constexpr int EDITOR_STATE_VERSION = 1;
+
+	// "Assets/Scenes/A.scene" -> "Library/EditorState/Assets/Scenes/A.scene.json"; "" si la escena está fuera de Assets
+	std::string EditorStatePath(const std::string& scenePath)
+	{
+		if (!FileSystem::IsInsideFolder(scenePath, FileSystem::ASSETS_DIR)) return std::string();
+		return FileSystem::Join(FileSystem::Join(FileSystem::LIBRARY_DIR, "EditorState"), FileSystem::Normalize(scenePath) + ".json");
+	}
+
+	nlohmann::json ReadEditorState(const std::string& scenePath)
+	{
+		const std::string statePath = EditorStatePath(scenePath);
+		std::string text;
+		if (statePath.empty() || !FileSystem::Exists(statePath) || !FileSystem::ReadText(statePath, text)) return nlohmann::json::object();
+
+		nlohmann::json state = nlohmann::json::parse(text, nullptr, false);
+		return state.is_object() ? state : nlohmann::json::object();
+	}
 }
 
 bool Scene::Save(const std::string& filePath) const
@@ -63,14 +83,6 @@ bool Scene::Save(const std::string& filePath) const
 		{ "maxObjectsPerNode", treeMaxObjectsPerNode },
 		{ "maxDepth", treeMaxDepth }
 	};
-	root["selected"] = selected ? (uint64_t)selected->GetUUID() : 0;
-
-	if (editorCameraObj)
-	{
-		nlohmann::json editorCamera = nlohmann::json::object();
-		editorCameraObj->Save(editorCamera);
-		root["editorCamera"] = std::move(editorCamera);
-	}
 
 	// Preorden: cada padre se escribe antes que sus hijos, así la carga los enlaza en una pasada
 	nlohmann::json objects = nlohmann::json::array();
@@ -124,6 +136,21 @@ bool Scene::Save(const std::string& filePath) const
 		currentScenePath = FileSystem::ToProjectRelativePath(targetSavePath);
 		sceneDirty = false;
 		UpdateWindowTitle();
+
+		const std::string statePath = EditorStatePath(currentScenePath);
+		if (!statePath.empty())
+		{
+			nlohmann::json state;
+			state["version"] = EDITOR_STATE_VERSION;
+			state["selected"] = selected ? (uint64_t)selected->GetUUID() : 0;
+			if (editorCameraObj)
+			{
+				nlohmann::json editorCamera = nlohmann::json::object();
+				editorCameraObj->Save(editorCamera);
+				state["editorCamera"] = std::move(editorCamera);
+			}
+			FileSystem::WriteText(statePath, state.dump(1, '\t', false, nlohmann::json::error_handler_t::replace));
+		}
 	}
 
 	LOG("[Scene] Escena guardada con éxito en '%s' (%zu GameObjects totales)", targetSavePath.c_str(), sceneEntities.size());
@@ -177,7 +204,9 @@ bool Scene::Load(const std::string& filePath)
 		treeMaxDepth = std::max(1, JsonHelpers::Get(*spIt, "maxDepth", treeMaxDepth));
 	}
 
-	const uint64_t savedSelectedUuid = JsonHelpers::Get(root, "selected", (uint64_t)0);
+	// La escena temporal del Play no lo usa: al pulsar Stop la cámara del editor se queda donde está
+	const nlohmann::json editorState = isTempFile ? nlohmann::json::object() : ReadEditorState(FileSystem::ToProjectRelativePath(resolvedScenePath));
+	const uint64_t savedSelectedUuid = JsonHelpers::Get(editorState, "selected", (uint64_t)0);
 
 	// Limpiar escena actual antes de reconstruir
 	pendingDestruction.clear();
@@ -190,8 +219,8 @@ bool Scene::Load(const std::string& filePath)
 	}
 	sceneEntities.clear();
 
-	const auto editorCamIt = root.find("editorCamera");
-	if (editorCamIt != root.end() && editorCamIt->is_object() && editorCameraObj)
+	const auto editorCamIt = editorState.find("editorCamera");
+	if (editorCamIt != editorState.end() && editorCamIt->is_object() && editorCameraObj)
 	{
 		editorCameraObj->Load(*editorCamIt);
 		mainCameraPtr = editorCameraObj.get();
@@ -277,9 +306,23 @@ bool Scene::SaveTemporaryScene(const std::string& filePath) const
 
 bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad)
 {
+	// La selección no va en la escena: se conserva la que había al pulsar Stop si el objeto sigue existiendo
+	const uint64_t selectedUuid = selected ? (uint64_t)selected->GetUUID() : 0;
 	if (!Load(filePath))
 	{
 		return false;
+	}
+
+	if (selectedUuid != 0)
+	{
+		for (const std::unique_ptr<GameObject>& ent : sceneEntities)
+		{
+			if (ent && (uint64_t)ent->GetUUID() == selectedUuid)
+			{
+				SetSelected(ent.get());
+				break;
+			}
+		}
 	}
 
 	currentScenePath = prePlayScenePath;
