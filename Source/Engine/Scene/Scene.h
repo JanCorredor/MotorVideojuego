@@ -190,6 +190,14 @@ public:
 	bool Load(const std::string& filePath);
 	void NewScene();
 
+	// Cambios de escena pedidos durante el frame: se hacen al principio del siguiente (PreUpdate), cuando
+	// nadie tiene punteros a GameObjects a medio usar. El editor usa estos y no Load / NewScene directamente.
+	// Si se pide otra escena, la restauración pendiente de Stop se descarta (salvo que la carga falle).
+	void RequestLoadScene(const std::string& filePath);
+	void RequestNewScene();
+	void RequestRestoreTemporaryScene(const std::string& filePath);
+	bool HasPendingSceneChange() const { return pendingSceneChange != PendingSceneChange::None || !pendingRestorePath.empty(); }
+
 	const std::string& GetCurrentScenePath() const { return currentScenePath; }
 	void SetCurrentScenePath(const std::string& path);
 	bool HasSavedScenePath() const { return !currentScenePath.empty(); }
@@ -207,8 +215,14 @@ public:
 private:
 
 	void ProcessPendingDestructions();
+	void ProcessPendingSceneChange();
 	// Vacía la escena (sin cámara del editor ni árboles); la usan cargar, nueva escena y CleanUp
 	void ClearScene();
+
+	enum class PendingSceneChange { None, Load, New };
+	PendingSceneChange pendingSceneChange = PendingSceneChange::None;
+	std::string pendingScenePath;
+	std::string pendingRestorePath; // escena temporal de Stop por restaurar
 
 	GameObject sceneRoot;
 	std::vector<std::unique_ptr<GameObject>> sceneEntities;

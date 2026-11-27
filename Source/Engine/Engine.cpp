@@ -461,6 +461,12 @@ void Engine::Play()
 {
 	if (simulationState == SimulationState::Stopped)
 	{
+		// Con un cambio de escena pendiente se guardaría la escena que está a punto de sustituirse
+		if (scene && scene->HasPendingSceneChange())
+		{
+			LOG_WARNING("[TimeManagement] Play ignorado: hay un cambio de escena pendiente para el siguiente frame.");
+			return;
+		}
 		if (scene)
 		{
 			scene->SaveTemporaryScene(tempSceneFilePath);
@@ -514,7 +520,8 @@ void Engine::Stop()
 
 		if (scene)
 		{
-			scene->LoadTemporaryScene(tempSceneFilePath, true);
+			// Se restaura al principio del siguiente frame, no a mitad del actual
+			scene->RequestRestoreTemporaryScene(tempSceneFilePath);
 		}
 		LOG("[TimeManagement] Modo STOP: cronómetro de juego reiniciado y escena restaurada al estado inicial.");
 	}

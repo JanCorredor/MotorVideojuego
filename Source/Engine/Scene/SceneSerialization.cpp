@@ -315,3 +315,60 @@ bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfter
 	}
 	return true;
 }
+
+void Scene::RequestLoadScene(const std::string& filePath)
+{
+	if (filePath.empty()) return;
+	pendingSceneChange = PendingSceneChange::Load;
+	pendingScenePath = filePath;
+}
+
+void Scene::RequestNewScene()
+{
+	pendingSceneChange = PendingSceneChange::New;
+	pendingScenePath.clear();
+}
+
+void Scene::RequestRestoreTemporaryScene(const std::string& filePath)
+{
+	pendingRestorePath = filePath;
+}
+
+void Scene::ProcessPendingSceneChange()
+{
+	if (!HasPendingSceneChange()) return;
+
+	// Se copian y se limpian antes: Load y NewScene podrían pedir otro cambio
+	const PendingSceneChange change = pendingSceneChange;
+	const std::string scenePath = pendingScenePath;
+	const std::string restorePath = pendingRestorePath;
+	pendingSceneChange = PendingSceneChange::None;
+	pendingScenePath.clear();
+	pendingRestorePath.clear();
+
+	bool replaced = false;
+	if (change == PendingSceneChange::Load)
+	{
+		replaced = Load(scenePath);
+	}
+	else if (change == PendingSceneChange::New)
+	{
+		NewScene();
+		replaced = true;
+	}
+
+	if (restorePath.empty()) return;
+
+	// Stop y otra escena en el mismo frame: se carga solo la otra (una vez) y la copia del Play sobra.
+	// Si esa carga falla, se restaura la escena de antes del Play como hacía Stop.
+	if (replaced)
+	{
+		std::error_code ec;
+		std::filesystem::remove(restorePath, ec);
+		LOG("[Scene] Restauración del Play descartada: se ha abierto otra escena");
+	}
+	else
+	{
+		LoadTemporaryScene(restorePath, true);
+	}
+}

@@ -300,7 +300,7 @@ bool ModuleUI::Update(float dt)
 				{
 					Engine::GetInstance().Stop();
 				}
-				scene->NewScene();
+				scene->RequestNewScene();
 				saveSceneFileNameBuffer[0] = '\0';
 			}
 		}
@@ -351,7 +351,7 @@ bool ModuleUI::DrawMainMenuBar()
 					{
 						Engine::GetInstance().Stop();
 					}
-					scene->NewScene();
+					scene->RequestNewScene();
 					saveSceneFileNameBuffer[0] = '\0';
 				}
 			}
@@ -410,7 +410,7 @@ bool ModuleUI::DrawMainMenuBar()
 								{
 									Engine::GetInstance().Stop();
 								}
-								scene->Load(savedScenes[i]);
+								scene->RequestLoadScene(savedScenes[i]);
 							}
 						}
 					}
@@ -3138,7 +3138,7 @@ void ModuleUI::DrawSceneFileModals()
 				}
 				std::string projectScene = FileSystem::EnsureAssetInProject(loadSceneFilePathBuffer, "Scenes");
 				std::string resolved = FileSystem::ResolveExistingPath(projectScene);
-				scene->Load(resolved);
+				scene->RequestLoadScene(resolved);
 			}
 			ImGui::CloseCurrentPopup();
 		}

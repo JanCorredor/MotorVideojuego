@@ -104,6 +104,7 @@ bool Scene::PreUpdate()
 #endif
 
 	ProcessPendingDestructions();
+	ProcessPendingSceneChange();
 	return true;
 }
 
