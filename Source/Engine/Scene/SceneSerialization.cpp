@@ -112,19 +112,15 @@ bool Scene::Save(const std::string& filePath) const
 
 	const nlohmann::json root = SerializeToJson(sceneName);
 
-	const bool isTempFile = (filePath == Engine::GetInstance().GetTempSceneFilePath());
 	std::string targetSavePath = filePath;
-	if (!isTempFile)
+	std::filesystem::path rawPath(filePath);
+	if (!rawPath.is_absolute())
 	{
-		std::filesystem::path rawPath(filePath);
-		if (!rawPath.is_absolute())
+		std::string norm = filePath;
+		std::replace(norm.begin(), norm.end(), '\\', '/');
+		if (norm.rfind("Assets/", 0) == 0 || norm.rfind("Library/", 0) == 0)
 		{
-			std::string norm = filePath;
-			std::replace(norm.begin(), norm.end(), '\\', '/');
-			if (norm.rfind("Assets/", 0) == 0 || norm.rfind("Library/", 0) == 0)
-			{
-				targetSavePath = FileSystem::ToDiskPath(norm);
-			}
+			targetSavePath = FileSystem::ToDiskPath(norm);
 		}
 	}
 
@@ -136,27 +132,24 @@ bool Scene::Save(const std::string& filePath) const
 		return false;
 	}
 
-	if (!isTempFile)
-	{
-		currentScenePath = FileSystem::ToProjectRelativePath(targetSavePath);
-		sceneDirty = false;
-		UpdateWindowTitle();
+	currentScenePath = FileSystem::ToProjectRelativePath(targetSavePath);
+	sceneDirty = false;
+	UpdateWindowTitle();
 
-		const std::string statePath = EditorStatePath(currentScenePath);
-		if (!statePath.empty())
+	const std::string statePath = EditorStatePath(currentScenePath);
+	if (!statePath.empty())
+	{
+		nlohmann::json state;
+		state["version"] = EDITOR_STATE_VERSION;
+		state["selected"] = selected ? (uint64_t)selected->GetUUID() : 0; // el activo
+		state["selection"] = GetSelectionUIDs();
+		if (editorCameraObj)
 		{
-			nlohmann::json state;
-			state["version"] = EDITOR_STATE_VERSION;
-			state["selected"] = selected ? (uint64_t)selected->GetUUID() : 0; // el activo
-			state["selection"] = GetSelectionUIDs();
-			if (editorCameraObj)
-			{
-				nlohmann::json editorCamera = nlohmann::json::object();
-				editorCameraObj->Save(editorCamera);
-				state["editorCamera"] = std::move(editorCamera);
-			}
-			FileSystem::WriteText(statePath, state.dump(1, '\t', false, nlohmann::json::error_handler_t::replace));
+			nlohmann::json editorCamera = nlohmann::json::object();
+			editorCameraObj->Save(editorCamera);
+			state["editorCamera"] = std::move(editorCamera);
 		}
+		FileSystem::WriteText(statePath, state.dump(1, '\t', false, nlohmann::json::error_handler_t::replace));
 	}
 
 	LOG("[Scene] Escena guardada con éxito en '%s' (%zu GameObjects totales)", targetSavePath.c_str(), sceneEntities.size());
@@ -171,8 +164,7 @@ bool Scene::Load(const std::string& filePath)
 		return false;
 	}
 
-	const bool isTempFile = (filePath == Engine::GetInstance().GetTempSceneFilePath());
-	std::string resolvedScenePath = isTempFile ? filePath : FileSystem::ResolveExistingPath(filePath);
+	std::string resolvedScenePath = FileSystem::ResolveExistingPath(filePath);
 
 	std::string text;
 	if (!ReadTextFile(resolvedScenePath, text) || text.empty())
@@ -182,19 +174,15 @@ bool Scene::Load(const std::string& filePath)
 	}
 
 	const nlohmann::json root = nlohmann::json::parse(text, nullptr, false);
-	// La escena temporal del Play no lo usa: al pulsar Stop la cámara del editor se queda donde está
-	const nlohmann::json editorState = isTempFile ? nlohmann::json::object() : ReadEditorState(FileSystem::ToProjectRelativePath(resolvedScenePath));
+	const nlohmann::json editorState = ReadEditorState(FileSystem::ToProjectRelativePath(resolvedScenePath));
 	if (!LoadFromJson(root, resolvedScenePath, editorState))
 	{
 		return false;
 	}
 
-	if (!isTempFile)
-	{
-		currentScenePath = FileSystem::ToProjectRelativePath(resolvedScenePath);
-		sceneDirty = false;
-		UpdateWindowTitle();
-	}
+	currentScenePath = FileSystem::ToProjectRelativePath(resolvedScenePath);
+	sceneDirty = false;
+	UpdateWindowTitle();
 	return true;
 }
 
@@ -299,54 +287,63 @@ bool Scene::LoadFromJson(const nlohmann::json& root, const std::string& sourceNa
 	return true;
 }
 
-bool Scene::SaveTemporaryScene(const std::string& filePath) const
+bool Scene::SavePlaySnapshot()
 {
-	prePlayScenePath = currentScenePath;
+	try
+	{
+		// Sin sangría: ocupa menos y nadie la lee a mano
+		playSnapshot = SerializeToJson(GetSceneDisplayName()).dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+	}
+	catch (const std::exception& e)
+	{
+		playSnapshot.clear();
+		LOG_ERROR("[Scene] No se pudo copiar la escena antes del Play: %s", e.what());
+		return false;
+	}
 	prePlaySceneDirty = sceneDirty;
-	return Save(filePath);
+	LOG("[Scene] Escena copiada en memoria para el Play (%.1f KB)", playSnapshot.size() / 1024.0f);
+	return true;
 }
 
-bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad)
+void Scene::RestorePlaySnapshot()
 {
-	// La selección no va en la escena: se conserva la que había al pulsar Stop con los objetos que siguen existiendo
+	// La selección no va en la copia: se conserva la del momento de Stop con los objetos que siguen existiendo
 	const std::vector<uint64_t> selectionUuids = GetSelectionUIDs();
 	const uint64_t activeUuid = selected ? (uint64_t)selected->GetUUID() : 0;
-	if (!Load(filePath))
+
+	const nlohmann::json root = nlohmann::json::parse(playSnapshot, nullptr, false);
+	playSnapshot.clear();
+	// Sin estado del editor: la cámara del editor se queda donde está
+	if (!LoadFromJson(root, "copia del Play", nlohmann::json::object()))
 	{
-		return false;
+		LOG_ERROR("[Scene] No se pudo restaurar la escena de antes del Play");
+		return;
 	}
 
 	SelectByUIDs(selectionUuids, activeUuid);
-
-	currentScenePath = prePlayScenePath;
 	sceneDirty = prePlaySceneDirty;
 	UpdateWindowTitle();
-
-	if (deleteFileAfterLoad)
-	{
-		std::error_code ec;
-		std::filesystem::remove(filePath, ec);
-		LOG("[Scene] Archivo temporal '%s' restaurado (%zu objetos) y eliminado del disco", filePath.c_str(), sceneEntities.size());
-	}
-	return true;
 }
 
 void Scene::RequestLoadScene(const std::string& filePath)
 {
 	if (filePath.empty()) return;
+	// Otra escena saca del Play: Stop pide la restauración y ProcessPendingSceneChange la descarta si la carga va bien
+	Engine::GetInstance().Stop();
 	pendingSceneChange = PendingSceneChange::Load;
 	pendingScenePath = filePath;
 }
 
 void Scene::RequestNewScene()
 {
+	Engine::GetInstance().Stop();
 	pendingSceneChange = PendingSceneChange::New;
 	pendingScenePath.clear();
 }
 
-void Scene::RequestRestoreTemporaryScene(const std::string& filePath)
+void Scene::RequestRestorePlaySnapshot()
 {
-	pendingRestorePath = filePath;
+	pendingPlayRestore = !playSnapshot.empty();
 }
 
 void Scene::ProcessPendingSceneChange()
@@ -356,10 +353,10 @@ void Scene::ProcessPendingSceneChange()
 	// Se copian y se limpian antes: Load y NewScene podrían pedir otro cambio
 	const PendingSceneChange change = pendingSceneChange;
 	const std::string scenePath = pendingScenePath;
-	const std::string restorePath = pendingRestorePath;
+	const bool restore = pendingPlayRestore;
 	pendingSceneChange = PendingSceneChange::None;
 	pendingScenePath.clear();
-	pendingRestorePath.clear();
+	pendingPlayRestore = false;
 
 	bool replaced = false;
 	if (change == PendingSceneChange::Load)
@@ -372,18 +369,17 @@ void Scene::ProcessPendingSceneChange()
 		replaced = true;
 	}
 
-	if (restorePath.empty()) return;
+	if (!restore) return;
 
 	// Stop y otra escena en el mismo frame: se carga solo la otra (una vez) y la copia del Play sobra.
 	// Si esa carga falla, se restaura la escena de antes del Play como hacía Stop.
 	if (replaced)
 	{
-		std::error_code ec;
-		std::filesystem::remove(restorePath, ec);
+		playSnapshot.clear();
 		LOG("[Scene] Restauración del Play descartada: se ha abierto otra escena");
 	}
 	else
 	{
-		LoadTemporaryScene(restorePath, true);
+		RestorePlaySnapshot();
 	}
 }

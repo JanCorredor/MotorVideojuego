@@ -103,7 +103,6 @@ public:
 	float GetTimeScale() const { return gameClock.GetTimeScale(); }
 	void SetTimeScale(float scale) { gameClock.SetTimeScale(scale); }
 	int GetGameFrameCount() const { return gameClock.GetFrameCount(); }
-	const std::string& GetTempSceneFilePath() const { return tempSceneFilePath; }
 
 private:
 
@@ -173,7 +172,6 @@ private:
 	PerfTimer lastSecFrameTime;
 
 	GameClock gameClock; // estado del Play y reloj de juego
-	std::string tempSceneFilePath = "temp_playmode.scene";
 
 	int frameCount = 0;
 	int framesPerSecond = 0;

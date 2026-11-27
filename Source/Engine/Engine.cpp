@@ -450,9 +450,11 @@ void Engine::Play()
 			LOG_WARNING("[TimeManagement] Play ignorado: hay un cambio de escena pendiente para el siguiente frame.");
 			return;
 		}
-		if (scene)
+		// Sin copia, Stop no podría devolver la escena a como estaba
+		if (scene && !scene->SavePlaySnapshot())
 		{
-			scene->SaveTemporaryScene(tempSceneFilePath);
+			LOG_ERROR("[TimeManagement] Play cancelado: no se pudo copiar la escena.");
+			return;
 		}
 		gameClock.Play();
 		LOG("[TimeManagement] Modo PLAY iniciado. Cronómetro de juego en marcha.");
@@ -491,7 +493,7 @@ void Engine::Stop()
 		if (scene)
 		{
 			// Se restaura al principio del siguiente frame, no a mitad del actual
-			scene->RequestRestoreTemporaryScene(tempSceneFilePath);
+			scene->RequestRestorePlaySnapshot();
 		}
 		LOG("[TimeManagement] Modo STOP: cronómetro de juego reiniciado y escena restaurada al estado inicial.");
 	}

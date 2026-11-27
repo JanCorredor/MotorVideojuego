@@ -296,10 +296,6 @@ bool ModuleUI::Update(float dt)
 		{
 			if (scene)
 			{
-				if (!Engine::GetInstance().IsStopped())
-				{
-					Engine::GetInstance().Stop();
-				}
 				scene->RequestNewScene();
 				saveSceneFileNameBuffer[0] = '\0';
 			}
@@ -347,10 +343,6 @@ bool ModuleUI::DrawMainMenuBar()
 			{
 				if (scene)
 				{
-					if (!Engine::GetInstance().IsStopped())
-					{
-						Engine::GetInstance().Stop();
-					}
 					scene->RequestNewScene();
 					saveSceneFileNameBuffer[0] = '\0';
 				}
@@ -406,10 +398,6 @@ bool ModuleUI::DrawMainMenuBar()
 						{
 							if (scene)
 							{
-								if (!Engine::GetInstance().IsStopped())
-								{
-									Engine::GetInstance().Stop();
-								}
 								scene->RequestLoadScene(savedScenes[i]);
 							}
 						}
@@ -2258,11 +2246,15 @@ void ModuleUI::DrawConfigurationPanel()
 					eng.SetTimeScale(timeScale);
 				}
 
-				std::error_code ec;
-				const bool tempExists = std::filesystem::exists(eng.GetTempSceneFilePath(), ec);
-				ImGui::BulletText("Archivo Temporal de Escena ('%s'): %s",
-					eng.GetTempSceneFilePath().c_str(),
-					tempExists ? "Creado en disco (listo para restaurar al dar Stop)" : "Inactivo");
+				const size_t snapshotBytes = eng.scene ? eng.scene->GetPlaySnapshotSize() : 0;
+				if (snapshotBytes > 0)
+				{
+					ImGui::BulletText("Copia de la escena para Stop: %.1f KB en memoria", snapshotBytes / 1024.0f);
+				}
+				else
+				{
+					ImGui::BulletText("Copia de la escena para Stop: inactiva");
+				}
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Control de Framerate");
@@ -3127,10 +3119,6 @@ void ModuleUI::DrawSceneFileModals()
 		{
 			if (scene)
 			{
-				if (!Engine::GetInstance().IsStopped())
-				{
-					Engine::GetInstance().Stop();
-				}
 				std::string projectScene = FileSystem::EnsureAssetInProject(loadSceneFilePathBuffer, "Scenes");
 				std::string resolved = FileSystem::ResolveExistingPath(projectScene);
 				scene->RequestLoadScene(resolved);

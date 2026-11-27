@@ -146,12 +146,8 @@ bool Scene::PostUpdate()
 bool Scene::CleanUp()
 {
 	LOG("[Scene] Limpiando entidades de la escena (%zu entidades)...", sceneEntities.size());
-	const std::string& tempFile = Engine::GetInstance().GetTempSceneFilePath();
-	std::error_code ec;
-	if (!tempFile.empty() && std::filesystem::exists(tempFile, ec))
-	{
-		std::filesystem::remove(tempFile, ec);
-	}
+	playSnapshot.clear();
+	pendingPlayRestore = false;
 	octree.Clear();
 	isLoadingOrInitializing = true;
 	ClearScene();

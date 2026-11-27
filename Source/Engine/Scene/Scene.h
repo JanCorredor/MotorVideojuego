@@ -98,11 +98,10 @@ public:
 
 	// Cambios de escena pedidos durante el frame: se hacen al principio del siguiente (PreUpdate), cuando
 	// nadie tiene punteros a GameObjects a medio usar. El editor usa estos y no Load / NewScene directamente.
-	// Si se pide otra escena, la restauración pendiente de Stop se descarta (salvo que la carga falle).
+	// Pedir otra escena saca del Play: la restauración de Stop se descarta, salvo que la carga falle.
 	void RequestLoadScene(const std::string& filePath);
 	void RequestNewScene();
-	void RequestRestoreTemporaryScene(const std::string& filePath);
-	bool HasPendingSceneChange() const { return pendingSceneChange != PendingSceneChange::None || !pendingRestorePath.empty(); }
+	bool HasPendingSceneChange() const { return pendingSceneChange != PendingSceneChange::None || pendingPlayRestore; }
 
 	const std::string& GetCurrentScenePath() const { return currentScenePath; }
 	void SetCurrentScenePath(const std::string& path);
@@ -114,14 +113,16 @@ public:
 	void ClearSceneDirty();
 	void UpdateWindowTitle() const;
 
-	// Guardado y restauración de escena temporal (Play / Stop)
-	bool SaveTemporaryScene(const std::string& filePath) const;
-	bool LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad = true);
+	// Copia en memoria de la escena al pulsar Play; Stop la restaura al principio del siguiente frame
+	bool SavePlaySnapshot();
+	void RequestRestorePlaySnapshot();
+	size_t GetPlaySnapshotSize() const { return playSnapshot.size(); }
 
 private:
 
 	void ProcessPendingDestructions();
 	void ProcessPendingSceneChange();
+	void RestorePlaySnapshot();
 	// Escena <-> JSON sin tocar ficheros. editorState: cámara del editor y selección guardadas (vacío = la cámara no cambia)
 	nlohmann::json SerializeToJson(const std::string& sceneName) const;
 	bool LoadFromJson(const nlohmann::json& root, const std::string& sourceName, const nlohmann::json& editorState);
@@ -131,7 +132,9 @@ private:
 	enum class PendingSceneChange { None, Load, New };
 	PendingSceneChange pendingSceneChange = PendingSceneChange::None;
 	std::string pendingScenePath;
-	std::string pendingRestorePath; // escena temporal de Stop por restaurar
+	std::string playSnapshot;        // escena en JSON al pulsar Play (vacía fuera del Play)
+	bool pendingPlayRestore = false; // Stop pendiente de restaurarla
+	bool prePlaySceneDirty = false;
 
 	GameObject sceneRoot;
 	std::vector<std::unique_ptr<GameObject>> sceneEntities;
@@ -153,6 +156,4 @@ private:
 	mutable std::string currentScenePath;
 	mutable bool sceneDirty = false;
 	mutable bool isLoadingOrInitializing = false;
-	mutable std::string prePlayScenePath;
-	mutable bool prePlaySceneDirty = false;
 };
