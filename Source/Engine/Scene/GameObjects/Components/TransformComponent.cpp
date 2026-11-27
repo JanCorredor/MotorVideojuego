@@ -1,5 +1,6 @@
 #include "TransformComponent.h"
 #include "../GameObject.h"
+#include "../../../../Utils/JsonHelpers.h"
 #include <stack>
 #include <vector>
 
@@ -13,20 +14,20 @@ std::unique_ptr<Component> TransformComponent::Clone(GameObject* newOwner) const
 	return clone;
 }
 
-void TransformComponent::Save(SceneFile& file) const
+void TransformComponent::Save(nlohmann::json& out) const
 {
-	file.SetBool("active", active);
-	file.SetVec3("position", position);
-	file.SetVec3("rotation", rotation);
-	file.SetVec3("scale", scale);
+	out["active"] = active;
+	out["position"] = JsonHelpers::FromVec3(position);
+	out["rotation"] = JsonHelpers::FromVec3(rotation);
+	out["scale"] = JsonHelpers::FromVec3(scale);
 }
 
-void TransformComponent::Load(const SceneFile& file)
+void TransformComponent::Load(const nlohmann::json& in)
 {
-	active = file.GetBool("active", true);
-	SetPosition(file.GetVec3("position", glm::vec3(0.0f)));
-	SetRotation(file.GetVec3("rotation", glm::vec3(0.0f)));
-	SetScale(file.GetVec3("scale", glm::vec3(1.0f)));
+	active = JsonHelpers::Get(in, "active", true);
+	SetPosition(JsonHelpers::GetVec3(in, "position", glm::vec3(0.0f)));
+	SetRotation(JsonHelpers::GetVec3(in, "rotation", glm::vec3(0.0f)));
+	SetScale(JsonHelpers::GetVec3(in, "scale", glm::vec3(1.0f)));
 }
 
 const glm::mat4& TransformComponent::GetWorldMatrix() const

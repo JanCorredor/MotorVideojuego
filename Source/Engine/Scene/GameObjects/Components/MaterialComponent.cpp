@@ -2,6 +2,7 @@
 #include "../../../Engine.h"
 #include "../../../ResourceManagement/Importers/TextureImporter.h"
 #include "../../../FileSystem/FileSystem.h"
+#include "../../../../Utils/JsonHelpers.h"
 
 std::unique_ptr<Component> MaterialComponent::Clone(GameObject* newOwner) const
 {
@@ -15,49 +16,49 @@ std::unique_ptr<Component> MaterialComponent::Clone(GameObject* newOwner) const
 	return clone;
 }
 
-void MaterialComponent::Save(SceneFile& file) const
+void MaterialComponent::Save(nlohmann::json& out) const
 {
-	file.SetBool("active", active);
-	file.SetVec4("color", color);
-	file.SetBool("use_texture", useTexture);
-	file.SetBool("use_checkerboard", useCheckerboard);
-	file.SetBool("using_missing_texture", usingMissingTexture);
+	out["active"] = active;
+	out["color"] = JsonHelpers::FromVec4(color);
+	out["useTexture"] = useTexture;
+	out["checkerboard"] = useCheckerboard;
+	out["usingMissingTexture"] = usingMissingTexture;
 
 	std::string texPath = (diffuse != nullptr && diffuse->path.find("(procedural)") == std::string::npos)
 		? FileSystem::EnsureAssetInProject(diffuse->path, "Textures")
 		: "";
-	file.SetString("texture_path", texPath);
+	out["texturePath"] = texPath;
 
 	if (diffuse != nullptr && !texPath.empty())
 	{
-		file.SetInt("min_filter", diffuse->importSettings.minFilter);
-		file.SetInt("mag_filter", diffuse->importSettings.magFilter);
-		file.SetInt("wrap_mode", diffuse->importSettings.wrapMode);
-		file.SetBool("flip_x", diffuse->importSettings.flipX);
-		file.SetBool("flip_y", diffuse->importSettings.flipY);
+		out["minFilter"] = diffuse->importSettings.minFilter;
+		out["magFilter"] = diffuse->importSettings.magFilter;
+		out["wrapMode"] = diffuse->importSettings.wrapMode;
+		out["flipX"] = diffuse->importSettings.flipX;
+		out["flipY"] = diffuse->importSettings.flipY;
 	}
 }
 
-void MaterialComponent::Load(const SceneFile& file)
+void MaterialComponent::Load(const nlohmann::json& in)
 {
-	active = file.GetBool("active", true);
-	color = file.GetVec4("color", glm::vec4(1.0f));
-	useTexture = file.GetBool("use_texture", false);
-	useCheckerboard = file.GetBool("use_checkerboard", false);
-	bool savedMissing = file.GetBool("using_missing_texture", false);
-	std::string texPath = file.GetString("texture_path", "");
+	active = JsonHelpers::Get(in, "active", true);
+	color = JsonHelpers::GetVec4(in, "color", glm::vec4(1.0f));
+	useTexture = JsonHelpers::Get(in, "useTexture", false);
+	useCheckerboard = JsonHelpers::Get(in, "checkerboard", false);
+	bool savedMissing = JsonHelpers::Get(in, "usingMissingTexture", false);
+	std::string texPath = JsonHelpers::Get(in, "texturePath", std::string());
 
 	if (!texPath.empty() && texPath.find("(procedural)") == std::string::npos)
 	{
 		std::string resolvedTex = FileSystem::ResolveExistingPath(texPath);
-		if (file.HasKey("min_filter"))
+		if (in.contains("minFilter"))
 		{
 			TextureSettings ts;
-			ts.minFilter = file.GetInt("min_filter", 0);
-			ts.magFilter = file.GetInt("mag_filter", 0);
-			ts.wrapMode = file.GetInt("wrap_mode", 0);
-			ts.flipX = file.GetBool("flip_x", false);
-			ts.flipY = file.GetBool("flip_y", false);
+			ts.minFilter = JsonHelpers::Get(in, "minFilter", 0);
+			ts.magFilter = JsonHelpers::Get(in, "magFilter", 0);
+			ts.wrapMode = JsonHelpers::Get(in, "wrapMode", 0);
+			ts.flipX = JsonHelpers::Get(in, "flipX", false);
+			ts.flipY = JsonHelpers::Get(in, "flipY", false);
 			diffuse = TextureImporter::ImportTexture(resolvedTex, ts, false);
 			usingMissingTexture = (diffuse == nullptr);
 			if (usingMissingTexture && Engine::GetInstance().textures)

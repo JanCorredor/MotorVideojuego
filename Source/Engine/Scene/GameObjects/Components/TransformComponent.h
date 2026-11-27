@@ -16,8 +16,8 @@ public:
 
 	std::unique_ptr<Component> Clone(GameObject* newOwner) const override;
 
-	void Save(SceneFile& file) const override;
-	void Load(const SceneFile& file) override;
+	void Save(nlohmann::json& out) const override;
+	void Load(const nlohmann::json& in) override;
 
 	// Los setters solo invalidan la matriz si el valor cambia realmente
 	void SetPosition(const glm::vec3& pos) { if (pos != position) { position = pos; MarkDirty(); } }
