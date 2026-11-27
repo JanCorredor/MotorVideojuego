@@ -10,6 +10,8 @@
 #include <memory>
 #include <string>
 #include <array>
+#include <unordered_map>
+#include <unordered_set>
 
 // ============================================================================
 // QUADTREE (Partición espacial 2D en el plano XZ, conservando altura Y)
@@ -140,15 +142,35 @@ public:
 	GameObject* GetMainCameraObject() const { return mainCameraPtr; }
 	GameObject* GetGameCameraObject() const { return gameCameraPtr; }
 
-	// Selección única de la escena (la consumen Editor y cámara). nullptr = sin selección.
+	// Selección múltiple. El activo (el último seleccionado) es el que usan Inspector, cámara y drag & drop.
 	// El root y objetos que no pertenezcan a la escena se rechazan.
-	void SetSelected(GameObject* object);
+	void SetSelected(GameObject* object) { Select(object); }
 	GameObject* GetSelected() const { return selected; }
+	const std::vector<GameObject*>& GetSelection() const { return selection; }
+	bool HasSelection() const { return !selection.empty(); }
+	bool IsSelected(const GameObject* object) const { return selectionSet.count(object) > 0; }
+	// Seleccionado o descendiente de un seleccionado (contorno del render)
+	bool IsInSelectedHierarchy(const GameObject* object) const;
+	void Select(GameObject* object);               // sustituye la selección (nullptr = ninguna)
+	void AddToSelection(GameObject* object);       // la amplía y lo hace activo
+	void RemoveFromSelection(GameObject* object);
+	void ToggleSelection(GameObject* object);      // Ctrl + clic
+	void SetSelection(const std::vector<GameObject*>& objects, GameObject* active = nullptr);
+	void ClearSelection() { Select(nullptr); }
+	void SelectAll();
+	// Sin los que ya cuelgan de otro seleccionado: es lo que se duplica, borra o mueve
+	std::vector<GameObject*> GetTopLevelSelection() const;
+	std::vector<uint64_t> GetSelectionUIDs() const;
+	void SelectByUIDs(const std::vector<uint64_t>& uids, uint64_t activeUID = 0);
+	// Duplica o borra la selección de nivel superior; tras duplicar quedan seleccionadas las copias
+	std::vector<GameObject*> DuplicateSelection();
+	void DestroySelection();
 	uint64_t GetSelectionRevision() const { return selectionRevision; }
 	void NotifySelectionHierarchyChanged() { selectionRevision++; }
 
-	// Comprueba si un puntero a GameObject es propiedad viva de esta escena
+	// Comprueba si un puntero a GameObject es propiedad viva de esta escena (O(1) por el mapa de UID)
 	bool OwnsObject(const GameObject* object) const;
+	GameObject* FindByUID(uint64_t uid) const;
 
 	std::string MakeUniqueName(const std::string& baseName) const;
 	GameObject* Register(std::unique_ptr<GameObject> newObj, GameObject* parent = nullptr);
@@ -168,6 +190,14 @@ public:
 	bool Load(const std::string& filePath);
 	void NewScene();
 
+	// Cambios de escena pedidos durante el frame: se hacen al principio del siguiente (PreUpdate), cuando
+	// nadie tiene punteros a GameObjects a medio usar. El editor usa estos y no Load / NewScene directamente.
+	// Si se pide otra escena, la restauración pendiente de Stop se descarta (salvo que la carga falle).
+	void RequestLoadScene(const std::string& filePath);
+	void RequestNewScene();
+	void RequestRestoreTemporaryScene(const std::string& filePath);
+	bool HasPendingSceneChange() const { return pendingSceneChange != PendingSceneChange::None || !pendingRestorePath.empty(); }
+
 	const std::string& GetCurrentScenePath() const { return currentScenePath; }
 	void SetCurrentScenePath(const std::string& path);
 	bool HasSavedScenePath() const { return !currentScenePath.empty(); }
@@ -183,11 +213,20 @@ public:
 	bool LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad = true);
 
 private:
-	
+
 	void ProcessPendingDestructions();
+	void ProcessPendingSceneChange();
+	// Vacía la escena (sin cámara del editor ni árboles); la usan cargar, nueva escena y CleanUp
+	void ClearScene();
+
+	enum class PendingSceneChange { None, Load, New };
+	PendingSceneChange pendingSceneChange = PendingSceneChange::None;
+	std::string pendingScenePath;
+	std::string pendingRestorePath; // escena temporal de Stop por restaurar
 
 	GameObject sceneRoot;
 	std::vector<std::unique_ptr<GameObject>> sceneEntities;
+	std::unordered_map<uint64_t, GameObject*> objectsByUID; // solo objetos vivos (no encolados para destruir)
 	std::vector<GameObject*> pendingDestruction;
 
 	Quadtree quadtree;
@@ -199,7 +238,9 @@ private:
 	std::unique_ptr<GameObject> editorCameraObj;
 	GameObject* mainCameraPtr = nullptr;
 	GameObject* gameCameraPtr = nullptr;
-	GameObject* selected = nullptr;
+	GameObject* selected = nullptr;                          // objeto activo de la selección
+	std::vector<GameObject*> selection;                      // en el orden en que se seleccionaron
+	std::unordered_set<const GameObject*> selectionSet;      // IsSelected en O(1): el render lo consulta por objeto
 	uint64_t selectionRevision = 0;
 	mutable std::string currentScenePath;
 	mutable bool sceneDirty = false;

@@ -71,7 +71,14 @@ public:
 		return static_cast<const T*>(components[typeId].get());
 	}
 
-	bool SetParent(GameObject* newParent);
+	// keepWorldTransform = true: se queda donde estaba en el mundo (reparentar en la jerarquía).
+	// false: conserva su transform local (objetos nuevos, nodos de modelos y carga de escenas).
+	bool SetParent(GameObject* newParent, bool keepWorldTransform = true);
+	// Igual, y lo coloca en la posición 'siblingIndex' entre los hijos del nuevo padre (-1 = al final)
+	bool SetParent(GameObject* newParent, bool keepWorldTransform, int siblingIndex);
+	// Posición entre sus hermanos: orden de la jerarquía, que el .scene guarda por el orden de la lista
+	int GetSiblingIndex() const;
+	void SetSiblingIndex(int index);
 	bool AddChild(GameObject* child);
 	void RemoveChild(GameObject* child);
 

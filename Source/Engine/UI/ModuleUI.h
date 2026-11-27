@@ -31,6 +31,8 @@ private:
 	void DrawGamePanel();
 	void DrawHierarchyPanel();
 	bool DrawHierarchyNode(GameObject* node, GameObject* selected, bool hasChildren);
+	// Clic en una fila: normal = solo ese, Ctrl = alterna, Shift = rango desde el último clic
+	void HierarchyRowClicked(GameObject* node);
 	void DrawInspectorPanel();
 	void DrawConsolePanel();
 	void DrawConfigurationPanel();
@@ -53,6 +55,11 @@ private:
 	uint64_t lastHierarchySelectionRevision = 0;
 	bool expandToSelectedInHierarchy = false;
 	bool scrollToSelectedInHierarchy = false;
+
+	// Selección por rangos: filas visibles por UID (no punteros: entre frames se pueden borrar objetos)
+	std::vector<uint64_t> hierarchyRows;
+	std::vector<uint64_t> previousHierarchyRows;
+	uint64_t hierarchyRangeAnchorUID = 0;
 
 	// Visibilidad de ventanas del Editor
 	bool showScene = true;

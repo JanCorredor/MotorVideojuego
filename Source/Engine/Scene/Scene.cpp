@@ -79,9 +79,7 @@ bool Scene::Start()
 	auto gameCamComp = std::make_unique<CameraComponent>(gameCamObj.get());
 	gameCamObj->AddComponent(std::move(gameCamComp));
 
-	gameCameraPtr = gameCamObj.get();
-	sceneRoot.AddChild(gameCamObj.get());
-	sceneEntities.push_back(std::move(gameCamObj));
+	gameCameraPtr = Register(std::move(gameCamObj), &sceneRoot);
 	LOG("[Scene] Instanciada 'Main Camera' para la vista Game");
 
 
@@ -106,6 +104,7 @@ bool Scene::PreUpdate()
 #endif
 
 	ProcessPendingDestructions();
+	ProcessPendingSceneChange();
 	return true;
 }
 
@@ -155,97 +154,62 @@ bool Scene::CleanUp()
 	}
 	quadtree.Clear();
 	octree.Clear();
-	pendingDestruction.clear();
-	selected = nullptr;
+	isLoadingOrInitializing = true;
+	ClearScene();
 	mainCameraPtr = nullptr;
-	gameCameraPtr = nullptr;
 	editorCameraObj.reset();
-	sceneEntities.clear();
 	return true;
+}
+
+void Scene::ClearScene()
+{
+	pendingDestruction.clear();
+	selection.clear();
+	selectionSet.clear();
+	selected = nullptr;
+	gameCameraPtr = nullptr;
+
+	// Se desenganchan los hijos de la raíz antes de liberar la memoria
+	while (!sceneRoot.GetChildren().empty())
+	{
+		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
+	}
+	objectsByUID.clear();
+	sceneEntities.clear();
 }
 
 std::string Scene::MakeUniqueName(const std::string& baseName) const
 {
-	bool exists = false;
+	// Un conjunto con los nombres usados: una pasada por la escena y no una por candidato
+	std::unordered_set<std::string> usedNames;
+	usedNames.reserve(sceneEntities.size());
 	for (const std::unique_ptr<GameObject>& entity : sceneEntities)
 	{
-		if (entity->GetName() == baseName)
-		{
-			exists = true;
-			break;
-		}
+		usedNames.insert(entity->GetName());
 	}
-	if (!exists) return baseName;
+	if (usedNames.find(baseName) == usedNames.end()) return baseName;
 
-	int index = 1;
-	while (true)
+	for (int index = 1;; ++index)
 	{
 		std::string candidate = baseName + " (" + std::to_string(index) + ")";
-		bool found = false;
-		for (const std::unique_ptr<GameObject>& entity : sceneEntities)
-		{
-			if (entity->GetName() == candidate)
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found) return candidate;
-		index++;
-	}
-}
-
-bool Scene::OwnsObject(const GameObject* object) const
-{
-	if (!object || object == &sceneRoot) return false;
-
-	// Si está encolado para destrucción, ya no se considera disponible
-	for (const GameObject* pending : pendingDestruction)
-	{
-		if (pending == object) return false;
-	}
-
-	for (const std::unique_ptr<GameObject>& entity : sceneEntities)
-	{
-		if (entity.get() == object) return true;
-	}
-	return false;
-}
-
-void Scene::SetSelected(GameObject* object)
-{
-	if (object == nullptr)
-	{
-		if (selected != nullptr)
-		{
-			selected = nullptr;
-			selectionRevision++;
-		}
-		return;
-	}
-	if (OwnsObject(object))
-	{
-		selected = object;
-		selectionRevision++;
-	}
-	else
-	{
-		selected = nullptr;
-		selectionRevision++;
+		if (usedNames.find(candidate) == usedNames.end()) return candidate;
 	}
 }
 
 GameObject* Scene::Register(std::unique_ptr<GameObject> newObj, GameObject* parent)
 {
 	GameObject* ptr = newObj.get();
-	if (parent != nullptr && (parent == &sceneRoot || OwnsObject(parent)))
+	GameObject* finalParent = (parent != nullptr && (parent == &sceneRoot || OwnsObject(parent))) ? parent : &sceneRoot;
+
+	// Se conserva el transform local: un objeto nuevo o un nodo de modelo queda colocado respecto a su padre
+	ptr->SetParent(finalParent, false);
+
+	const uint64_t uid = (uint64_t)ptr->GetUUID();
+	if (objectsByUID.find(uid) != objectsByUID.end())
 	{
-		parent->AddChild(ptr);
+		LOG_WARNING("[Scene] UID %llu repetido al registrar '%s'", (unsigned long long)uid, ptr->GetName().c_str());
 	}
-	else
-	{
-		sceneRoot.AddChild(ptr);
-	}
+	objectsByUID[uid] = ptr;
 	sceneEntities.push_back(std::move(newObj));
 	spacePartitioningDirty = true;
 	if (!isLoadingOrInitializing)
@@ -457,11 +421,7 @@ void Scene::DestroyGameObject(GameObject* target)
 
 	for (GameObject* obj : toDestroy)
 	{
-		if (selected == obj)
-		{
-			SetSelected(nullptr);
-			break;
-		}
+		RemoveFromSelection(obj);
 	}
 
 	// Si la cámara principal estuviera en el subárbol, desvincularla para no dejar puntero colgante
@@ -483,6 +443,10 @@ void Scene::DestroyGameObject(GameObject* target)
 		{
 			pendingDestruction.push_back(obj);
 		}
+
+		// Sale del mapa ya: deja de pertenecer a la escena aunque la memoria se libere en el siguiente frame
+		const auto it = objectsByUID.find((uint64_t)obj->GetUUID());
+		if (it != objectsByUID.end() && it->second == obj) objectsByUID.erase(it);
 	}
 
 	LOG("[Scene] GameObject '%s' y %zu descendiente(s) marcados para eliminación segura",
@@ -553,21 +517,10 @@ GameObject* Scene::DuplicateGameObject(GameObject* target, GameObject* parent)
 		GameObject* parentNode = current.parentNode;
 		if (!src) continue;
 
-		TransformComponent* srcTrans = src->GetComponent<TransformComponent>();
-		glm::vec3 localPos = srcTrans ? srcTrans->GetPosition() : glm::vec3(0.0f);
-		glm::vec3 localRot = srcTrans ? srcTrans->GetRotation() : glm::vec3(0.0f);
-		glm::vec3 localScale = srcTrans ? srcTrans->GetScale() : glm::vec3(1.0f);
-
+		// El clon copia el transform local y Register lo conserva bajo su nuevo padre
 		std::unique_ptr<GameObject> clone = src->Duplicate();
 		clone->SetName(MakeUniqueName(src->GetName()));
 		GameObject* registeredClone = Register(std::move(clone), parentNode);
-
-		if (TransformComponent* cloneTrans = registeredClone->GetComponent<TransformComponent>())
-		{
-			cloneTrans->SetPosition(localPos);
-			cloneTrans->SetRotation(localRot);
-			cloneTrans->SetScale(localScale);
-		}
 
 		if (duplicatedRoot == nullptr)
 		{
@@ -713,15 +666,7 @@ void Scene::UpdateWindowTitle() const
 void Scene::NewScene()
 {
 	isLoadingOrInitializing = true;
-	pendingDestruction.clear();
-	selected = nullptr;
-	gameCameraPtr = nullptr;
-
-	while (!sceneRoot.GetChildren().empty())
-	{
-		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
-	}
-	sceneEntities.clear();
+	ClearScene();
 
 	// Instanciar Main Camera por defecto en la nueva escena
 	auto gameCamObj = std::make_unique<GameObject>("Main Camera");

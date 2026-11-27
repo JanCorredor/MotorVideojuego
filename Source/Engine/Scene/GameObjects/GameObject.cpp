@@ -340,7 +340,36 @@ bool GameObject::MoveComponentDown(ComponentType type)
     return false;
 }
 
-bool GameObject::SetParent(GameObject* newParent)
+int GameObject::GetSiblingIndex() const
+{
+    if (parent == nullptr) return 0;
+    const std::vector<GameObject*>& siblings = parent->children;
+    const auto it = std::find(siblings.begin(), siblings.end(), this);
+    return (it == siblings.end()) ? 0 : static_cast<int>(it - siblings.begin());
+}
+
+void GameObject::SetSiblingIndex(int index)
+{
+    if (parent == nullptr) return;
+    std::vector<GameObject*>& siblings = parent->children;
+    const auto it = std::find(siblings.begin(), siblings.end(), this);
+    if (it == siblings.end()) return;
+
+    const int currentIndex = static_cast<int>(it - siblings.begin());
+    siblings.erase(it);
+    index = std::clamp(index, 0, static_cast<int>(siblings.size()));
+    siblings.insert(siblings.begin() + index, this);
+    if (index != currentIndex) NotifySceneModified();
+}
+
+bool GameObject::SetParent(GameObject* newParent, bool keepWorldTransform, int siblingIndex)
+{
+    if (newParent != parent && !SetParent(newParent, keepWorldTransform)) return false;
+    if (siblingIndex >= 0) SetSiblingIndex(siblingIndex);
+    return true;
+}
+
+bool GameObject::SetParent(GameObject* newParent, bool keepWorldTransform)
 {
     if (newParent == parent) return true;
 
@@ -351,8 +380,8 @@ bool GameObject::SetParent(GameObject* newParent)
 
     TransformComponent* trans = GetComponent<TransformComponent>();
 
-    // Guardamos la matriz de mundo actual antes de cambiar de padre
-    glm::mat4 oldWorldMatrix = GetWorldMatrix();
+    // Guardamos la matriz de mundo actual antes de cambiar de padre (solo hace falta si se conserva)
+    const glm::mat4 oldWorldMatrix = keepWorldTransform ? GetWorldMatrix() : glm::mat4(1.0f);
 
     if (parent)
     {
@@ -367,7 +396,7 @@ bool GameObject::SetParent(GameObject* newParent)
     }
 
     // Recalculamos el Transform local para que mantenga su posición, rotación y tamaño en el mundo
-    if (trans)
+    if (trans && keepWorldTransform)
     {
         glm::mat4 newParentWorld = parent ? parent->GetWorldMatrix() : glm::mat4(1.0f);
         glm::mat4 newLocalMatrix = glm::inverse(newParentWorld) * oldWorldMatrix;

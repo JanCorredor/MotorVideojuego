@@ -13,7 +13,6 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <unordered_map>
 
 // Guardado y carga de escenas (.scene)
 
@@ -142,7 +141,8 @@ bool Scene::Save(const std::string& filePath) const
 		{
 			nlohmann::json state;
 			state["version"] = EDITOR_STATE_VERSION;
-			state["selected"] = selected ? (uint64_t)selected->GetUUID() : 0;
+			state["selected"] = selected ? (uint64_t)selected->GetUUID() : 0; // el activo
+			state["selection"] = GetSelectionUIDs();
 			if (editorCameraObj)
 			{
 				nlohmann::json editorCamera = nlohmann::json::object();
@@ -207,17 +207,12 @@ bool Scene::Load(const std::string& filePath)
 	// La escena temporal del Play no lo usa: al pulsar Stop la cámara del editor se queda donde está
 	const nlohmann::json editorState = isTempFile ? nlohmann::json::object() : ReadEditorState(FileSystem::ToProjectRelativePath(resolvedScenePath));
 	const uint64_t savedSelectedUuid = JsonHelpers::Get(editorState, "selected", (uint64_t)0);
+	// Los estados guardados antes de la selección múltiple solo tienen "selected"
+	std::vector<uint64_t> savedSelection = JsonHelpers::Get(editorState, "selection", std::vector<uint64_t>());
+	if (savedSelection.empty() && savedSelectedUuid != 0) savedSelection.push_back(savedSelectedUuid);
 
 	// Limpiar escena actual antes de reconstruir
-	pendingDestruction.clear();
-	selected = nullptr;
-	gameCameraPtr = nullptr;
-
-	while (!sceneRoot.GetChildren().empty())
-	{
-		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
-	}
-	sceneEntities.clear();
+	ClearScene();
 
 	const auto editorCamIt = editorState.find("editorCamera");
 	if (editorCamIt != editorState.end() && editorCamIt->is_object() && editorCameraObj)
@@ -226,8 +221,7 @@ bool Scene::Load(const std::string& filePath)
 		mainCameraPtr = editorCameraObj.get();
 	}
 
-	// UID del fichero -> objeto creado, para colgar cada hijo de su padre
-	std::unordered_map<uint64_t, GameObject*> created;
+	// El mapa de UID de la escena sirve para colgar cada hijo de su padre (en preorden ya está creado)
 	GameObject* mainCamera = nullptr;
 	try
 	{
@@ -240,15 +234,13 @@ bool Scene::Load(const std::string& filePath)
 			const std::string objName = JsonHelpers::Get(objFile, "name", std::string("GameObject"));
 
 			// Un UID que falta o está repetido recibe uno nuevo
-			const bool reuseUuid = objUuid != 0 && created.find(objUuid) == created.end();
+			const bool reuseUuid = objUuid != 0 && FindByUID(objUuid) == nullptr;
 			auto newObj = std::make_unique<GameObject>(objName, reuseUuid ? GameUUID(objUuid) : GameUUID());
 
-			const auto parentIt = created.find(parentUuid);
-			GameObject* parent = (parentUuid != 0 && parentIt != created.end()) ? parentIt->second : &sceneRoot;
-			GameObject* regObj = Register(std::move(newObj), parent);
+			GameObject* parent = FindByUID(parentUuid);
+			GameObject* regObj = Register(std::move(newObj), parent ? parent : &sceneRoot);
 			regObj->Load(objFile);
 
-			if (reuseUuid) created[objUuid] = regObj;
 			if (mainCamera == nullptr && JsonHelpers::Get(objFile, "mainCamera", false)) mainCamera = regObj;
 		}
 	}
@@ -257,8 +249,7 @@ bool Scene::Load(const std::string& filePath)
 		LOG_ERROR("[Scene] Error leyendo '%s': %s", resolvedScenePath.c_str(), e.what());
 	}
 
-	// Restaurar el GameObject seleccionado y la cámara de la vista Game
-	GameObject* restoredSelected = nullptr;
+	// Restaurar la cámara de la vista Game y el GameObject seleccionado
 	GameObject* fallbackCamera = nullptr;
 	for (size_t i = 0; i < sceneEntities.size(); ++i)
 	{
@@ -270,10 +261,6 @@ bool Scene::Load(const std::string& filePath)
 			ent->AddComponent(std::make_unique<TransformComponent>(ent));
 		}
 
-		if (savedSelectedUuid != 0 && (uint64_t)ent->GetUUID() == savedSelectedUuid)
-		{
-			restoredSelected = ent;
-		}
 		if (fallbackCamera == nullptr && ent->GetComponent<CameraComponent>() != nullptr)
 		{
 			fallbackCamera = ent;
@@ -282,7 +269,7 @@ bool Scene::Load(const std::string& filePath)
 
 	gameCameraPtr = mainCamera ? mainCamera : fallbackCamera;
 
-	SetSelected(restoredSelected);
+	SelectByUIDs(savedSelection, savedSelectedUuid);
 	RebuildSpacePartitioning();
 	isLoadingOrInitializing = false;
 
@@ -306,24 +293,15 @@ bool Scene::SaveTemporaryScene(const std::string& filePath) const
 
 bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad)
 {
-	// La selección no va en la escena: se conserva la que había al pulsar Stop si el objeto sigue existiendo
-	const uint64_t selectedUuid = selected ? (uint64_t)selected->GetUUID() : 0;
+	// La selección no va en la escena: se conserva la que había al pulsar Stop con los objetos que siguen existiendo
+	const std::vector<uint64_t> selectionUuids = GetSelectionUIDs();
+	const uint64_t activeUuid = selected ? (uint64_t)selected->GetUUID() : 0;
 	if (!Load(filePath))
 	{
 		return false;
 	}
 
-	if (selectedUuid != 0)
-	{
-		for (const std::unique_ptr<GameObject>& ent : sceneEntities)
-		{
-			if (ent && (uint64_t)ent->GetUUID() == selectedUuid)
-			{
-				SetSelected(ent.get());
-				break;
-			}
-		}
-	}
+	SelectByUIDs(selectionUuids, activeUuid);
 
 	currentScenePath = prePlayScenePath;
 	sceneDirty = prePlaySceneDirty;
@@ -336,4 +314,61 @@ bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfter
 		LOG("[Scene] Archivo temporal '%s' restaurado (%zu objetos) y eliminado del disco", filePath.c_str(), sceneEntities.size());
 	}
 	return true;
+}
+
+void Scene::RequestLoadScene(const std::string& filePath)
+{
+	if (filePath.empty()) return;
+	pendingSceneChange = PendingSceneChange::Load;
+	pendingScenePath = filePath;
+}
+
+void Scene::RequestNewScene()
+{
+	pendingSceneChange = PendingSceneChange::New;
+	pendingScenePath.clear();
+}
+
+void Scene::RequestRestoreTemporaryScene(const std::string& filePath)
+{
+	pendingRestorePath = filePath;
+}
+
+void Scene::ProcessPendingSceneChange()
+{
+	if (!HasPendingSceneChange()) return;
+
+	// Se copian y se limpian antes: Load y NewScene podrían pedir otro cambio
+	const PendingSceneChange change = pendingSceneChange;
+	const std::string scenePath = pendingScenePath;
+	const std::string restorePath = pendingRestorePath;
+	pendingSceneChange = PendingSceneChange::None;
+	pendingScenePath.clear();
+	pendingRestorePath.clear();
+
+	bool replaced = false;
+	if (change == PendingSceneChange::Load)
+	{
+		replaced = Load(scenePath);
+	}
+	else if (change == PendingSceneChange::New)
+	{
+		NewScene();
+		replaced = true;
+	}
+
+	if (restorePath.empty()) return;
+
+	// Stop y otra escena en el mismo frame: se carga solo la otra (una vez) y la copia del Play sobra.
+	// Si esa carga falla, se restaura la escena de antes del Play como hacía Stop.
+	if (replaced)
+	{
+		std::error_code ec;
+		std::filesystem::remove(restorePath, ec);
+		LOG("[Scene] Restauración del Play descartada: se ha abierto otra escena");
+	}
+	else
+	{
+		LoadTemporaryScene(restorePath, true);
+	}
 }

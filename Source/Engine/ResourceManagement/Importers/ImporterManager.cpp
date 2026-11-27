@@ -45,7 +45,9 @@ bool ImporterManager::HandleDroppedFile(const std::string& diskPathUtf8, GameObj
 
 	if (ResourceManager::IsSceneFile(assetPath))
 	{
-		return scene->Load(assetPath);
+		// Se suelta durante Scene::Update: la carga se hace al principio del siguiente frame
+		scene->RequestLoadScene(assetPath);
+		return true;
 	}
 
 	return false;

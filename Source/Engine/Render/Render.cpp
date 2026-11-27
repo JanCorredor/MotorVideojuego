@@ -1042,9 +1042,7 @@ void Render::DrawSingleGameObject(GameObject* go, const glm::mat4& worldMatrix)
 		}
 
 		Scene* scene = Engine::GetInstance().scene.get();
-		GameObject* selectedObj = scene ? scene->GetSelected() : nullptr;
-		bool isSelected = (selectedObj != nullptr && settings.highlightSelection &&
-			(selectedObj == go || go->IsDescendantOf(selectedObj)));
+		bool isSelected = (scene != nullptr && settings.highlightSelection && scene->IsInSelectedHierarchy(go));
 
 		// Configurar Stencil para la selección (Aplica tanto a opacos como a transparentes)
 		if (isSelected)
@@ -1081,13 +1079,13 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 	GameObject* selected = scene ? scene->GetSelected() : nullptr;
 
 	const bool wantNormals = settings.normals != NormalsMode::None;
-	const bool wantOutline = settings.highlightSelection && selected != nullptr;
+	const bool wantOutline = settings.highlightSelection && scene != nullptr && scene->HasSelection();
 	const bool wantSpaceDebug = settings.drawAABB || settings.drawQuadtree || settings.drawOctree || settings.drawFrustum || settings.cullFromGameCameraInScene;
 	if (!wantNormals && !wantOutline && !wantSpaceDebug) return;
 
-	if (wantOutline && selected)
+	if (wantOutline)
 	{
-		DrawSelectionOutline(selected, view, projection);
+		DrawSelectionOutline(scene->GetTopLevelSelection(), view, projection);
 	}
 
 	if (wantSpaceDebug)
@@ -1416,13 +1414,18 @@ void Render::AppendNormals(GameObject* go, const glm::mat4& worldMatrix)
 	}
 }
 
-void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, const glm::mat4& projection)
+void Render::DrawSelectionOutline(const std::vector<GameObject*>& roots, const glm::mat4& view, const glm::mat4& projection)
 {
 #ifdef _DEBUG
 	ZoneScoped;
 #endif
 
-	if (!selected || !selected->IsActive()) return;
+	std::stack<GameObject*> stack;
+	for (GameObject* root : roots)
+	{
+		if (root && root->IsActive()) stack.push(root);
+	}
+	if (stack.empty()) return;
 
 	glEnable(GL_STENCIL_TEST);
 	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
@@ -1435,9 +1438,6 @@ void Render::DrawSelectionOutline(GameObject* selected, const glm::mat4& view, c
 	glUniformMatrix4fv(scu.projection, 1, GL_FALSE, glm::value_ptr(projection));
 	glUniform1f(scu.outlineWidth, 0.007f); // Grosor constante en pantalla (ajustable)
 	glUniform3fv(scu.color, 1, glm::value_ptr(settings.outlineColor));
-
-	std::stack<GameObject*> stack;
-	stack.push(selected);
 
 	while (!stack.empty())
 	{

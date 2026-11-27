@@ -300,29 +300,29 @@ bool ModuleUI::Update(float dt)
 				{
 					Engine::GetInstance().Stop();
 				}
-				scene->NewScene();
+				scene->RequestNewScene();
 				saveSceneFileNameBuffer[0] = '\0';
 			}
 		}
 	}
 
-	// Atajo de teclado: Ctrl+D para duplicar el GameObject seleccionado si Scene o Hierarchy tienen el foco
+	// Atajo de teclado: Ctrl+D para duplicar la selección si Scene o Hierarchy tienen el foco
 	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false))
 	{
 		Scene* scene = Engine::GetInstance().scene.get();
-		if (scene && scene->GetSelected())
+		if (scene && scene->HasSelection())
 		{
-			scene->DuplicateGameObject(scene->GetSelected());
+			scene->DuplicateSelection();
 		}
 	}
 
-	// Atajo de teclado: Supr (Delete) para eliminar el GameObject seleccionado si Scene o Hierarchy tienen el foco
+	// Atajo de teclado: Supr (Delete) para eliminar la selección si Scene o Hierarchy tienen el foco
 	if (sceneOrHierarchyFocused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Delete))
 	{
 		Scene* scene = Engine::GetInstance().scene.get();
-		if (scene && scene->GetSelected())
+		if (scene && scene->HasSelection())
 		{
-			scene->DestroyGameObject(scene->GetSelected());
+			scene->DestroySelection();
 		}
 	}
 
@@ -351,7 +351,7 @@ bool ModuleUI::DrawMainMenuBar()
 					{
 						Engine::GetInstance().Stop();
 					}
-					scene->NewScene();
+					scene->RequestNewScene();
 					saveSceneFileNameBuffer[0] = '\0';
 				}
 			}
@@ -410,7 +410,7 @@ bool ModuleUI::DrawMainMenuBar()
 								{
 									Engine::GetInstance().Stop();
 								}
-								scene->Load(savedScenes[i]);
+								scene->RequestLoadScene(savedScenes[i]);
 							}
 						}
 					}
@@ -473,12 +473,12 @@ bool ModuleUI::DrawMainMenuBar()
 		if (ImGui::BeginMenu("GameObject"))
 		{
 			Scene* scene = Engine::GetInstance().scene.get();
-			GameObject* selectedObj = scene ? scene->GetSelected() : nullptr;
-			if (ImGui::MenuItem("Duplicate Selected", "Ctrl+D", false, selectedObj != nullptr))
+			const bool hasSelection = scene && scene->HasSelection();
+			if (ImGui::MenuItem("Duplicate Selected", "Ctrl+D", false, hasSelection))
 			{
-				if (scene && selectedObj)
+				if (hasSelection)
 				{
-					scene->DuplicateGameObject(selectedObj);
+					scene->DuplicateSelection();
 				}
 			}
 			ImGui::Separator();
@@ -807,6 +807,10 @@ void ModuleUI::DrawHierarchyPanel()
 
 		if (scene)
 		{
+			// Shift + clic usa el orden de filas del frame anterior (el actual aún se está dibujando)
+			previousHierarchyRows.swap(hierarchyRows);
+			hierarchyRows.clear();
+
 			const uint64_t currentSelectionRev = scene->GetSelectionRevision();
 			if (currentSelectionRev != lastHierarchySelectionRevision)
 			{
@@ -902,8 +906,11 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 
 	if (!node) return false;
 
+	Scene* currentScene = Engine::GetInstance().scene.get();
+	hierarchyRows.push_back((uint64_t)node->GetUUID());
+
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-	if (selected == node)
+	if (currentScene && currentScene->IsSelected(node))
 	{
 		flags |= ImGuiTreeNodeFlags_Selected;
 	}
@@ -946,7 +953,7 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 	{
 		if (Engine::GetInstance().scene)
 		{
-			Engine::GetInstance().scene->SetSelected(node);
+			HierarchyRowClicked(node);
 			lastHierarchySelectionRevision = Engine::GetInstance().scene->GetSelectionRevision();
 			expandToSelectedInHierarchy = false;
 			scrollToSelectedInHierarchy = false;
@@ -961,15 +968,46 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 		ImGui::EndDragDropSource();
 	}
 
-	// 3. Drag & Drop: Destino de soltado (reemparentar como hijo de 'node' o copiar componente)
+	// 3. Drag & Drop: Destino de soltado (reemparentar, reordenar entre hermanos o copiar componente)
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT"))
+		// Cuarto superior / inferior de la fila = antes / después de 'node'; centro = hijo de 'node'.
+		// Abajo de un nodo desplegado con hijos se trata como centro, para no confundirlo con su primer hijo.
+		const ImVec2 rowMin = ImGui::GetItemRectMin();
+		const ImVec2 rowMax = ImGui::GetItemRectMax();
+		const float rowHeight = rowMax.y - rowMin.y;
+		const float mouseY = ImGui::GetMousePos().y;
+		int dropZone = 0;
+		if (mouseY < rowMin.y + rowHeight * 0.25f) dropZone = -1;
+		else if (mouseY > rowMax.y - rowHeight * 0.25f && !(nodeOpen && hasChildren)) dropZone = 1;
+
+		ImGuiDragDropFlags dropFlags = ImGuiDragDropFlags_AcceptBeforeDelivery;
+		if (dropZone != 0) dropFlags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT", dropFlags))
 		{
 			GameObject* droppedNode = *(GameObject**)payload->Data;
-			if (droppedNode && droppedNode != node)
+			const bool validDrop = droppedNode && droppedNode != node && !node->IsDescendantOf(droppedNode);
+
+			if (validDrop && dropZone != 0)
 			{
-				droppedNode->SetParent(node);
+				const float lineY = (dropZone < 0) ? rowMin.y : rowMax.y;
+				ImGui::GetWindowDrawList()->AddLine(ImVec2(rowMin.x, lineY), ImVec2(rowMax.x, lineY), ImGui::GetColorU32(ImGuiCol_DragDropTarget), 2.0f);
+			}
+
+			if (validDrop && payload->IsDelivery())
+			{
+				if (dropZone == 0)
+				{
+					droppedNode->SetParent(node);
+				}
+				else if (droppedNode->SetParent(node->GetParent()))
+				{
+					// Al sacarlo de su posición, los hermanos que tenía detrás suben un puesto
+					const int droppedIndex = droppedNode->GetSiblingIndex();
+					int insertIndex = node->GetSiblingIndex() + (dropZone > 0 ? 1 : 0);
+					if (droppedIndex < insertIndex) insertIndex -= 1;
+					droppedNode->SetSiblingIndex(insertIndex);
+				}
 			}
 		}
 		if (const ImGuiPayload* compPayload = ImGui::AcceptDragDropPayload("INSPECTOR_COMPONENT"))
@@ -1025,11 +1063,13 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 			ImGui::EndMenu();
 		}
 
+		// Sobre un objeto seleccionado actúan sobre toda la selección; si no, solo sobre él
 		if (ImGui::MenuItem("Duplicate", "Ctrl+D"))
 		{
 			if (scene)
 			{
-				scene->DuplicateGameObject(node);
+				if (scene->IsSelected(node)) scene->DuplicateSelection();
+				else scene->DuplicateGameObject(node);
 			}
 		}
 
@@ -1045,7 +1085,8 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 		{
 			if (scene)
 			{
-				scene->DestroyGameObject(node);
+				if (scene->IsSelected(node)) scene->DestroySelection();
+				else scene->DestroyGameObject(node);
 			}
 		}
 
@@ -1053,6 +1094,37 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 	}
 
 	return nodeOpen;
+}
+
+void ModuleUI::HierarchyRowClicked(GameObject* node)
+{
+	Scene* scene = Engine::GetInstance().scene.get();
+	if (!scene || !node) return;
+
+	const ImGuiIO& io = ImGui::GetIO();
+	const uint64_t uid = (uint64_t)node->GetUUID();
+
+	if (io.KeyShift)
+	{
+		// Rango entre el ancla (último clic sin Shift) y esta fila; con Ctrl se suma a la selección
+		const auto anchorIt = std::find(previousHierarchyRows.begin(), previousHierarchyRows.end(), hierarchyRangeAnchorUID);
+		const auto nodeIt = std::find(previousHierarchyRows.begin(), previousHierarchyRows.end(), uid);
+		if (anchorIt != previousHierarchyRows.end() && nodeIt != previousHierarchyRows.end())
+		{
+			std::vector<GameObject*> range;
+			if (io.KeyCtrl) range = scene->GetSelection();
+			for (auto it = std::min(anchorIt, nodeIt); it <= std::max(anchorIt, nodeIt); ++it)
+			{
+				if (GameObject* object = scene->FindByUID(*it)) range.push_back(object);
+			}
+			scene->SetSelection(range, node);
+			return;
+		}
+	}
+
+	if (io.KeyCtrl) scene->ToggleSelection(node);
+	else scene->Select(node);
+	hierarchyRangeAnchorUID = uid;
 }
 
 void ModuleUI::DrawInspectorPanel()
@@ -1070,6 +1142,14 @@ void ModuleUI::DrawInspectorPanel()
 
 		if (selectedGameObject)
 		{
+			// Con varios seleccionados se edita solo el activo (el último en seleccionarse)
+			const size_t selectionCount = scene->GetSelection().size();
+			if (selectionCount > 1)
+			{
+				ImGui::TextDisabled("%zu objetos seleccionados: se edita '%s'", selectionCount, selectedGameObject->GetName().c_str());
+				ImGui::Separator();
+			}
+
 			bool isActive = selectedGameObject->IsActive();
 			if (ImGui::Checkbox("##ActiveGO", &isActive))
 			{
@@ -3058,7 +3138,7 @@ void ModuleUI::DrawSceneFileModals()
 				}
 				std::string projectScene = FileSystem::EnsureAssetInProject(loadSceneFilePathBuffer, "Scenes");
 				std::string resolved = FileSystem::ResolveExistingPath(projectScene);
-				scene->Load(resolved);
+				scene->RequestLoadScene(resolved);
 			}
 			ImGui::CloseCurrentPopup();
 		}
