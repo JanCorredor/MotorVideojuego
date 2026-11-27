@@ -674,8 +674,6 @@ void ModuleUI::DrawScenePanel()
 		ImGui::SameLine();
 		barChanged |= ImGui::Checkbox("AABB", &rs.drawAABB);
 		ImGui::SameLine();
-		barChanged |= ImGui::Checkbox("Quadtree", &rs.drawQuadtree);
-		ImGui::SameLine();
 		barChanged |= ImGui::Checkbox("Octree", &rs.drawOctree);
 
 		if (barChanged)
@@ -1670,7 +1668,6 @@ void ModuleUI::DrawInspectorPanel()
 							ImGui::Spacing();
 							ImGui::SeparatorText("Visualización de Volúmenes (Space Partitioning)");
 							changed |= ImGui::Checkbox("Dibujar AABB (Verde)", &rs.drawAABB);
-							changed |= ImGui::Checkbox("Dibujar Quadtree (Magenta)", &rs.drawQuadtree);
 							changed |= ImGui::Checkbox("Dibujar Octree (Cian)", &rs.drawOctree);
 
 							if (changed)
@@ -2435,7 +2432,6 @@ void ModuleUI::DrawConfigurationPanel()
 
 				static const char* partitionModes[] = {
 					"Desactivado (Solo AABB directo)",
-					"Quadtree (2D XZ)",
 					"Octree (3D XYZ)"
 				};
 				int currentPartitionMode = (int)rs.partitionMode;
@@ -2460,7 +2456,6 @@ void ModuleUI::DrawConfigurationPanel()
 				}
 
 				settingsChanged |= ImGui::Checkbox("Dibujar AABB (Verde)", &rs.drawAABB);
-				settingsChanged |= ImGui::Checkbox("Dibujar Quadtree (Magenta)", &rs.drawQuadtree);
 				settingsChanged |= ImGui::Checkbox("Dibujar Octree (Cian)", &rs.drawOctree);
 				settingsChanged |= ImGui::Checkbox("Dibujar Frustum Main Camera (Ámbar)", &rs.drawFrustum);
 
@@ -2469,9 +2464,8 @@ void ModuleUI::DrawConfigurationPanel()
 					cStats.totalMeshObjects, cStats.visibleObjects, cStats.culledObjects);
 				if (scenePtr)
 				{
-					ImGui::BulletText("Objetos Static en Árbol: %zu | Nodos Quadtree: %zu | Nodos Octree: %zu (Visitados: %d)",
+					ImGui::BulletText("Objetos Static en Árbol: %zu | Nodos Octree: %zu (Visitados: %d)",
 						scenePtr->GetOctree().GetObjectCount(),
-						scenePtr->GetQuadtree().GetNodeCount(),
 						scenePtr->GetOctree().GetNodeCount(),
 						cStats.treeNodesVisited);
 				}

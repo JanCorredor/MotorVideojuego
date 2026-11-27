@@ -274,7 +274,7 @@ void CameraComponent::ResetCamera()
     }
 }
 
-// Recorrido iterativo con stack + aceleración mediante Quadtree/Octree: Transforma el rayo a Local Space -> Prueba AABB -> Prueba Triángulos
+// Recorrido iterativo con stack + aceleración mediante Octree: Transforma el rayo a Local Space -> Prueba AABB -> Prueba Triángulos
 void CameraComponent::CheckRaycastRecursive(GameObject* rootGo, glm::vec3 rayOrigin, glm::vec3 rayDir, GameObject*& closestObject, float& minDistance, const glm::mat4& rootParentMatrix)
 {
     if (!rootGo || !rootGo->IsActive()) return;
@@ -289,11 +289,7 @@ void CameraComponent::CheckRaycastRecursive(GameObject* rootGo, glm::vec3 rayOri
     if (scene && partitionMode != SpacePartitionMode::None)
     {
         std::vector<GameObject*> treeHits;
-        if (partitionMode == SpacePartitionMode::Quadtree)
-        {
-            scene->GetQuadtree().QueryRay(rayOrigin, rayDir, treeHits);
-        }
-        else if (partitionMode == SpacePartitionMode::Octree)
+        if (partitionMode == SpacePartitionMode::Octree)
         {
             scene->GetOctree().QueryRay(rayOrigin, rayDir, treeHits);
         }

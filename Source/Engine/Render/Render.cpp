@@ -684,14 +684,7 @@ void Render::CollectVisibleRenderItems(Scene* scene, const glm::mat4& cullViewPr
 	{
 		frustum.Set(cullViewProj);
 
-		if (settings.partitionMode == SpacePartitionMode::Quadtree)
-		{
-			std::vector<GameObject*> treeResults;
-			stats.treeNodesVisited = scene->GetQuadtree().QueryFrustum(frustum, treeResults);
-			visibleStaticSet.insert(treeResults.begin(), treeResults.end());
-			useTreeForStatic = true;
-		}
-		else if (settings.partitionMode == SpacePartitionMode::Octree)
+		if (settings.partitionMode == SpacePartitionMode::Octree)
 		{
 			std::vector<GameObject*> treeResults;
 			stats.treeNodesVisited = scene->GetOctree().QueryFrustum(frustum, treeResults);
@@ -1080,7 +1073,7 @@ void Render::DrawDebug(const glm::mat4& view, const glm::mat4& projection)
 
 	const bool wantNormals = settings.normals != NormalsMode::None;
 	const bool wantOutline = settings.highlightSelection && scene != nullptr && scene->HasSelection();
-	const bool wantSpaceDebug = settings.drawAABB || settings.drawQuadtree || settings.drawOctree || settings.drawFrustum || settings.cullFromGameCameraInScene;
+	const bool wantSpaceDebug = settings.drawAABB || settings.drawOctree || settings.drawFrustum || settings.cullFromGameCameraInScene;
 	if (!wantNormals && !wantOutline && !wantSpaceDebug) return;
 
 	if (wantOutline)
@@ -1266,22 +1259,7 @@ void Render::DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& 
 		drawLineBatch(aabbLines, glm::vec3(0.15f, 0.95f, 0.30f), 1.8f); // Verde: AABB
 	}
 
-	// 2. Dibujar Quadtree
-	if (settings.drawQuadtree)
-	{
-		std::vector<AABB> quadBoxes;
-		scene->GetQuadtree().CollectNodeBounds(quadBoxes);
-
-		std::vector<float> quadLines;
-		quadLines.reserve(quadBoxes.size() * 72);
-		for (const AABB& box : quadBoxes)
-		{
-			appendBox(quadLines, box);
-		}
-		drawLineBatch(quadLines, glm::vec3(0.95f, 0.30f, 0.95f), 1.5f); // Magenta: Quadtree
-	}
-
-	// 3. Dibujar Octree
+	// 2. Dibujar Octree
 	if (settings.drawOctree)
 	{
 		std::vector<AABB> octBoxes;
@@ -1296,7 +1274,7 @@ void Render::DrawSpacePartitioningDebug(const glm::mat4& view, const glm::mat4& 
 		drawLineBatch(octLines, glm::vec3(0.20f, 0.80f, 1.0f), 1.5f); // Cian: Octree
 	}
 
-	// 4. Dibujar Frustum de la Main Camera (Game Camera)
+	// 3. Dibujar Frustum de la Main Camera (Game Camera)
 	if (settings.drawFrustum || settings.cullFromGameCameraInScene)
 	{
 		GameObject* gameCamObj = scene->GetGameCameraObject();

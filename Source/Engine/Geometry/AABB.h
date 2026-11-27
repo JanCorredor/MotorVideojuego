@@ -85,9 +85,6 @@ struct AABB
 			min.z <= other.max.z && max.z >= other.min.z;
 	}
 
-	// Solo X y Z: lo usa el Quadtree
-	bool Intersects2DXZ(const AABB& other) const;
-
 	// Caja local transformada a mundo con un margen de 0.001 (planos de grosor 0)
 	static AABB FromTransformedLocalBox(const glm::vec3& localMin, const glm::vec3& localMax, const glm::mat4& worldMatrix);
 };

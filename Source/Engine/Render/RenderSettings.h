@@ -15,7 +15,6 @@ enum class NormalsMode
 enum class SpacePartitionMode
 {
 	None = 0,
-	Quadtree,
 	Octree
 };
 
@@ -40,12 +39,11 @@ struct RenderSettings
 	bool showGrid = true;
 	bool showAxis = true;
 
-	// Space Partitioning (Quadtree / Octree), AABB & Frustum Culling
+	// Space Partitioning (Octree), AABB & Frustum Culling
 	bool frustumCulling = true;
 	bool cullFromGameCameraInScene = false;
 	SpacePartitionMode partitionMode = SpacePartitionMode::Octree;
 	bool drawAABB = false;
-	bool drawQuadtree = false;
 	bool drawOctree = false;
 	bool drawFrustum = false;
 };

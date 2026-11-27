@@ -14,10 +14,10 @@
 #include <unordered_set>
 
 // ============================================================================
-// QUADTREE (Partición espacial 2D en el plano XZ, conservando altura Y)
+// OCTREE (Partición espacial 3D en los ejes X, Y, Z)
 // Implementado íntegramente de forma iterativa mediante std::stack
 // ============================================================================
-class Quadtree
+class Octree
 {
 public:
 	struct Entry
@@ -25,51 +25,6 @@ public:
 		GameObject* object = nullptr;
 		AABB box;
 	};
-
-	struct Node
-	{
-		AABB bounds;
-		int depth = 0;
-		std::vector<Entry> objects;
-		std::array<std::unique_ptr<Node>, 4> children;
-
-		bool IsLeaf() const { return children[0] == nullptr; }
-	};
-
-	Quadtree() = default;
-	~Quadtree() = default;
-
-	void Build(const AABB& worldBounds, const std::vector<Entry>& staticEntries, int maxObjectsPerNode = 2, int maxDepth = 5);
-	void Clear();
-
-	int QueryFrustum(const Frustum& frustum, std::vector<GameObject*>& outObjects) const;
-	int QueryRay(const glm::vec3& rayOrigin, const glm::vec3& rayDir, std::vector<GameObject*>& outObjects) const;
-
-	void CollectNodeBounds(std::vector<AABB>& outBoxes) const;
-
-	int GetMaxObjectsPerNode() const { return maxObjects; }
-	int GetMaxDepth() const { return maxTreeDepth; }
-	size_t GetNodeCount() const { return totalNodes; }
-	size_t GetObjectCount() const { return totalObjects; }
-
-private:
-	void SubdivideNode(Node* node);
-
-	std::unique_ptr<Node> root;
-	int maxObjects = 2;
-	int maxTreeDepth = 5;
-	size_t totalNodes = 0;
-	size_t totalObjects = 0;
-};
-
-// ============================================================================
-// OCTREE (Partición espacial 3D en los ejes X, Y, Z)
-// Implementado íntegramente de forma iterativa mediante std::stack
-// ============================================================================
-class Octree
-{
-public:
-	using Entry = Quadtree::Entry;
 
 	struct Node
 	{
@@ -175,10 +130,9 @@ public:
 	std::string MakeUniqueName(const std::string& baseName) const;
 	GameObject* Register(std::unique_ptr<GameObject> newObj, GameObject* parent = nullptr);
 
-	// Space Partitioning (Quadtree & Octree para objetos Static)
+	// Space Partitioning (Octree para objetos Static)
 	void MarkSpacePartitioningDirty() { spacePartitioningDirty = true; }
 	void RebuildSpacePartitioning();
-	const Quadtree& GetQuadtree() const { return quadtree; }
 	const Octree& GetOctree() const { return octree; }
 
 	int GetTreeMaxObjects() const { return treeMaxObjectsPerNode; }
@@ -229,7 +183,6 @@ private:
 	std::unordered_map<uint64_t, GameObject*> objectsByUID; // solo objetos vivos (no encolados para destruir)
 	std::vector<GameObject*> pendingDestruction;
 
-	Quadtree quadtree;
 	Octree octree;
 	bool spacePartitioningDirty = true;
 	int treeMaxObjectsPerNode = 1;
