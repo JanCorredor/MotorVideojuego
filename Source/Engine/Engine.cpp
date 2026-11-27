@@ -468,6 +468,11 @@ void Engine::Play()
 
 void Engine::Pause()
 {
+	// Con la escena parada empieza el Play ya en pausa, para avanzar con Step desde el primer frame
+	if (IsStopped())
+	{
+		Play();
+	}
 	if (IsPlaying())
 	{
 		gameClock.Pause();

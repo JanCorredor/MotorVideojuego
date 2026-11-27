@@ -125,7 +125,8 @@ bool Scene::Update(float dt)
 	{
 		editorCameraObj->Update(dt);
 	}
-	sceneRoot.Update(dt);
+	// Los GameObjects usan el tiempo de juego (0 fuera de Play); la cámara del editor, el real
+	sceneRoot.Update(Engine::GetInstance().GetGameDt());
 	ProcessPendingDestructions();
 
 	if (spacePartitioningDirty)
