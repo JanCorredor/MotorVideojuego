@@ -79,9 +79,7 @@ bool Scene::Start()
 	auto gameCamComp = std::make_unique<CameraComponent>(gameCamObj.get());
 	gameCamObj->AddComponent(std::move(gameCamComp));
 
-	gameCameraPtr = gameCamObj.get();
-	sceneRoot.AddChild(gameCamObj.get());
-	sceneEntities.push_back(std::move(gameCamObj));
+	gameCameraPtr = Register(std::move(gameCamObj), &sceneRoot);
 	LOG("[Scene] Instanciada 'Main Camera' para la vista Game");
 
 
@@ -155,43 +153,43 @@ bool Scene::CleanUp()
 	}
 	quadtree.Clear();
 	octree.Clear();
+	isLoadingOrInitializing = true;
+	ClearScene();
+	mainCameraPtr = nullptr;
+	editorCameraObj.reset();
+	return true;
+}
+
+void Scene::ClearScene()
+{
 	pendingDestruction.clear();
 	selected = nullptr;
-	mainCameraPtr = nullptr;
 	gameCameraPtr = nullptr;
-	editorCameraObj.reset();
+
+	// Se desenganchan los hijos de la raíz antes de liberar la memoria
+	while (!sceneRoot.GetChildren().empty())
+	{
+		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
+	}
+	objectsByUID.clear();
 	sceneEntities.clear();
-	return true;
 }
 
 std::string Scene::MakeUniqueName(const std::string& baseName) const
 {
-	bool exists = false;
+	// Un conjunto con los nombres usados: una pasada por la escena y no una por candidato
+	std::unordered_set<std::string> usedNames;
+	usedNames.reserve(sceneEntities.size());
 	for (const std::unique_ptr<GameObject>& entity : sceneEntities)
 	{
-		if (entity->GetName() == baseName)
-		{
-			exists = true;
-			break;
-		}
+		usedNames.insert(entity->GetName());
 	}
-	if (!exists) return baseName;
+	if (usedNames.find(baseName) == usedNames.end()) return baseName;
 
-	int index = 1;
-	while (true)
+	for (int index = 1;; ++index)
 	{
 		std::string candidate = baseName + " (" + std::to_string(index) + ")";
-		bool found = false;
-		for (const std::unique_ptr<GameObject>& entity : sceneEntities)
-		{
-			if (entity->GetName() == candidate)
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found) return candidate;
-		index++;
+		if (usedNames.find(candidate) == usedNames.end()) return candidate;
 	}
 }
 
@@ -206,6 +204,13 @@ GameObject* Scene::Register(std::unique_ptr<GameObject> newObj, GameObject* pare
 	{
 		sceneRoot.AddChild(ptr);
 	}
+
+	const uint64_t uid = (uint64_t)ptr->GetUUID();
+	if (objectsByUID.find(uid) != objectsByUID.end())
+	{
+		LOG_WARNING("[Scene] UID %llu repetido al registrar '%s'", (unsigned long long)uid, ptr->GetName().c_str());
+	}
+	objectsByUID[uid] = ptr;
 	sceneEntities.push_back(std::move(newObj));
 	spacePartitioningDirty = true;
 	if (!isLoadingOrInitializing)
@@ -443,6 +448,10 @@ void Scene::DestroyGameObject(GameObject* target)
 		{
 			pendingDestruction.push_back(obj);
 		}
+
+		// Sale del mapa ya: deja de pertenecer a la escena aunque la memoria se libere en el siguiente frame
+		const auto it = objectsByUID.find((uint64_t)obj->GetUUID());
+		if (it != objectsByUID.end() && it->second == obj) objectsByUID.erase(it);
 	}
 
 	LOG("[Scene] GameObject '%s' y %zu descendiente(s) marcados para eliminación segura",
@@ -673,15 +682,7 @@ void Scene::UpdateWindowTitle() const
 void Scene::NewScene()
 {
 	isLoadingOrInitializing = true;
-	pendingDestruction.clear();
-	selected = nullptr;
-	gameCameraPtr = nullptr;
-
-	while (!sceneRoot.GetChildren().empty())
-	{
-		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
-	}
-	sceneEntities.clear();
+	ClearScene();
 
 	// Instanciar Main Camera por defecto en la nueva escena
 	auto gameCamObj = std::make_unique<GameObject>("Main Camera");

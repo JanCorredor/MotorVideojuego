@@ -13,7 +13,6 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <unordered_map>
 
 // Guardado y carga de escenas (.scene)
 
@@ -209,15 +208,7 @@ bool Scene::Load(const std::string& filePath)
 	const uint64_t savedSelectedUuid = JsonHelpers::Get(editorState, "selected", (uint64_t)0);
 
 	// Limpiar escena actual antes de reconstruir
-	pendingDestruction.clear();
-	selected = nullptr;
-	gameCameraPtr = nullptr;
-
-	while (!sceneRoot.GetChildren().empty())
-	{
-		sceneRoot.RemoveChild(sceneRoot.GetChildren().back());
-	}
-	sceneEntities.clear();
+	ClearScene();
 
 	const auto editorCamIt = editorState.find("editorCamera");
 	if (editorCamIt != editorState.end() && editorCamIt->is_object() && editorCameraObj)
@@ -226,8 +217,7 @@ bool Scene::Load(const std::string& filePath)
 		mainCameraPtr = editorCameraObj.get();
 	}
 
-	// UID del fichero -> objeto creado, para colgar cada hijo de su padre
-	std::unordered_map<uint64_t, GameObject*> created;
+	// El mapa de UID de la escena sirve para colgar cada hijo de su padre (en preorden ya está creado)
 	GameObject* mainCamera = nullptr;
 	try
 	{
@@ -240,15 +230,13 @@ bool Scene::Load(const std::string& filePath)
 			const std::string objName = JsonHelpers::Get(objFile, "name", std::string("GameObject"));
 
 			// Un UID que falta o está repetido recibe uno nuevo
-			const bool reuseUuid = objUuid != 0 && created.find(objUuid) == created.end();
+			const bool reuseUuid = objUuid != 0 && FindByUID(objUuid) == nullptr;
 			auto newObj = std::make_unique<GameObject>(objName, reuseUuid ? GameUUID(objUuid) : GameUUID());
 
-			const auto parentIt = created.find(parentUuid);
-			GameObject* parent = (parentUuid != 0 && parentIt != created.end()) ? parentIt->second : &sceneRoot;
-			GameObject* regObj = Register(std::move(newObj), parent);
+			GameObject* parent = FindByUID(parentUuid);
+			GameObject* regObj = Register(std::move(newObj), parent ? parent : &sceneRoot);
 			regObj->Load(objFile);
 
-			if (reuseUuid) created[objUuid] = regObj;
 			if (mainCamera == nullptr && JsonHelpers::Get(objFile, "mainCamera", false)) mainCamera = regObj;
 		}
 	}
@@ -257,8 +245,7 @@ bool Scene::Load(const std::string& filePath)
 		LOG_ERROR("[Scene] Error leyendo '%s': %s", resolvedScenePath.c_str(), e.what());
 	}
 
-	// Restaurar el GameObject seleccionado y la cámara de la vista Game
-	GameObject* restoredSelected = nullptr;
+	// Restaurar la cámara de la vista Game y el GameObject seleccionado
 	GameObject* fallbackCamera = nullptr;
 	for (size_t i = 0; i < sceneEntities.size(); ++i)
 	{
@@ -270,10 +257,6 @@ bool Scene::Load(const std::string& filePath)
 			ent->AddComponent(std::make_unique<TransformComponent>(ent));
 		}
 
-		if (savedSelectedUuid != 0 && (uint64_t)ent->GetUUID() == savedSelectedUuid)
-		{
-			restoredSelected = ent;
-		}
 		if (fallbackCamera == nullptr && ent->GetComponent<CameraComponent>() != nullptr)
 		{
 			fallbackCamera = ent;
@@ -282,7 +265,7 @@ bool Scene::Load(const std::string& filePath)
 
 	gameCameraPtr = mainCamera ? mainCamera : fallbackCamera;
 
-	SetSelected(restoredSelected);
+	SetSelected(FindByUID(savedSelectedUuid));
 	RebuildSpacePartitioning();
 	isLoadingOrInitializing = false;
 
@@ -315,14 +298,7 @@ bool Scene::LoadTemporaryScene(const std::string& filePath, bool deleteFileAfter
 
 	if (selectedUuid != 0)
 	{
-		for (const std::unique_ptr<GameObject>& ent : sceneEntities)
-		{
-			if (ent && (uint64_t)ent->GetUUID() == selectedUuid)
-			{
-				SetSelected(ent.get());
-				break;
-			}
-		}
+		SetSelected(FindByUID(selectedUuid));
 	}
 
 	currentScenePath = prePlayScenePath;

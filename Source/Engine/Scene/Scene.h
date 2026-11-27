@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <array>
+#include <unordered_map>
 
 // ============================================================================
 // QUADTREE (Partición espacial 2D en el plano XZ, conservando altura Y)
@@ -147,8 +148,9 @@ public:
 	uint64_t GetSelectionRevision() const { return selectionRevision; }
 	void NotifySelectionHierarchyChanged() { selectionRevision++; }
 
-	// Comprueba si un puntero a GameObject es propiedad viva de esta escena
+	// Comprueba si un puntero a GameObject es propiedad viva de esta escena (O(1) por el mapa de UID)
 	bool OwnsObject(const GameObject* object) const;
+	GameObject* FindByUID(uint64_t uid) const;
 
 	std::string MakeUniqueName(const std::string& baseName) const;
 	GameObject* Register(std::unique_ptr<GameObject> newObj, GameObject* parent = nullptr);
@@ -183,11 +185,14 @@ public:
 	bool LoadTemporaryScene(const std::string& filePath, bool deleteFileAfterLoad = true);
 
 private:
-	
+
 	void ProcessPendingDestructions();
+	// Vacía la escena (sin cámara del editor ni árboles); la usan cargar, nueva escena y CleanUp
+	void ClearScene();
 
 	GameObject sceneRoot;
 	std::vector<std::unique_ptr<GameObject>> sceneEntities;
+	std::unordered_map<uint64_t, GameObject*> objectsByUID; // solo objetos vivos (no encolados para destruir)
 	std::vector<GameObject*> pendingDestruction;
 
 	Quadtree quadtree;

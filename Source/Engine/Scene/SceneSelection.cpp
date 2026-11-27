@@ -6,17 +6,16 @@ bool Scene::OwnsObject(const GameObject* object) const
 {
 	if (!object || object == &sceneRoot) return false;
 
-	// Si está encolado para destrucción, ya no se considera disponible
-	for (const GameObject* pending : pendingDestruction)
-	{
-		if (pending == object) return false;
-	}
+	// Los objetos encolados para destruirse ya han salido del mapa
+	const auto it = objectsByUID.find((uint64_t)object->GetUUID());
+	return it != objectsByUID.end() && it->second == object;
+}
 
-	for (const std::unique_ptr<GameObject>& entity : sceneEntities)
-	{
-		if (entity.get() == object) return true;
-	}
-	return false;
+GameObject* Scene::FindByUID(uint64_t uid) const
+{
+	if (uid == 0) return nullptr;
+	const auto it = objectsByUID.find(uid);
+	return it != objectsByUID.end() ? it->second : nullptr;
 }
 
 void Scene::SetSelected(GameObject* object)
