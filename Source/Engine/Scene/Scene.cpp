@@ -198,14 +198,10 @@ std::string Scene::MakeUniqueName(const std::string& baseName) const
 GameObject* Scene::Register(std::unique_ptr<GameObject> newObj, GameObject* parent)
 {
 	GameObject* ptr = newObj.get();
-	if (parent != nullptr && (parent == &sceneRoot || OwnsObject(parent)))
-	{
-		parent->AddChild(ptr);
-	}
-	else
-	{
-		sceneRoot.AddChild(ptr);
-	}
+	GameObject* finalParent = (parent != nullptr && (parent == &sceneRoot || OwnsObject(parent))) ? parent : &sceneRoot;
+
+	// Se conserva el transform local: un objeto nuevo o un nodo de modelo queda colocado respecto a su padre
+	ptr->SetParent(finalParent, false);
 
 	const uint64_t uid = (uint64_t)ptr->GetUUID();
 	if (objectsByUID.find(uid) != objectsByUID.end())
@@ -520,21 +516,10 @@ GameObject* Scene::DuplicateGameObject(GameObject* target, GameObject* parent)
 		GameObject* parentNode = current.parentNode;
 		if (!src) continue;
 
-		TransformComponent* srcTrans = src->GetComponent<TransformComponent>();
-		glm::vec3 localPos = srcTrans ? srcTrans->GetPosition() : glm::vec3(0.0f);
-		glm::vec3 localRot = srcTrans ? srcTrans->GetRotation() : glm::vec3(0.0f);
-		glm::vec3 localScale = srcTrans ? srcTrans->GetScale() : glm::vec3(1.0f);
-
+		// El clon copia el transform local y Register lo conserva bajo su nuevo padre
 		std::unique_ptr<GameObject> clone = src->Duplicate();
 		clone->SetName(MakeUniqueName(src->GetName()));
 		GameObject* registeredClone = Register(std::move(clone), parentNode);
-
-		if (TransformComponent* cloneTrans = registeredClone->GetComponent<TransformComponent>())
-		{
-			cloneTrans->SetPosition(localPos);
-			cloneTrans->SetRotation(localRot);
-			cloneTrans->SetScale(localScale);
-		}
 
 		if (duplicatedRoot == nullptr)
 		{

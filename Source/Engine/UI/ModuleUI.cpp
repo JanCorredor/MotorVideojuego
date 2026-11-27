@@ -968,15 +968,46 @@ bool ModuleUI::DrawHierarchyNode(GameObject* node, GameObject* selected, bool ha
 		ImGui::EndDragDropSource();
 	}
 
-	// 3. Drag & Drop: Destino de soltado (reemparentar como hijo de 'node' o copiar componente)
+	// 3. Drag & Drop: Destino de soltado (reemparentar, reordenar entre hermanos o copiar componente)
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT"))
+		// Cuarto superior / inferior de la fila = antes / después de 'node'; centro = hijo de 'node'.
+		// Abajo de un nodo desplegado con hijos se trata como centro, para no confundirlo con su primer hijo.
+		const ImVec2 rowMin = ImGui::GetItemRectMin();
+		const ImVec2 rowMax = ImGui::GetItemRectMax();
+		const float rowHeight = rowMax.y - rowMin.y;
+		const float mouseY = ImGui::GetMousePos().y;
+		int dropZone = 0;
+		if (mouseY < rowMin.y + rowHeight * 0.25f) dropZone = -1;
+		else if (mouseY > rowMax.y - rowHeight * 0.25f && !(nodeOpen && hasChildren)) dropZone = 1;
+
+		ImGuiDragDropFlags dropFlags = ImGuiDragDropFlags_AcceptBeforeDelivery;
+		if (dropZone != 0) dropFlags |= ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_GAMEOBJECT", dropFlags))
 		{
 			GameObject* droppedNode = *(GameObject**)payload->Data;
-			if (droppedNode && droppedNode != node)
+			const bool validDrop = droppedNode && droppedNode != node && !node->IsDescendantOf(droppedNode);
+
+			if (validDrop && dropZone != 0)
 			{
-				droppedNode->SetParent(node);
+				const float lineY = (dropZone < 0) ? rowMin.y : rowMax.y;
+				ImGui::GetWindowDrawList()->AddLine(ImVec2(rowMin.x, lineY), ImVec2(rowMax.x, lineY), ImGui::GetColorU32(ImGuiCol_DragDropTarget), 2.0f);
+			}
+
+			if (validDrop && payload->IsDelivery())
+			{
+				if (dropZone == 0)
+				{
+					droppedNode->SetParent(node);
+				}
+				else if (droppedNode->SetParent(node->GetParent()))
+				{
+					// Al sacarlo de su posición, los hermanos que tenía detrás suben un puesto
+					const int droppedIndex = droppedNode->GetSiblingIndex();
+					int insertIndex = node->GetSiblingIndex() + (dropZone > 0 ? 1 : 0);
+					if (droppedIndex < insertIndex) insertIndex -= 1;
+					droppedNode->SetSiblingIndex(insertIndex);
+				}
 			}
 		}
 		if (const ImGuiPayload* compPayload = ImGui::AcceptDragDropPayload("INSPECTOR_COMPONENT"))
