@@ -125,7 +125,8 @@ bool Scene::Update(float dt)
 	{
 		editorCameraObj->Update(dt);
 	}
-	sceneRoot.Update(dt);
+	// Los GameObjects usan el tiempo de juego (0 fuera de Play); la cámara del editor, el real
+	sceneRoot.Update(Engine::GetInstance().GetGameDt());
 	ProcessPendingDestructions();
 
 	if (spacePartitioningDirty)
@@ -146,12 +147,8 @@ bool Scene::PostUpdate()
 bool Scene::CleanUp()
 {
 	LOG("[Scene] Limpiando entidades de la escena (%zu entidades)...", sceneEntities.size());
-	const std::string& tempFile = Engine::GetInstance().GetTempSceneFilePath();
-	std::error_code ec;
-	if (!tempFile.empty() && std::filesystem::exists(tempFile, ec))
-	{
-		std::filesystem::remove(tempFile, ec);
-	}
+	playSnapshot.clear();
+	pendingPlayRestore = false;
 	octree.Clear();
 	isLoadingOrInitializing = true;
 	ClearScene();

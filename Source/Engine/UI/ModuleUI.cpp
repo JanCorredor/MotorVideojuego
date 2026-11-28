@@ -273,7 +273,7 @@ bool ModuleUI::Update(float dt)
 	DrawAboutPanel();
 	DrawSceneFileModals();
 
-	// Atajos de teclado globales para Escena (Ctrl+N, Ctrl+S, Ctrl+Shift+S, Ctrl+O)
+	// Atajos de teclado globales para Escena (Ctrl+N, Ctrl+S, Ctrl+Shift+S, Ctrl+O) y Play (Ctrl+P, Ctrl+Shift+P, Ctrl+Alt+P)
 	if (!ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl)
 	{
 		Scene* scene = Engine::GetInstance().scene.get();
@@ -296,12 +296,29 @@ bool ModuleUI::Update(float dt)
 		{
 			if (scene)
 			{
-				if (!Engine::GetInstance().IsStopped())
-				{
-					Engine::GetInstance().Stop();
-				}
 				scene->RequestNewScene();
 				saveSceneFileNameBuffer[0] = '\0';
+			}
+		}
+		else if (ImGui::IsKeyPressed(ImGuiKey_P, false))
+		{
+			Engine& eng = Engine::GetInstance();
+			if (ImGui::GetIO().KeyAlt)
+			{
+				eng.Step();
+			}
+			else if (ImGui::GetIO().KeyShift)
+			{
+				if (eng.IsPaused()) eng.Play();
+				else eng.Pause();
+			}
+			else if (eng.IsStopped())
+			{
+				eng.Play();
+			}
+			else
+			{
+				eng.Stop();
 			}
 		}
 	}
@@ -347,10 +364,6 @@ bool ModuleUI::DrawMainMenuBar()
 			{
 				if (scene)
 				{
-					if (!Engine::GetInstance().IsStopped())
-					{
-						Engine::GetInstance().Stop();
-					}
 					scene->RequestNewScene();
 					saveSceneFileNameBuffer[0] = '\0';
 				}
@@ -406,10 +419,6 @@ bool ModuleUI::DrawMainMenuBar()
 						{
 							if (scene)
 							{
-								if (!Engine::GetInstance().IsStopped())
-								{
-									Engine::GetInstance().Stop();
-								}
 								scene->RequestLoadScene(savedScenes[i]);
 							}
 						}
@@ -550,9 +559,10 @@ bool ModuleUI::DrawMainMenuBar()
 		{
 			ImGui::PopStyleColor();
 		}
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Play (Ctrl+P alterna Play y Stop)");
 
+		// Pause con la escena parada empieza el Play en pausa
 		ImGui::SameLine();
-		ImGui::BeginDisabled(simState == SimulationState::Stopped);
 		if (simState == SimulationState::Paused)
 		{
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.55f, 0.15f, 1.0f));
@@ -566,7 +576,7 @@ bool ModuleUI::DrawMainMenuBar()
 		{
 			ImGui::PopStyleColor();
 		}
-		ImGui::EndDisabled();
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("Pause / Resume (Ctrl+Shift+P)");
 
 		ImGui::SameLine();
 		ImGui::BeginDisabled(simState != SimulationState::Paused);
@@ -575,6 +585,7 @@ bool ModuleUI::DrawMainMenuBar()
 			eng.Step();
 		}
 		ImGui::EndDisabled();
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Step: avanza un frame en pausa (Ctrl+Alt+P)");
 
 		ImGui::SameLine();
 		ImGui::BeginDisabled(simState == SimulationState::Stopped);
@@ -585,6 +596,7 @@ bool ModuleUI::DrawMainMenuBar()
 		}
 		ImGui::PopStyleColor();
 		ImGui::EndDisabled();
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Stop (Ctrl+P)");
 
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(75.0f);
@@ -2258,11 +2270,15 @@ void ModuleUI::DrawConfigurationPanel()
 					eng.SetTimeScale(timeScale);
 				}
 
-				std::error_code ec;
-				const bool tempExists = std::filesystem::exists(eng.GetTempSceneFilePath(), ec);
-				ImGui::BulletText("Archivo Temporal de Escena ('%s'): %s",
-					eng.GetTempSceneFilePath().c_str(),
-					tempExists ? "Creado en disco (listo para restaurar al dar Stop)" : "Inactivo");
+				const size_t snapshotBytes = eng.scene ? eng.scene->GetPlaySnapshotSize() : 0;
+				if (snapshotBytes > 0)
+				{
+					ImGui::BulletText("Copia de la escena para Stop: %.1f KB en memoria", snapshotBytes / 1024.0f);
+				}
+				else
+				{
+					ImGui::BulletText("Copia de la escena para Stop: inactiva");
+				}
 
 				ImGui::Spacing();
 				ImGui::SeparatorText("Control de Framerate");
@@ -3127,10 +3143,6 @@ void ModuleUI::DrawSceneFileModals()
 		{
 			if (scene)
 			{
-				if (!Engine::GetInstance().IsStopped())
-				{
-					Engine::GetInstance().Stop();
-				}
 				std::string projectScene = FileSystem::EnsureAssetInProject(loadSceneFilePathBuffer, "Scenes");
 				std::string resolved = FileSystem::ResolveExistingPath(projectScene);
 				scene->RequestLoadScene(resolved);
